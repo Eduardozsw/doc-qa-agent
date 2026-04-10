@@ -1,0 +1,22 @@
+[
+  {
+    "query": "Quais linguagens recomendadas para o backend?",
+    "esperado": "deve mencionar Golang e C# como opções"
+  },
+  {
+    "query": "Qual framework usar no frontend?",
+    "esperado": "deve mencionar Angular"
+  },
+  {
+    "query": "Qual o preço do abacaxi?",
+    "esperado": "deve dizer que não encontrou nos documentos"
+  },
+  {
+    "query": "É um projeto técnico?",
+    "esperado": "deve afirmar que é"
+  },
+  {
+    "query": "Tem implementação de inteligência artificial?",
+    "esperado": "Deve dizer que tem implementação"
+  }
+]
