@@ -1,0 +1,6 @@
+anthropic
+openai
+pinecone-client
+pypdf
+python-dotenv
+pytest
