@@ -1,6 +1,6 @@
 anthropic
 openai
-pinecone-client
+pinecone
 pypdf
 python-dotenv
 pytest
