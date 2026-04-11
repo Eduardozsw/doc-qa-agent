@@ -1,0 +1,14 @@
+from fastapi.testclient import TestClient
+from api import app
+
+client = TestClient(app)
+
+def test_cors_headers_present():
+    response = client.options(
+        "/query",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert response.headers.get("access-control-allow-origin") is not None
