@@ -1,22 +1,42 @@
 [
   {
-    "query": "Quais linguagens recomendadas para o backend?",
-    "esperado": "deve mencionar Golang e C# como opções"
+    "query": "Como é feita a autenticação na API?",
+    "esperado": "deve mencionar Bearer Token no header Authorization"
   },
   {
-    "query": "Qual framework usar no frontend?",
-    "esperado": "deve mencionar Angular"
+    "query": "Como criar uma nova tarefa?",
+    "esperado": "deve mencionar POST /tasks com body contendo title"
   },
   {
-    "query": "Qual o preço do abacaxi?",
+    "query": "Como listar todas as tarefas?",
+    "esperado": "deve mencionar GET /tasks"
+  },
+  {
+    "query": "O que acontece quando o token é inválido?",
+    "esperado": "deve mencionar erro 401"
+  },
+  {
+    "query": "Como deletar uma tarefa?",
+    "esperado": "deve mencionar DELETE /tasks/:id e status 204"
+  },
+  {
+    "query": "Como atualizar o status de uma tarefa?",
+    "esperado": "deve mencionar PATCH /tasks/:id com body contendo done"
+  },
+  {
+    "query": "O que retorna quando a tarefa não é encontrada?",
+    "esperado": "deve mencionar erro 404"
+  },
+  {
+    "query": "Qual o preço da assinatura?",
     "esperado": "deve dizer que não encontrou nos documentos"
   },
   {
-    "query": "É um projeto técnico?",
-    "esperado": "deve afirmar que é"
+    "query": "Qual linguagem foi usada para construir a API?",
+    "esperado": "deve dizer que não encontrou nos documentos"
   },
   {
-    "query": "Tem implementação de inteligência artificial?",
-    "esperado": "Deve dizer que tem implementação"
+    "query": "O que acontece quando o body está mal formatado?",
+    "esperado": "deve mencionar erro 422"
   }
 ]
