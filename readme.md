@@ -41,7 +41,7 @@ pergunta → orchestrator → retriever → Pinecone → answerer → resposta
 - **OpenAI** `text-embedding-3-small` — geração de embeddings
 - **Pinecone** — banco vetorial
 - **FastAPI** — API backend
-- **Next.js** — frontend
+- **React + Vite** — frontend
 
 ## Como rodar localmente
 
@@ -90,7 +90,17 @@ Em caso do comando não funcionar, tente o seguinte
 ```bash
 python -m uvicorn api:app --reload
 ```
-### 5. Rodar os evals
+### 5. Subir o frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+A interface estará disponível em `http://localhost:5173`.
+
+### 6. Rodar os evals
 
 ```bash
 python check_regression.py
