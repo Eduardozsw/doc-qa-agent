@@ -11,4 +11,5 @@ def test_cors_headers_present():
             "Access-Control-Request-Method": "POST",
         },
     )
-    assert response.headers.get("access-control-allow-origin") is not None
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "*"
