@@ -38,5 +38,21 @@
   {
     "query": "O que acontece quando o body está mal formatado?",
     "esperado": "deve mencionar erro 422"
+  },
+  {
+    "query": "Como ativar meu windows?",
+    "esperado": "deve dizer que não encontrou nos documentos"
+  },
+  {
+    "query": "O que um especialista em Ruby precisa saber?",
+    "esperado": "deve dizer que não encontrou nos documentos"
+  },
+  {
+    "query": "Como buscar uma tarefa específica pelo id?",
+    "esperado": "deve mencionar GET /tasks/:id"
+  },
+  {
+    "query": "É possível filtrar tarefas por status?",
+    "esperado": "deve dizer que não encontrou nos documentos"
   }
 ]
