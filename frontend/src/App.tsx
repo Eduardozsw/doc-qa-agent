@@ -22,6 +22,8 @@ function App() {
       return;
     }
 
+    const controller = new AbortController();
+
     setIngestStatus('loading');
     setIngestError(null);
     setAnswer(null);
@@ -30,15 +32,19 @@ function App() {
     const formData = new FormData();
     formData.append('file', file);
 
-    fetch('/api/ingest', { method: 'POST', body: formData })
+    fetch('/api/ingest', { method: 'POST', body: formData, signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`Erro ${res.status}`);
         setIngestStatus('ready');
       })
-      .catch((err: Error) => {
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        const message = err instanceof Error ? err.message : 'Falha ao indexar o PDF. Tente novamente.';
         setIngestStatus('error');
-        setIngestError(err.message ?? 'Falha ao indexar o PDF. Tente novamente.');
+        setIngestError(message);
       });
+
+    return () => controller.abort();
   }, [file]);
 
   const handleSubmit = async () => {
