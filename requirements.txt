@@ -4,3 +4,6 @@ pinecone
 pypdf
 python-dotenv
 pytest
+fastapi
+uvicorn
+python-multipart

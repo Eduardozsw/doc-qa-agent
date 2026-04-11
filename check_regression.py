@@ -11,4 +11,4 @@ if score < baseline["avg_score"] - 0.05:
     print("FALHOU - regressão detectada")
     exit(1)
 
-print("OK - dento do limite aceitável")
+print("OK - dentro do limite aceitável")
