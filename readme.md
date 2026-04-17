@@ -39,6 +39,7 @@ pergunta → orchestrator → retriever → Pinecone → answerer → resposta
 
 - **Claude** (Anthropic) — geração de respostas e avaliação LLM-as-judge
 - **OpenAI** `text-embedding-3-small` — geração de embeddings
+- **Langfuse** - observar tempo de resposta e consumo de tokens
 - **Pinecone** — banco vetorial
 - **FastAPI** — API backend
 - **React + Vite** — frontend
