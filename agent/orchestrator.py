@@ -11,22 +11,20 @@ def orchestrator(query: str, namespaces: list[str] = [""], historico: list[dict]
         name="doc-qa",
         input={"query": query}
     ) as trace:
-        SCORE_THRESHOLD = 0.60
-        FALLBACK_K = 3
-
         with langfuse.start_as_current_observation(as_type="span", name="retrieve") as span:
             chunks_with_sources = retrieve(query, namespaces=namespaces)
-            filtered = [(score, ns, text) for score, ns, text in chunks_with_sources if score >= SCORE_THRESHOLD]
-            if not filtered:
-                filtered = chunks_with_sources[:FALLBACK_K]
-            span.update(output={"chunks_total": len(chunks_with_sources), "chunks_filtered": len(filtered)})
+            span.update(output={
+                "chunks_count": len(chunks_with_sources),
+                "top_score": round(chunks_with_sources[0][0], 3) if chunks_with_sources else 0,
+                "min_score": round(chunks_with_sources[-1][0], 3) if chunks_with_sources else 0,
+            })
 
         if not chunks_with_sources:
             langfuse.flush()
             return {"resposta": "Não encontrei informação suficiente nos documentos para responder essa pergunta", "fontes": []}
 
-        fontes = [filtered[0][1]]
-        chunks = [text for _, _, text in filtered]
+        fontes = [chunks_with_sources[0][1]]
+        chunks = [text for _, _, text in chunks_with_sources]
 
         with langfuse.start_as_current_observation(as_type="generation", name="answerer") as span:
             resposta, answer_usage = answer(query, chunks, historico=historico)
