@@ -17,12 +17,21 @@ def embed_text(text:str) -> list[float]:
 
     return response.data[0].embedding
 
-def upsert_chunks(chunks: list[str], doc_name: str) -> None:
+def delete_namespace(namespace: str) -> None:
+    try:
+        index.delete(delete_all=True, namespace=namespace)
+    except Exception:
+        pass
+
+UPSERT_BATCH_SIZE = 50
+
+def upsert_chunks(chunks: list[str], doc_name: str, namespace: str = "") -> None:
     vectors = []
-    
+
     for i, chunk in enumerate(chunks):
         vetor = embed_text(chunk)
-        id = f"{doc_name}_chunk_{i}"
-        metadata = {"text": chunk}
-        vectors.append((id, vetor, metadata))
-    index.upsert(vectors=vectors)
+        vectors.append((f"{doc_name}_chunk_{i}", vetor, {"text": chunk}))
+
+    for i in range(0, len(vectors), UPSERT_BATCH_SIZE):
+        batch = vectors[i:i + UPSERT_BATCH_SIZE]
+        index.upsert(vectors=batch, namespace=namespace)

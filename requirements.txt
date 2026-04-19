@@ -1,10 +1,11 @@
 anthropic
 openai
 pinecone
-pypdf
+pymupdf
 python-dotenv
 pytest
 fastapi
 uvicorn
 python-multipart
 langfuse
+redis
