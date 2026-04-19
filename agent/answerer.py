@@ -16,6 +16,6 @@ def answer(query: str, chunks: list[str], historico: list[dict] = []) -> tuple[s
         max_tokens=1024,
         temperature=0,
         messages=messages,
-        system="Você é um assistente de documentação. Responda com base nos trechos fornecidos. Se a informação estiver parcialmente disponível, sintetize o que foi encontrado e indique o que não foi coberto. Só diga que não encontrou se os trechos não tiverem nenhuma relação com a pergunta."
+        system="Você é um assistente de documentação. Responda APENAS com base nos trechos fornecidos. Se os trechos não contiverem a informação necessária para responder à pergunta, diga claramente que não encontrou nos documentos. Não tente inferir ou especular além do que está escrito nos trechos."
     )
     return cast(TextBlock, message.content[0]).text, message.usage
