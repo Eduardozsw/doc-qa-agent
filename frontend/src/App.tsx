@@ -6,76 +6,157 @@ import { AnswerSection } from './components/AnswerSection';
 
 type IngestStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+export type Message = { question: string; answer: string; sources: string[] };
+
+const MAX_FILES = 5;
+
 function App() {
-  const [file, setFile] = useState<File | null>(null);
+  const [indexedFiles, setIndexedFiles] = useState<string[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [searchSelected, setSearchSelected] = useState<Set<string>>(new Set());
   const [question, setQuestion] = useState('');
-  const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
-  const [answer, setAnswer] = useState<string | null>(null);
+  const [history, setHistory] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [ingestStatus, setIngestStatus] = useState<IngestStatus>('idle');
   const [ingestError, setIngestError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!file) {
-      setIngestStatus('idle');
-      setIngestError(null);
+    fetch('/api/ingest')
+      .then((res) => res.json())
+      .then((data) => {
+        const files: string[] = data.arquivos ?? [];
+        setIndexedFiles(files);
+        setSearchSelected(new Set(files));
+        if (files.length > 0) setIngestStatus('ready');
+      })
+      .catch(() => {});
+  }, []);
+
+  const slotsAvailable = MAX_FILES - indexedFiles.length - pendingFiles.length;
+
+  const handleToggleSearch = (name: string) => {
+    setSearchSelected((prev) => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  };
+
+  const handleAddFiles = (newFiles: File[]) => {
+    const nonPdfs = newFiles.filter((f) => f.type !== 'application/pdf');
+    if (nonPdfs.length) {
+      setIngestError('Apenas arquivos PDF são aceitos.');
       return;
     }
+    setIngestError(null);
+    setPendingFiles((prev) => {
+      const slots = MAX_FILES - indexedFiles.length - prev.length;
+      return [...prev, ...newFiles.slice(0, slots)];
+    });
+  };
 
-    const controller = new AbortController();
+  const handleRemovePending = (index: number) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleIngest = async () => {
+    if (!pendingFiles.length) return;
 
     setIngestStatus('loading');
     setIngestError(null);
-    setAnswer(null);
-    setSubmittedQuestion(null);
 
     const formData = new FormData();
-    formData.append('file', file);
+    pendingFiles.forEach((file) => formData.append('files', file));
 
-    fetch('/api/ingest', { method: 'POST', body: formData, signal: controller.signal })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Erro ${res.status}`);
-        setIngestStatus('ready');
-      })
-      .catch((err: unknown) => {
-        if (err instanceof Error && err.name === 'AbortError') return;
-        const message = err instanceof Error ? err.message : 'Falha ao indexar o PDF. Tente novamente.';
+    try {
+      const res = await fetch('/api/ingest', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!res.ok) {
         setIngestStatus('error');
-        setIngestError(message);
+        setIngestError(data.detail ?? `Erro ${res.status}`);
+        return;
+      }
+
+      const added: string[] = data.arquivos ?? [];
+      setIndexedFiles((prev) => [...prev, ...added]);
+      setSearchSelected((prev) => {
+        const next = new Set(prev);
+        added.forEach((n) => next.add(n));
+        return next;
+      });
+      setPendingFiles([]);
+      setIngestStatus('ready');
+    } catch {
+      setIngestStatus('error');
+      setIngestError('Falha ao conectar com o servidor.');
+    }
+  };
+
+  const handleRemoveIndexed = async (toRemove: string[]) => {
+    try {
+      const res = await fetch('/api/ingest', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ namespaces: toRemove }),
       });
 
-    return () => controller.abort();
-  }, [file]);
+      if (!res.ok) {
+        const data = await res.json();
+        setIngestError(data.detail ?? 'Erro ao remover arquivos.');
+        return;
+      }
+
+      setIndexedFiles((prev) => prev.filter((f) => !toRemove.includes(f)));
+      setSearchSelected((prev) => {
+        const next = new Set(prev);
+        toRemove.forEach((n) => next.delete(n));
+        return next;
+      });
+      if (indexedFiles.length - toRemove.length === 0 && pendingFiles.length === 0) {
+        setIngestStatus('idle');
+      }
+    } catch {
+      setIngestError('Falha ao conectar com o servidor.');
+    }
+  };
 
   const handleSubmit = async () => {
     if (ingestStatus !== 'ready' || !question.trim()) return;
 
     const currentQuestion = question.trim();
-    setSubmittedQuestion(currentQuestion);
     setQuestion('');
-    setAnswer(null);
     setLoading(true);
+
+    const namespacesToQuery = searchSelected.size > 0 ? Array.from(searchSelected) : [];
+    const historico = history.map((m) => ({ pergunta: m.question, resposta: m.answer }));
 
     try {
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: currentQuestion }),
+        body: JSON.stringify({ query: currentQuestion, namespaces: namespacesToQuery, historico }),
       });
 
       if (!res.ok) throw new Error(`Erro ${res.status}`);
 
       const data = await res.json();
-      setAnswer(data.resposta);
+      setHistory((prev) => [
+        ...prev,
+        { question: currentQuestion, answer: data.resposta, sources: data.fontes ?? [] },
+      ]);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao consultar. Tente novamente.';
-      setAnswer(`Erro: ${message}`);
+      setHistory((prev) => [
+        ...prev,
+        { question: currentQuestion, answer: `Erro: ${message}`, sources: [] },
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const canSubmit = ingestStatus === 'ready' && question.trim().length > 0;
+  const canSubmit = ingestStatus === 'ready' && question.trim().length > 0 && !loading;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/30">
@@ -90,7 +171,7 @@ function App() {
             Pergunte ao seu documento
           </h1>
           <p className="text-slate-500 mt-2 text-sm max-w-md mx-auto">
-            Carregue um PDF e faça perguntas. A IA vai ler o conteúdo e responder com base nele.
+            Carregue até 5 PDFs e faça perguntas. A IA vai ler o conteúdo e responder com base nele.
           </p>
         </header>
 
@@ -99,8 +180,15 @@ function App() {
           <div className="space-y-5">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
               <PDFUpload
-                file={file}
-                onFileChange={setFile}
+                indexedFiles={indexedFiles}
+                pendingFiles={pendingFiles}
+                searchSelected={searchSelected}
+                onToggleSearch={handleToggleSearch}
+                onAddFiles={handleAddFiles}
+                onRemovePending={handleRemovePending}
+                onRemoveIndexed={handleRemoveIndexed}
+                onSubmit={handleIngest}
+                slotsAvailable={slotsAvailable}
                 ingestStatus={ingestStatus}
                 ingestError={ingestError}
               />
@@ -114,24 +202,30 @@ function App() {
               />
             </div>
 
-            {!file && (
+            {ingestStatus === 'idle' && indexedFiles.length === 0 && pendingFiles.length === 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
-                Selecione um arquivo PDF para habilitar o envio de perguntas.
+                Selecione ao menos um arquivo PDF para habilitar o envio de perguntas.
               </div>
             )}
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 min-h-[320px] flex flex-col">
-            <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-              <div className="w-2 h-2 rounded-full bg-emerald-400" />
-              <h2 className="text-sm font-semibold text-slate-700">Resposta</h2>
+            <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <h2 className="text-sm font-semibold text-slate-700">Conversa</h2>
+              </div>
+              {history.length > 0 && (
+                <button
+                  onClick={() => setHistory([])}
+                  className="text-xs text-slate-400 hover:text-red-400 transition-colors"
+                >
+                  Limpar
+                </button>
+              )}
             </div>
             <div className="flex-1">
-              <AnswerSection
-                answer={answer}
-                loading={loading}
-                question={submittedQuestion}
-              />
+              <AnswerSection history={history} loading={loading} />
             </div>
           </div>
 
