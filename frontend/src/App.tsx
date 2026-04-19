@@ -3,6 +3,9 @@ import { Sparkles } from 'lucide-react';
 import { PDFUpload } from './components/PDFUpload';
 import { QuestionInput } from './components/QuestionInput';
 import { AnswerSection } from './components/AnswerSection';
+import { UserMenu } from './components/UserMenu';
+import { LoginPage } from './pages/LoginPage';
+import { useAuth } from './contexts/AuthContext';
 
 type IngestStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -11,6 +14,31 @@ export type Message = { question: string; answer: string; sources: string[] };
 const MAX_FILES = 5;
 
 function App() {
+  const { user, session, loading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/30 flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return <LoginPage />;
+
+  return <MainApp session={session} />;
+}
+
+function MainApp({ session }: { session: import('@supabase/supabase-js').Session | null }) {
+  const authFetch = (url: string, options: RequestInit = {}) =>
+    fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+    });
+
   const [indexedFiles, setIndexedFiles] = useState<string[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [searchSelected, setSearchSelected] = useState<Set<string>>(new Set());
@@ -21,7 +49,7 @@ function App() {
   const [ingestError, setIngestError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/ingest')
+    authFetch('/api/ingest')
       .then((res) => res.json())
       .then((data) => {
         const files: string[] = data.arquivos ?? [];
@@ -69,7 +97,7 @@ function App() {
     pendingFiles.forEach((file) => formData.append('files', file));
 
     try {
-      const res = await fetch('/api/ingest', { method: 'POST', body: formData });
+      const res = await authFetch('/api/ingest', { method: 'POST', body: formData });
       const data = await res.json();
 
       if (!res.ok) {
@@ -95,7 +123,7 @@ function App() {
 
   const handleRemoveIndexed = async (toRemove: string[]) => {
     try {
-      const res = await fetch('/api/ingest', {
+      const res = await authFetch('/api/ingest', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ namespaces: toRemove }),
@@ -132,7 +160,7 @@ function App() {
     const historico = history.map((m) => ({ pergunta: m.question, resposta: m.answer }));
 
     try {
-      const res = await fetch('/api/query', {
+      const res = await authFetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: currentQuestion, namespaces: namespacesToQuery, historico }),
@@ -162,17 +190,22 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/30">
       <div className="max-w-5xl mx-auto px-4 py-10 sm:px-6 lg:px-8">
 
-        <header className="mb-10 text-center">
-          <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-1.5 mb-5 shadow-sm">
-            <Sparkles className="w-4 h-4 text-sky-500" />
-            <span className="text-xs font-medium text-slate-500 tracking-wide uppercase">RAG Assistant</span>
+        <header className="mb-10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-1.5 shadow-sm">
+              <Sparkles className="w-4 h-4 text-sky-500" />
+              <span className="text-xs font-medium text-slate-500 tracking-wide uppercase">RAG Assistant</span>
+            </div>
+            <UserMenu />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-            Pergunte ao seu documento
-          </h1>
-          <p className="text-slate-500 mt-2 text-sm max-w-md mx-auto">
-            Carregue até 5 PDFs e faça perguntas. A IA vai ler o conteúdo e responder com base nele.
-          </p>
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+              Pergunte ao seu documento
+            </h1>
+            <p className="text-slate-500 mt-2 text-sm max-w-md mx-auto">
+              Carregue até 5 PDFs e faça perguntas. A IA vai ler o conteúdo e responder com base nele.
+            </p>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">

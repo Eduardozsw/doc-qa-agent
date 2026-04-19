@@ -3,7 +3,7 @@ from pinecone import QueryResponse
 from ingestion.embedder import embed_text, index
 from concurrent.futures import ThreadPoolExecutor
 
-def retrieve(query: str, top_k: int = 20, namespaces: list[str] = [""]) -> list[tuple[str, str]]:
+def retrieve(query: str, top_k: int = 10, namespaces: list[str] = [""]) -> list[tuple[float, str, str]]:
     xq = embed_text(query)
 
     def retrieve_from_namespace(namespace: str) -> list[tuple[float, str, str]]:
@@ -18,4 +18,4 @@ def retrieve(query: str, top_k: int = 20, namespaces: list[str] = [""]) -> list[
         key=lambda x: x[0],
         reverse=True,
     )
-    return [(namespace, text) for _, namespace, text in scored]
+    return scored

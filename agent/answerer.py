@@ -1,10 +1,10 @@
 import anthropic
 from typing import cast
-from anthropic.types import TextBlock
+from anthropic.types import TextBlock, Usage
 
 client = anthropic.Anthropic()
 
-def answer(query: str, chunks: list[str], historico: list[dict] = []) -> str:
+def answer(query: str, chunks: list[str], historico: list[dict] = []) -> tuple[str, Usage]:
     context = "\n\n".join(chunks)
     messages = []
     for h in historico:
@@ -18,4 +18,4 @@ def answer(query: str, chunks: list[str], historico: list[dict] = []) -> str:
         messages=messages,
         system="Você é um assistente de documentação. Responda com base nos trechos fornecidos. Se a informação estiver parcialmente disponível, sintetize o que foi encontrado e indique o que não foi coberto. Só diga que não encontrou se os trechos não tiverem nenhuma relação com a pergunta."
     )
-    return cast(TextBlock, message.content[0]).text
+    return cast(TextBlock, message.content[0]).text, message.usage
