@@ -59,6 +59,7 @@ pergunta → orchestrator → retriever → Pinecone → answerer → resposta
 ### 1. Instalar dependências
 
 ```bash
+cd backend
 pip install -r requirements.txt
 ```
 
@@ -73,7 +74,7 @@ npm install
 
 **Backend:**
 ```bash
-cp .env.example .env
+cp backend/.env.example backend/.env
 ```
 
 Preencha o `.env`:
@@ -149,11 +150,13 @@ A variável `REDIS_URL=redis://localhost:6379` já está configurada no `.env.ex
 ### 5. Subir a API
 
 ```bash
+cd backend
 uvicorn api:app --reload
 ```
 
 Em caso do comando não funcionar, tente:
 ```bash
+cd backend
 python -m uvicorn api:app --reload
 ```
 
@@ -168,6 +171,7 @@ Acesse `http://localhost:5173` — você será redirecionado para a tela de logi
 ### 7. Rodar os evals
 
 ```bash
+cd backend
 python check_regression.py
 ```
 
