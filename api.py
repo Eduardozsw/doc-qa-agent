@@ -1,10 +1,11 @@
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import FastAPI, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from agent.orchestrator import orchestrator
 from ingestion.loader import load_document
 from ingestion.chunker import chunk_text
 from ingestion.embedder import upsert_chunks, delete_namespace
 from storage.redis_client import get_namespaces, add_namespace, remove_namespace
+from auth.middleware import get_current_user
 from pydantic import BaseModel
 from typing import List
 import tempfile
@@ -19,9 +20,11 @@ def sanitize_namespace(name: str) -> str:
 
 app = FastAPI()
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -35,11 +38,11 @@ class DeleteRequest(BaseModel):
     namespaces: list[str]
 
 @app.get("/ingest")
-async def list_ingest():
+async def list_ingest(_: dict = Depends(get_current_user)):
     return {"arquivos": get_namespaces()}
 
 @app.delete("/ingest", status_code=200)
-async def remove_ingest(body: DeleteRequest):
+async def remove_ingest(body: DeleteRequest, _: dict = Depends(get_current_user)):
     namespaces = get_namespaces()
 
     not_found = [n for n in body.namespaces if n not in namespaces]
@@ -53,7 +56,7 @@ async def remove_ingest(body: DeleteRequest):
     return {"message": f"{len(body.namespaces)} arquivo(s) removido(s)", "arquivos": body.namespaces}
 
 @app.post("/ingest", status_code=200)
-async def ingest(files: List[UploadFile]):
+async def ingest(files: List[UploadFile], _: dict = Depends(get_current_user)):
     namespaces = get_namespaces()
     slots_available = 5 - len(namespaces)
 
@@ -94,7 +97,7 @@ async def ingest(files: List[UploadFile]):
     return {"message": f"{total_chunks} chunks indexados", "arquivos": added}
 
 @app.post("/query")
-async def query(body: QueryRequest):
+async def query(body: QueryRequest, _: dict = Depends(get_current_user)):
     namespaces = body.namespaces if body.namespaces != [""] else get_namespaces()
     result = orchestrator(body.query, namespaces=namespaces, historico=body.historico)
     return result
