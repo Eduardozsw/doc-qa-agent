@@ -20,9 +20,6 @@ export function QuestionInput({ question, onQuestionChange, onSubmit, disabled, 
 
   return (
     <div className="w-full">
-      <label className="block text-sm font-sans font-medium mb-2" style={{ color: DARK.textMuted }}>
-        Sua pergunta
-      </label>
       <div className="relative">
         <textarea
           value={question}
@@ -30,7 +27,7 @@ export function QuestionInput({ question, onQuestionChange, onSubmit, disabled, 
           onKeyDown={handleKeyDown}
           disabled={loading}
           placeholder="O que você quer saber sobre o documento?"
-          rows={4}
+          rows={3}
           className="w-full resize-none rounded-xl px-4 py-3 pr-14 text-sm font-sans leading-relaxed transition-all duration-200 focus:outline-none disabled:opacity-50"
           style={{
             background: 'rgba(255,255,255,0.04)',

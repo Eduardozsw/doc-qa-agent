@@ -88,7 +88,7 @@ function MainApp({ session }: { session: Session | null }) {
   const canSubmit = ingestStatus === 'ready' && question.trim().length > 0 && !loading;
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: DARK.bg }}>
+    <div className="h-screen flex flex-col font-sans" style={{ background: DARK.bg }}>
       {/* Ambient blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden>
         <div
@@ -103,65 +103,46 @@ function MainApp({ session }: { session: Session | null }) {
 
       {/* Header */}
       <header
-        className="sticky top-0 z-40"
+        className="flex-shrink-0 z-40"
         style={{ backdropFilter: 'blur(16px)', background: 'rgba(8,8,15,0.85)', borderBottom: `1px solid ${DARK.borderLight}` }}
       >
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center"
               style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}
             >
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            
             <span className="font-display text-base text-white tracking-tight">DocAI</span>
-            
           </div>
           <UserMenu />
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-10 sm:px-6 lg:px-8 relative">
-        <div className="mb-8 text-center">
-          <h1 className="font-display text-3xl sm:text-4xl text-white">Pergunte ao seu documento</h1>
-          <p className="mt-2 text-sm font-sans" style={{ color: DARK.textMuted }}>
-            Carregue até 5 PDFs e faça perguntas. A IA responde com base exclusiva no conteúdo.
-          </p>
-        </div>
+      {/* Main content */}
+      <main className="flex-1 overflow-hidden px-4 py-5 sm:px-6 lg:px-8">
+        <div className="h-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-
-          <div className="space-y-4">
-            <div
-              className="rounded-2xl p-6 space-y-6"
-              style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}
-            >
-              <PDFUpload
-                indexedFiles={indexedFiles}
-                pendingFiles={pendingFiles}
-                searchSelected={searchSelected}
-                onToggleSearch={handleToggleSearch}
-                onAddFiles={handleAddFiles}
-                onRemovePending={handleRemovePending}
-                onRemoveIndexed={handleRemoveIndexed}
-                onSubmit={handleIngest}
-                slotsAvailable={slotsAvailable}
-                isLoading={ingestStatus === 'loading'}
-                ingestStatus={ingestStatus}
-                ingestError={ingestError}
-              />
-              <div style={{ borderTop: `1px solid ${DARK.border}` }} />
-              <QuestionInput
-                question={question}
-                onQuestionChange={setQuestion}
-                onSubmit={handleSubmit}
-                disabled={!canSubmit}
-                loading={loading}
-              />
-            </div>
-
+          {/* Left — PDF management */}
+          <div
+            className="overflow-y-auto rounded-2xl p-6 space-y-4"
+            style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}
+          >
+            <PDFUpload
+              indexedFiles={indexedFiles}
+              pendingFiles={pendingFiles}
+              searchSelected={searchSelected}
+              onToggleSearch={handleToggleSearch}
+              onAddFiles={handleAddFiles}
+              onRemovePending={handleRemovePending}
+              onRemoveIndexed={handleRemoveIndexed}
+              onSubmit={handleIngest}
+              slotsAvailable={slotsAvailable}
+              isLoading={ingestStatus === 'loading'}
+              ingestStatus={ingestStatus}
+              ingestError={ingestError}
+            />
             {ingestStatus === 'idle' && indexedFiles.length === 0 && pendingFiles.length === 0 && (
               <div
                 className="rounded-xl px-4 py-3 text-xs font-sans"
@@ -172,11 +153,16 @@ function MainApp({ session }: { session: Session | null }) {
             )}
           </div>
 
+          {/* Right — Chat */}
           <div
-            className="rounded-2xl p-6 flex flex-col"
-            style={{ background: DARK.card, border: `1px solid ${DARK.border}`, minHeight: '360px' }}
+            className="flex flex-col rounded-2xl overflow-hidden"
+            style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}
           >
-            <div className="flex items-center justify-between mb-5 pb-4" style={{ borderBottom: `1px solid ${DARK.border}` }}>
+            {/* Chat header */}
+            <div
+              className="flex-shrink-0 flex items-center justify-between px-6 py-4"
+              style={{ borderBottom: `1px solid ${DARK.border}` }}
+            >
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-400" />
                 <h2 className="text-sm font-sans font-semibold text-white">Conversa</h2>
@@ -191,13 +177,29 @@ function MainApp({ session }: { session: Session | null }) {
                 </button>
               )}
             </div>
-            <div className="flex-1">
+
+            {/* Messages — only this zone scrolls */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
               <AnswerSection history={history} loading={loading} />
+            </div>
+
+            {/* Input — always visible at bottom */}
+            <div
+              className="flex-shrink-0 px-6 py-4"
+              style={{ borderTop: `1px solid ${DARK.border}` }}
+            >
+              <QuestionInput
+                question={question}
+                onQuestionChange={setQuestion}
+                onSubmit={handleSubmit}
+                disabled={!canSubmit}
+                loading={loading}
+              />
             </div>
           </div>
 
         </div>
-      </div>
+      </main>
     </div>
   );
 }
