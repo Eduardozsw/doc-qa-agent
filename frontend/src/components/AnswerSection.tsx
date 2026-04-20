@@ -47,7 +47,7 @@ export function AnswerSection({ history, loading }: AnswerSectionProps) {
   }
 
   return (
-    <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
+    <div className="space-y-4 pr-1">
       {history.map((msg, i) => (
         <div key={i} className="space-y-3">
           {/* User message */}
