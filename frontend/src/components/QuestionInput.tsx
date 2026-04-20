@@ -1,5 +1,6 @@
 import { KeyboardEvent } from 'react';
 import { Send } from 'lucide-react';
+import { DARK } from '../constants/theme';
 
 interface QuestionInputProps {
   question: string;
@@ -19,7 +20,7 @@ export function QuestionInput({ question, onQuestionChange, onSubmit, disabled, 
 
   return (
     <div className="w-full">
-      <label className="block text-sm font-medium text-slate-600 mb-2">
+      <label className="block text-sm font-sans font-medium mb-2" style={{ color: DARK.textMuted }}>
         Sua pergunta
       </label>
       <div className="relative">
@@ -30,21 +31,36 @@ export function QuestionInput({ question, onQuestionChange, onSubmit, disabled, 
           disabled={loading}
           placeholder="O que você quer saber sobre o documento?"
           rows={4}
-          className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-14 text-sm text-slate-800 placeholder-slate-400 shadow-sm transition-all duration-200 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+          className="w-full resize-none rounded-xl px-4 py-3 pr-14 text-sm font-sans leading-relaxed transition-all duration-200 focus:outline-none disabled:opacity-50"
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: `1px solid ${DARK.border}`,
+            color: DARK.text,
+            caretColor: DARK.accent,
+          }}
+          onFocus={e => { e.target.style.border = `1px solid ${DARK.accentBorder}`; e.target.style.boxShadow = `0 0 0 3px ${DARK.accentSubtle}`; }}
+          onBlur={e => { e.target.style.border = `1px solid ${DARK.border}`; e.target.style.boxShadow = 'none'; }}
         />
         <button
           onClick={onSubmit}
           disabled={disabled || loading || !question.trim()}
-          className="absolute bottom-3 right-3 w-9 h-9 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:bg-slate-200 flex items-center justify-center transition-all duration-200 shadow-sm disabled:shadow-none disabled:cursor-not-allowed group"
+          className="absolute bottom-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-30"
+          style={{
+            background: disabled || loading || !question.trim()
+              ? 'rgba(255,255,255,0.08)'
+              : `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+          }}
         >
           {loading ? (
-            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${DARK.accent} transparent transparent transparent` }} />
           ) : (
-            <Send className="w-4 h-4 text-white group-disabled:text-slate-400 transition-colors" />
+            <Send className="w-4 h-4 text-white" />
           )}
         </button>
       </div>
-      <p className="text-xs text-slate-400 mt-2">Enter para enviar &bull; Shift + Enter para nova linha</p>
+      <p className="text-xs font-sans mt-2" style={{ color: DARK.textFaint }}>
+        Enter para enviar &bull; Shift + Enter para nova linha
+      </p>
     </div>
   );
 }
