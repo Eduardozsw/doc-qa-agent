@@ -14,10 +14,21 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+function translateAuthError(message: string): string {
+  if (message.includes('Invalid login credentials')) return 'Email ou senha incorretos.';
+  if (message.includes('User already registered')) return 'Este email já está cadastrado.';
+  if (message.includes('Password should be at least')) return 'A senha deve ter no mínimo 6 caracteres.';
+  if (message.includes('Unable to validate email')) return 'Email inválido.';
+  if (message.includes('Email not confirmed')) return 'Confirme seu email antes de entrar.';
+  return 'Ocorreu um erro. Tente novamente.';
+}
 
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
@@ -65,12 +76,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(translateAuthError(error.message));
+  };
+
+  const signUp = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) throw new Error(translateAuthError(error.message));
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signInWithGoogle, signInWithEmail, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -10,12 +10,12 @@ import { TrustBarSection } from './landing/TrustBarSection';
 import { FAQSection } from './landing/FAQSection';
 
 export function LandingPage() {
-  const { user, signInWithGoogle } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleCTA = () => {
     if (user) navigate('/app');
-    else signInWithGoogle();
+    else navigate('/login');
   };
 
   return (
