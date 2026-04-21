@@ -16,7 +16,4 @@ def validate(query: str, chunks: list[str], resposta: str) -> tuple[bool, Usage]
         return False, message.usage
 
     resultado = message.content[0].text.strip().lower()
-
-    if resultado == "sim":
-        return True, message.usage
-    return False, message.usage
+    return resultado.startswith("sim"), message.usage
