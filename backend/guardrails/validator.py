@@ -12,5 +12,8 @@ def validate(query: str, chunks: list[str], resposta: str) -> tuple[bool, Usage]
         messages=[{"role": "user", "content": f"Trechos:\n{context}\n\nPergunta:{query}\n\nResposta:{resposta}"}],
         system="Você é um validador de respostas de documentação. Dado um conjunto de trechos e uma resposta gerada, avalie se a resposta: (1) está diretamente baseada nas informações dos trechos, e (2) responde à pergunta feita ou indica corretamente que a informação não está nos documentos. Responda APENAS com sim ou não."
     )
-    resultado = cast(TextBlock, message.content[0]).text
-    return "sim" in resultado.lower(), message.usage
+    if not message.content or not isinstance(message.content[0], TextBlock):
+        return False, message.usage
+
+    resultado = message.content[0].text.strip().lower()
+    return resultado.startswith("sim"), message.usage
