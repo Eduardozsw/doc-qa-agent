@@ -10,3 +10,5 @@ python-multipart
 langfuse
 redis
 supabase
+pydantic-settings
+tiktoken

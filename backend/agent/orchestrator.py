@@ -5,7 +5,9 @@ from langfuse import get_client
 
 langfuse = get_client()
 
-def orchestrator(query: str, namespaces: list[str] = [""], historico: list[dict] = []) -> dict:
+def orchestrator(query: str, namespaces: list[str] | None = None, historico: list[dict] = []) -> dict:
+    if not namespaces:
+        namespaces = [""]
     with langfuse.start_as_current_observation(
         as_type="span",
         name="doc-qa",

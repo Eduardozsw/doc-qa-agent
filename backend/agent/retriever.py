@@ -8,7 +8,13 @@ def retrieve(query: str, top_k: int = 10, namespaces: list[str] = [""]) -> list[
 
     def retrieve_from_namespace(namespace: str) -> list[tuple[float, str, str]]:
         out = cast(QueryResponse, index.query(vector=xq, top_k=top_k, include_metadata=True, namespace=namespace))
-        return [(match.score, namespace, match.metadata["text"]) for match in out.matches]
+        results = []
+        for match in out.matches:
+            text = match.metadata.get("text") if match.metadata else None
+            if not text:
+                continue
+            results.append((match.score, namespace, text))
+        return results
 
     with ThreadPoolExecutor() as executor:
         results = list(executor.map(retrieve_from_namespace, namespaces))
