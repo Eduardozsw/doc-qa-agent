@@ -16,3 +16,9 @@ def add_namespace(name: str) -> None:
 
 def remove_namespace(name: str) -> None:
     _client.srem(NAMESPACE_KEY, name)
+
+def get_cached_namespace(sha256: str) -> str | None:
+    return _client.get(f"pdf_hash:{sha256}")
+
+def set_cached_namespace(sha256: str, namespace: str, ttl_days: int = 30) -> None:
+    _client.set(f"pdf_hash:{sha256}", namespace, ex=ttl_days * 86400)

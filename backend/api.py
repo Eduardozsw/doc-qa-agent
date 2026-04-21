@@ -1,17 +1,18 @@
 from fastapi import FastAPI, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from agent.orchestrator import orchestrator
-from ingestion.loader import load_document
+from ingestion.loader import load_document_from_bytes
 from ingestion.chunker import chunk_text
 from ingestion.embedder import upsert_chunks, delete_namespace
-from storage.redis_client import get_namespaces, add_namespace, remove_namespace
+from storage.redis_client import get_namespaces, add_namespace, remove_namespace, get_cached_namespace, set_cached_namespace
 from auth.middleware import get_current_user
 from pydantic import BaseModel
 from typing import List
-import tempfile
 import unicodedata
 import re
 import os
+import hashlib
+import asyncio
 
 def sanitize_namespace(name: str) -> str:
     normalized = unicodedata.normalize("NFKD", name)
@@ -55,6 +56,28 @@ async def remove_ingest(body: DeleteRequest, _: dict = Depends(get_current_user)
 
     return {"message": f"{len(body.namespaces)} arquivo(s) removido(s)", "arquivos": body.namespaces}
 
+_SEM = asyncio.Semaphore(3)
+
+async def _process_file(file: UploadFile, contents: bytes) -> tuple[str, int]:
+    async with _SEM:
+        sha256 = hashlib.sha256(contents).hexdigest()
+        namespace = sanitize_namespace(file.filename or "unknown")
+
+        cached_ns = get_cached_namespace(sha256)
+        if cached_ns:
+            add_namespace(cached_ns)
+            return cached_ns, 0
+
+        loop = asyncio.get_event_loop()
+        text = await loop.run_in_executor(None, load_document_from_bytes, contents)
+        chunks = chunk_text(text)
+        print(f"{file.filename}: {len(chunks)} chunks")
+        await loop.run_in_executor(None, upsert_chunks, chunks, namespace, namespace)
+
+        set_cached_namespace(sha256, namespace)
+        add_namespace(namespace)
+        return namespace, len(chunks)
+
 @app.post("/ingest", status_code=200)
 async def ingest(files: List[UploadFile], _: dict = Depends(get_current_user)):
     namespaces = get_namespaces()
@@ -67,32 +90,17 @@ async def ingest(files: List[UploadFile], _: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=400,
             detail=f"Você pode adicionar no máximo {slots_available} arquivo(s) mais"
-        )   
+        )
 
     for file in files:
         if file.content_type != "application/pdf":
             raise HTTPException(status_code=415, detail=f"Arquivo '{file.filename}' não é um PDF")
 
-    total_chunks = 0
-    added = []
+    all_contents = [(file, await file.read()) for file in files]
+    results = await asyncio.gather(*[_process_file(f, c) for f, c in all_contents])
 
-    for file in files:
-        contents = await file.read()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(contents)
-            tmp_path = tmp.name
-
-        lddc = load_document(tmp_path)
-        print(f"Texto extraído: {len(lddc)} caracteres")
-        chunks = chunk_text(lddc)
-        print(f"Chunks gerados: {len(chunks)}")
-        namespace = sanitize_namespace(file.filename or "unknown")
-        upsert_chunks(chunks, namespace, namespace=namespace)
-        os.remove(tmp_path)
-
-        add_namespace(namespace)
-        added.append(namespace)
-        total_chunks += len(chunks)
+    added = [ns for ns, _ in results]
+    total_chunks = sum(n for _, n in results)
 
     return {"message": f"{total_chunks} chunks indexados", "arquivos": added}
 
