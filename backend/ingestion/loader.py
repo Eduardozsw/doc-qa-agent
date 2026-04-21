@@ -16,3 +16,7 @@ def load_document(file_path: str) -> str:
         return "\n".join(page.get_text() for page in doc)
     else:
         raise ValueError(f"Formato não suportado: {suffix}")
+
+def load_document_from_bytes(contents: bytes) -> str:
+    doc = fitz.open(stream=contents, filetype="pdf")
+    return "\n".join(page.get_text() for page in doc)
