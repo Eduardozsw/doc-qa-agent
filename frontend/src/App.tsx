@@ -7,6 +7,8 @@ import { QuestionInput } from './components/QuestionInput';
 import { AnswerSection } from './components/AnswerSection';
 import { UserMenu } from './components/UserMenu';
 import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/LoginPage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { useAuth } from './contexts/AuthContext';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import { useFileManagement } from './hooks/useFileManagement';
@@ -28,7 +30,9 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={user ? <Navigate to="/app" replace /> : <LandingPage />} />
-      <Route path="/app" element={user ? <MainApp session={session} /> : <Navigate to="/" replace />} />
+      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <LoginPage />} />
+      <Route path="/app" element={user ? <MainApp session={session} /> : <Navigate to="/login" replace />} />
+      <Route path="/privacidade" element={<PrivacyPolicyPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
