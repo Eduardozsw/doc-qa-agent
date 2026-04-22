@@ -78,6 +78,8 @@ export function LoginPage() {
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [duplicateEmail, setDuplicateEmail] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -85,6 +87,8 @@ export function LoginPage() {
     setPassword('');
     setConfirmPassword('');
     setConsent(false);
+    setDuplicateEmail(false);
+    setSignUpSuccess(false);
   };
 
   const validateEmail = (value: string) => {
@@ -116,14 +120,22 @@ export function LoginPage() {
     }
 
     setLoading(true);
+    setDuplicateEmail(false);
+    setSignUpSuccess(false);
     try {
       if (mode === 'login') {
         await signInWithEmail(email, password);
       } else {
         await signUp(email, password);
+        setSignUpSuccess(true);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Ocorreu um erro.');
+      const message = err instanceof Error ? err.message : 'Ocorreu um erro.';
+      if (message === 'EMAIL_ALREADY_EXISTS') {
+        setDuplicateEmail(true);
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -205,6 +217,7 @@ export function LoginPage() {
               <input
                 type="email"
                 placeholder="Email"
+                maxLength={254}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 onFocus={focusStyle}
@@ -222,6 +235,7 @@ export function LoginPage() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Senha"
+                  maxLength={128}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   onFocus={e => { focusStyle(e); if (mode === 'register') setPasswordFocused(true); }}
@@ -248,6 +262,7 @@ export function LoginPage() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Confirmar senha"
+                  maxLength={128}
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
                   onFocus={focusStyle}
@@ -279,7 +294,43 @@ export function LoginPage() {
               </label>
             )}
 
-            {/* Error */}
+            {/* Email duplicado */}
+            {duplicateEmail && (
+              <div className="rounded-lg px-3 py-3 space-y-2.5"
+                style={{ background: 'rgba(245,158,11,0.08)', border: `1px solid ${DARK.accentBorder}` }}>
+                <p className="text-xs font-sans font-medium" style={{ color: '#fbbf24' }}>
+                  Este email já está cadastrado.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-sans font-medium transition-all duration-200"
+                    style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, color: DARK.bg }}
+                  >
+                    Fazer login
+                  </button>
+                  <button
+                    type="button"
+                    onClick={signInWithGoogle}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-sans font-medium transition-all duration-200 hover:opacity-80"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${DARK.border}`, color: DARK.text }}
+                  >
+                    Entrar com Google
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Sucesso no cadastro */}
+            {signUpSuccess && (
+              <p className="text-xs font-sans px-3 py-2 rounded-lg"
+                style={{ background: 'rgba(52,211,153,0.08)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
+                Verifique seu email para confirmar o cadastro.
+              </p>
+            )}
+
+            {/* Erro genérico */}
             {error && (
               <p className="text-xs font-sans px-3 py-2 rounded-lg"
                 style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
