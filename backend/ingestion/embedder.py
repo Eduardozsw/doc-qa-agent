@@ -51,15 +51,16 @@ def delete_namespace(namespace: str) -> None:
 UPSERT_BATCH_SIZE = 50
 EMBED_BATCH_SIZE = 100
 
-def upsert_chunks(chunks: list[str], doc_name: str, namespace: str = "") -> None:
+def upsert_chunks(chunks: list[tuple[str, int]], doc_name: str, namespace: str = "") -> None:
     vectors = []
 
     for batch_start in range(0, len(chunks), EMBED_BATCH_SIZE):
         batch = chunks[batch_start:batch_start + EMBED_BATCH_SIZE]
-        embeddings = embed_texts(batch)
-        for i, (chunk, vetor) in enumerate(zip(batch, embeddings)):
+        texts = [text for text, _ in batch]
+        embeddings = embed_texts(texts)
+        for i, ((text, page), vetor) in enumerate(zip(batch, embeddings)):
             idx = batch_start + i
-            vectors.append((f"{doc_name}_chunk_{idx}", vetor, {"text": chunk}))
+            vectors.append((f"{doc_name}_chunk_{idx}", vetor, {"text": text, "page": page}))
 
     for i in range(0, len(vectors), UPSERT_BATCH_SIZE):
         batch = vectors[i:i + UPSERT_BATCH_SIZE]

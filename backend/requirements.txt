@@ -12,3 +12,4 @@ redis
 supabase
 pydantic-settings
 tiktoken
+slowapi
