@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { LogOut, ChevronDown } from 'lucide-react';
+import { LogOut, ChevronDown, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth, Plan } from '../contexts/AuthContext';
 import { DARK } from '../constants/theme';
 
@@ -11,6 +12,7 @@ const planStyle: Record<Plan, { bg: string; color: string; label: string }> = {
 
 export function UserMenu() {
   const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   const displayName = user?.user_metadata?.full_name || user?.email || '';
@@ -64,6 +66,15 @@ export function UserMenu() {
                 Plano {label}
               </span>
             </div>
+            <button
+              onClick={() => { setOpen(false); navigate('/configuracoes'); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm font-sans rounded-lg transition-colors hover:bg-white/5"
+              style={{ color: DARK.textMuted }}
+            >
+              <Settings className="w-4 h-4" />
+              Configurações
+            </button>
+            <div style={{ borderTop: `1px solid ${DARK.border}`, margin: '4px 0' }} />
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm font-sans rounded-lg transition-colors hover:bg-red-500/10"
