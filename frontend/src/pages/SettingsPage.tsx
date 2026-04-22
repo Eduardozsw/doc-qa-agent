@@ -171,6 +171,8 @@ export function SettingsPage() {
     }
   };
 
+  const isOAuthOnly = !user?.identities?.some(i => i.provider === 'email');
+
   // --- Senha ---
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -247,6 +249,7 @@ export function SettingsPage() {
               onFocus={focusStyle}
               onBlur={blurStyle}
               placeholder="Seu nome"
+              maxLength={100}
               className="w-full px-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
               style={inputStyle}
             />
@@ -272,6 +275,7 @@ export function SettingsPage() {
               onFocus={focusStyle}
               onBlur={blurStyle}
               placeholder="seu@email.com"
+              maxLength={254}
               className="w-full px-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
               style={inputStyle}
             />
@@ -326,7 +330,12 @@ export function SettingsPage() {
         </SectionCard>
 
         {/* Senha */}
-        <SectionCard icon={<Lock className="w-4 h-4" style={{ color: DARK.textMuted }} />} title="Alterar senha">
+        <SectionCard icon={<Lock className="w-4 h-4" style={{ color: DARK.textMuted }} />} title={isOAuthOnly ? 'Definir senha' : 'Alterar senha'}>
+          {isOAuthOnly && (
+            <p className="text-xs font-sans" style={{ color: DARK.textFaint }}>
+              Defina uma senha para poder entrar também com email e senha.
+            </p>
+          )}
           <form onSubmit={handleSavePassword} className="space-y-3">
             <div className="space-y-0">
               <div className="relative">
@@ -337,6 +346,7 @@ export function SettingsPage() {
                   onFocus={e => { focusStyle(e); setPasswordFocused(true); }}
                   onBlur={e => { blurStyle(e); setPasswordFocused(false); }}
                   placeholder="Nova senha"
+                  maxLength={128}
                   className="w-full pl-4 pr-10 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
                   style={inputStyle}
                 />
@@ -356,6 +366,7 @@ export function SettingsPage() {
                 onFocus={focusStyle}
                 onBlur={blurStyle}
                 placeholder="Confirmar nova senha"
+                maxLength={128}
                 className="w-full px-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
                 style={inputStyle}
               />

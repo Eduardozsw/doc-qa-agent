@@ -27,6 +27,7 @@ export function QuestionInput({ question, onQuestionChange, onSubmit, disabled, 
           onKeyDown={handleKeyDown}
           disabled={loading}
           placeholder="O que você quer saber sobre o documento?"
+          maxLength={5000}
           rows={3}
           className="w-full resize-none rounded-xl px-4 py-3 pr-14 text-sm font-sans leading-relaxed transition-all duration-200 focus:outline-none disabled:opacity-50"
           style={{
