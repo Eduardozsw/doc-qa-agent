@@ -17,12 +17,15 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateName: (name: string) => Promise<void>;
+  updateEmail: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 function translateAuthError(message: string): string {
-  if (message.includes('Invalid login credentials')) return 'Email ou senha incorretos.';
+  if (message.includes('Invalid login credentials')) return 'Email ou senha incorretos. Se você entrou com o Google, use o botão "Continuar com Google".';
   if (message.includes('User already registered')) return 'Este email já está cadastrado.';
   if (message.includes('Password should be at least')) return 'A senha deve ter no mínimo 6 caracteres.';
   if (message.includes('Unable to validate email')) return 'Email inválido.';
@@ -90,8 +93,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const updateName = async (name: string) => {
+    const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
+    if (error) throw new Error(translateAuthError(error.message));
+  };
+
+  const updateEmail = async (email: string) => {
+    const { error } = await supabase.auth.updateUser({ email });
+    if (error) throw new Error(translateAuthError(error.message));
+  };
+
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw new Error(translateAuthError(error.message));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signInWithGoogle, signInWithEmail, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signInWithGoogle, signInWithEmail, signUp, signOut, updateName, updateEmail, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );
