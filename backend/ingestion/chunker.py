@@ -1,3 +1,11 @@
+def chunk_pages(pages: list[tuple[int, str]], chunk_size: int = 500, overlap: int = 50) -> list[tuple[str, int]]:
+    result = []
+    for page_num, text in pages:
+        for chunk in chunk_text(text, chunk_size, overlap):
+            result.append((chunk, page_num))
+    return result
+
+
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
     if chunk_size <= 0:
         raise ValueError("chunk_size deve ser > 0")
