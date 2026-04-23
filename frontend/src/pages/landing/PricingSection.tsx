@@ -4,6 +4,7 @@ import { DARK } from '../../constants/theme';
 const PLANS = [
   {
     name: 'Grátis',
+    planKey: 'free',
     price: 'R$0',
     period: 'para sempre',
     description: 'Para experimentar sem compromisso.',
@@ -19,6 +20,7 @@ const PLANS = [
   },
   {
     name: 'Solo',
+    planKey: 'solo',
     price: 'R$19',
     period: 'por mês',
     description: 'Para profissionais que consultam documentos no dia a dia.',
@@ -35,6 +37,7 @@ const PLANS = [
   },
   {
     name: 'Pro',
+    planKey: 'pro',
     price: 'R$49',
     period: 'por mês',
     description: 'Para quem precisa de mais volume e recursos avançados.',
@@ -53,9 +56,10 @@ const PLANS = [
 
 interface PricingSectionProps {
   onCTA: () => void;
+  onSelectPlan: (plan: string) => void;
 }
 
-export function PricingSection({ onCTA }: PricingSectionProps) {
+export function PricingSection({ onCTA, onSelectPlan }: PricingSectionProps) {
   return (
     <section id="precos" className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
@@ -111,7 +115,7 @@ export function PricingSection({ onCTA }: PricingSectionProps) {
                 ))}
               </ul>
               <button
-                onClick={onCTA}
+                onClick={() => onSelectPlan(plan.planKey)}
                 className="mt-auto w-full py-3 rounded-xl text-sm font-sans font-semibold transition-all duration-200 hover:opacity-90 active:scale-95"
                 style={
                   plan.highlight

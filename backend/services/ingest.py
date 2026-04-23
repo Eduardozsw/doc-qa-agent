@@ -56,9 +56,9 @@ async def ingest_files(user_id: str, files: list[UploadFile]) -> tuple[list[str]
 async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tuple[str, int]:
     async with _SEM:
         sha256 = sha256_bytes(contents)
-        namespace = sanitize_namespace(file.filename or "unknown")
+        namespace = f"{user_id[:8]}_{sanitize_namespace(file.filename or 'unknown')}"
 
-        cached_ns = redis_db.get_cached_namespace(sha256)
+        cached_ns = redis_db.get_cached_namespace(sha256, user_id)
         if cached_ns:
             redis_db.add_namespace(user_id, cached_ns)
             return cached_ns, 0
@@ -78,7 +78,7 @@ async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tupl
             logger.error(f"Erro ao processar '{file.filename}': {e}")
             raise
 
-        redis_db.set_cached_namespace(sha256, namespace)
+        redis_db.set_cached_namespace(sha256, user_id, namespace)
         redis_db.add_namespace(user_id, namespace)
         logger.info(f"'{file.filename}' indexado: {len(chunks)} chunks — user {user_id}")
         return namespace, len(chunks)
