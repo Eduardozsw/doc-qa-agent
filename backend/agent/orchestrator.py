@@ -1,27 +1,35 @@
 from agent.retriever import retrieve
 from agent.answerer import answer
+from agent.query_rewriter import rewrite_query
 from guardrails.validator import validate
 from core.limits import get_limit
 from langfuse import get_client
 
 langfuse = get_client()
 
-def orchestrator(query: str, namespaces: list[str] | None = None, historico: list[dict] = [], plan: str = "free") -> dict:
+
+def orchestrator(
+    query: str,
+    namespaces: list[str] | None = None,
+    historico: list[dict] = [],
+    plan: str = "free",
+    summary: str = "",
+) -> dict:
     if not namespaces:
         namespaces = [""]
 
-    include_history = get_limit(plan, "history")
     include_page = get_limit(plan, "page_number")
-    effective_historico = historico if include_history else []
 
     with langfuse.start_as_current_observation(as_type="span", name="doc-qa", input={"query": query}) as trace:
+        retrieval_query = rewrite_query(query, historico, summary)
+
         with langfuse.start_as_current_observation(as_type="span", name="retrieve") as span:
-            chunks_with_sources = retrieve(query, namespaces=namespaces)
-            span.update(output={
-                "chunks_count": len(chunks_with_sources),
-                "top_score": round(chunks_with_sources[0][0], 3) if chunks_with_sources else 0,
-                "min_score": round(chunks_with_sources[-1][0], 3) if chunks_with_sources else 0,
-            })
+            chunks_with_sources = retrieve(retrieval_query, namespaces=namespaces)
+        span.update(output={
+            "chunks_count": len(chunks_with_sources),
+            "top_score": round(chunks_with_sources[0][0], 3) if chunks_with_sources else 0,
+            "min_score": round(chunks_with_sources[-1][0], 3) if chunks_with_sources else 0,
+        })
 
         if not chunks_with_sources:
             langfuse.flush()
@@ -36,7 +44,7 @@ def orchestrator(query: str, namespaces: list[str] | None = None, historico: lis
         chunks = [text for _, _, text, _ in chunks_with_sources]
 
         with langfuse.start_as_current_observation(as_type="generation", name="answerer") as span:
-            resposta, answer_usage = answer(query, chunks, historico=effective_historico)
+            resposta, answer_usage = answer(query, chunks, historico=historico, summary=summary)
             span.update(
                 model="gpt-4o-mini",
                 usage={"input": answer_usage.input_tokens, "output": answer_usage.output_tokens},
@@ -44,7 +52,7 @@ def orchestrator(query: str, namespaces: list[str] | None = None, historico: lis
             )
 
         with langfuse.start_as_current_observation(as_type="generation", name="validator") as span:
-            valido, validator_usage = validate(query, chunks, resposta)
+            valido, validator_usage = validate(query, chunks, resposta, historico=historico, summary=summary)
             span.update(
                 model="gpt-4o-mini",
                 usage={"input": validator_usage.input_tokens, "output": validator_usage.output_tokens},

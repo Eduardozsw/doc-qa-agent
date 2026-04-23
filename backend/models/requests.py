@@ -21,7 +21,6 @@ class HistoricoItem(BaseModel):
 class QueryRequest(BaseModel):
     query: str
     namespaces: list[str] = []
-    historico: list[HistoricoItem] = []
 
     @field_validator("query")
     @classmethod
@@ -32,11 +31,6 @@ class QueryRequest(BaseModel):
         if len(v) > 5000:
             raise ValueError("query excede 5000 caracteres")
         return v
-
-    @field_validator("historico")
-    @classmethod
-    def validate_historico(cls, v: list) -> list:
-        return v[:10]
 
 
 class DeleteRequest(BaseModel):

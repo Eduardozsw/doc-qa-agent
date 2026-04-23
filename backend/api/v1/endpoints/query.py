@@ -5,6 +5,7 @@ from models.requests import QueryRequest
 from models.responses import QueryResponse
 from services import query as query_service
 from db.usage import atomic_increment_and_check
+from db.conversations import reset_conversation
 from core.limits import get_limit
 from core.limiter import limiter
 
@@ -24,3 +25,8 @@ async def query(
 
     result = await query_service.handle_query(user.id, user.plan, body)
     return QueryResponse(resposta=result["resposta"], fontes=result.get("fontes", []))
+
+
+@router.delete("/history", status_code=204)
+async def clear_history(user: UserContext = Depends(get_current_user)):
+    reset_conversation(user.id)

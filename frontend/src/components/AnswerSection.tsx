@@ -67,36 +67,38 @@ export function AnswerSection({ history, loading }: AnswerSectionProps) {
           </div>
 
           {/* AI message */}
-          <div className="flex gap-3">
-            <div
-              className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5"
-              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${DARK.border}` }}
-            >
-              <Bot className="w-4 h-4" style={{ color: DARK.textMuted }} />
-            </div>
-            <div className="flex-1 space-y-2">
+          {msg.answer && (
+            <div className="flex gap-3">
               <div
-                className="rounded-2xl rounded-tl-sm px-4 py-3"
-                style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${DARK.border}`, color: `${DARK.textMuted}` }}
+                className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5"
+                style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${DARK.border}` }}
               >
-                <ReactMarkdown
-                  className="text-sm font-sans leading-relaxed space-y-2"
-                  components={markdownComponents}
-                >
-                  {msg.answer}
-                </ReactMarkdown>
+                <Bot className="w-4 h-4" style={{ color: DARK.textMuted }} />
               </div>
-              {msg.sources.length > 0 && (
+              <div className="flex-1 space-y-2">
                 <div
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-fit text-xs font-sans"
-                  style={{ background: DARK.emeraldSubtle, color: DARK.emerald, border: `1px solid ${DARK.emeraldBorder}` }}
+                  className="rounded-2xl rounded-tl-sm px-4 py-3"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${DARK.border}`, color: DARK.text }}
                 >
-                  <FileText className="w-3 h-3 flex-shrink-0" />
-                  <span className="truncate max-w-[200px]">{msg.sources[0]}</span>
+                  <ReactMarkdown
+                    className="text-sm font-sans leading-relaxed space-y-2"
+                    components={markdownComponents}
+                  >
+                    {msg.answer}
+                  </ReactMarkdown>
                 </div>
-              )}
+                {msg.sources.length > 0 && (
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-fit text-xs font-sans"
+                    style={{ background: DARK.emeraldSubtle, color: DARK.emerald, border: `1px solid ${DARK.emeraldBorder}` }}
+                  >
+                    <FileText className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate max-w-[200px]">{msg.sources[0]}</span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ))}
 
