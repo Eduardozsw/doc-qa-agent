@@ -33,7 +33,7 @@ async def handle_query(user_id: str, plan: str, body: QueryRequest) -> dict:
         return orchestrator(body.query, namespaces=namespaces, historico=[], plan=plan)
 
     conversation_id = get_or_create_conversation(user_id)
-    summary, historico = get_history(conversation_id)
+    summary, historico = get_history(conversation_id, user_id)
 
     result = orchestrator(body.query, namespaces=namespaces, historico=historico, plan=plan, summary=summary)
 
