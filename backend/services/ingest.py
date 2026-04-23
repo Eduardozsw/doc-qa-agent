@@ -5,7 +5,6 @@ from fastapi import UploadFile
 from core.config import get_settings
 from core.exceptions import FileTooLargeError, UnsupportedFileTypeError
 from db import redis as redis_db
-from db.pinecone import delete_namespace
 from ingestion.loader import load_pages_from_bytes
 from ingestion.chunker import chunk_pages
 from ingestion.embedder import upsert_chunks
@@ -30,7 +29,6 @@ async def remove_files(user_id: str, namespaces: list[str]) -> None:
         raise ForbiddenError("Um ou mais arquivos não pertencem ao usuário")
 
     for ns in namespaces:
-        delete_namespace(ns)
         redis_db.remove_namespace(user_id, ns)
 
 

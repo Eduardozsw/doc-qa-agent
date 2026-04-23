@@ -52,7 +52,6 @@ def test_query_request_valid():
     req = QueryRequest(query="o que diz o contrato?")
     assert req.query == "o que diz o contrato?"
     assert req.namespaces == []
-    assert req.historico == []
 
 
 def test_query_request_strips_whitespace():
@@ -78,23 +77,6 @@ def test_query_request_at_limit():
 def test_query_request_over_limit_raises():
     with pytest.raises(ValidationError):
         QueryRequest(query="a" * 5001)
-
-
-def test_query_request_historico_truncated_to_10():
-    items = [{"pergunta": f"p{i}", "resposta": f"r{i}"} for i in range(15)]
-    req = QueryRequest(query="teste", historico=items)
-    assert len(req.historico) == 10
-
-
-def test_query_request_historico_exactly_10():
-    items = [{"pergunta": f"p{i}", "resposta": f"r{i}"} for i in range(10)]
-    req = QueryRequest(query="teste", historico=items)
-    assert len(req.historico) == 10
-
-
-def test_query_request_invalid_historico_item_raises():
-    with pytest.raises(ValidationError):
-        QueryRequest(query="teste", historico=[{"pergunta": "", "resposta": "ok"}])
 
 
 # --- DeleteRequest ---

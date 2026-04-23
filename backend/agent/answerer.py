@@ -8,14 +8,13 @@ class Usage:
     input_tokens: int
     output_tokens: int
 
-def answer(query: str, chunks: list[str], historico: list[dict] = []) -> tuple[str, Usage]:
+def answer(query: str, chunks: list[str], historico: list[dict] = [], summary: str = "") -> tuple[str, Usage]:
     context = "\n\n".join(chunks)
-    messages = [
-        {
-            "role": "system",
-            "content": "Você é um assistente de documentação. Responda APENAS com base nos trechos fornecidos. Se os trechos não contiverem a informação necessária para responder à pergunta, diga claramente que não encontrou nos documentos. Não tente inferir ou especular além do que está escrito nos trechos.",
-        }
-    ]
+    system = "Você é um assistente de documentação. Responda APENAS com base nos trechos fornecidos. Se os trechos não contiverem a informação necessária para responder à pergunta, diga claramente que não encontrou nos documentos. Não tente inferir ou especular além do que está escrito nos trechos."
+    if summary:
+        system += f"\n\nContexto resumido da conversa:\n{summary}"
+
+    messages = [{"role": "system", "content": system}]
 
     for h in historico[:10]:
         if not isinstance(h, dict):

@@ -5,9 +5,9 @@ import { useAuth, Plan } from '../contexts/AuthContext';
 import { DARK } from '../constants/theme';
 
 const planStyle: Record<Plan, { bg: string; color: string; label: string }> = {
-  free: { bg: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', label: 'Free' },
-  basic: { bg: DARK.skySubtle, color: '#38bdf8', label: 'Basic' },
-  premium: { bg: DARK.accentSubtle, color: '#fbbf24', label: 'Premium' },
+  free:  { bg: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', label: 'Free' },
+  solo:  { bg: DARK.skySubtle,           color: '#38bdf8',               label: 'Solo' },
+  pro:   { bg: DARK.accentSubtle,        color: '#fbbf24',               label: 'Pro' },
 };
 
 export function UserMenu() {
