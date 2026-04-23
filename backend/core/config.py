@@ -26,11 +26,11 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 50
     max_files_per_user: int = 5
 
-    # Stripe
-    stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
-    stripe_price_solo: str = ""
-    stripe_price_pro: str = ""
+    # AbacatePay
+    abacatepay_api_key: str = ""
+    abacatepay_webhook_secret: str = ""
+    abacatepay_product_solo: str = ""
+    abacatepay_product_pro: str = ""
 
     # Frontend
     frontend_url: str = "http://localhost"
