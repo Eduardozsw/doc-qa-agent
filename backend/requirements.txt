@@ -13,4 +13,4 @@ supabase
 pydantic-settings
 tiktoken
 slowapi
-stripe
+abacatepay
