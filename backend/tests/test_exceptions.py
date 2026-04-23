@@ -21,7 +21,8 @@ def test_file_too_large_status_and_message():
 def test_unsupported_file_type_message():
     err = UnsupportedFileTypeError("virus.exe")
     assert err.status_code == 415
-    assert "virus.exe" in err.detail
+    assert "PDF" in err.detail
+    assert "virus.exe" not in err.detail
 
 
 def test_slot_limit_error():

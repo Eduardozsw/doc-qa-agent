@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import time
 import redis
@@ -7,6 +8,10 @@ from core.config import get_settings
 logger = logging.getLogger(__name__)
 
 _client: redis.Redis | None = None
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
 
 
 def get_client() -> redis.Redis:
@@ -58,7 +63,8 @@ def remove_namespace(user_id: str, name: str) -> None:
 
 def get_cached_namespace(sha256: str, user_id: str) -> str | None:
     try:
-        return get_client().get(f"pdf_hash:{sha256}:{user_id}")
+        cache_key = _sha256(f"{user_id}:{sha256}")
+        return get_client().get(f"pdf_hash:{cache_key}")
     except Exception as e:
         logger.error(f"Redis get_cached_namespace falhou: {e}")
         return None
@@ -66,6 +72,7 @@ def get_cached_namespace(sha256: str, user_id: str) -> str | None:
 
 def set_cached_namespace(sha256: str, user_id: str, namespace: str, ttl_days: int = 30) -> None:
     try:
-        get_client().set(f"pdf_hash:{sha256}:{user_id}", namespace, ex=ttl_days * 86400)
+        cache_key = _sha256(f"{user_id}:{sha256}")
+        get_client().set(f"pdf_hash:{cache_key}", namespace, ex=ttl_days * 86400)
     except Exception as e:
         logger.error(f"Redis set_cached_namespace falhou: {e}")

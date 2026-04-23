@@ -75,6 +75,9 @@ async def create_portal(user: UserContext = Depends(get_current_user)):
     return BillingUrlResponse(url=session.url)
 
 
+_WEBHOOK_EVENT_TTL = 7 * 86400  # 7 dias
+
+
 @router.post("/webhook", status_code=200)
 async def stripe_webhook(request: Request):
     settings = _get_stripe()
@@ -86,6 +89,17 @@ async def stripe_webhook(request: Request):
         event = stripe.Webhook.construct_event(payload, sig, settings.stripe_webhook_secret)
     except stripe.errors.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Assinatura inválida")
+
+    from db.redis import get_client
+    event_id = event.get("id")
+    if event_id:
+        key = f"stripe:webhook:{event_id}"
+        try:
+            if not get_client().set(key, "1", nx=True, ex=_WEBHOOK_EVENT_TTL):
+                logger.info(f"Webhook {event_id} já processado, ignorando replay")
+                return {"received": True, "duplicate": True}
+        except Exception as e:
+            logger.warning(f"Falha no dedupe de webhook (prosseguindo): {e}")
 
     try:
         _handle_event(event)

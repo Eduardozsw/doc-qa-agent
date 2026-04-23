@@ -23,10 +23,17 @@ def get_or_create_conversation(user_id: str) -> str:
     return created.data[0]["id"]
 
 
-def get_history(conversation_id: str) -> tuple[str, list[dict]]:
+def get_history(conversation_id: str, user_id: str) -> tuple[str, list[dict]]:
     admin = get_admin()
 
-    conv = admin.table("conversations").select("summary").eq("id", conversation_id).single().execute()
+    conv = (
+        admin.table("conversations")
+        .select("summary")
+        .eq("id", conversation_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
     summary = conv.data.get("summary", "") if conv.data else ""
 
     msgs = (
