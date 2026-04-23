@@ -1,33 +1,16 @@
 import logging
-import os
 from dataclasses import dataclass
 from fastapi import Header, HTTPException
-from supabase import create_client, Client
-import threading
+from db.supabase import get_admin, get_user_plan
 
 logger = logging.getLogger(__name__)
-
-_admin: Client | None = None
-_admin_lock = threading.Lock()
-
-
-def _get_admin() -> Client:
-    global _admin
-    if _admin is None:
-        with _admin_lock:
-            if _admin is None:
-                url = os.environ.get("SUPABASE_URL")
-                key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-                if not url or not key:
-                    raise RuntimeError("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórias")
-                _admin = create_client(url, key)
-    return _admin
 
 
 @dataclass
 class UserContext:
     id: str
     email: str
+    plan: str
 
 
 async def get_current_user(authorization: str = Header(...)) -> UserContext:
@@ -40,11 +23,12 @@ async def get_current_user(authorization: str = Header(...)) -> UserContext:
         raise HTTPException(status_code=401, detail="Token inválido")
 
     try:
-        response = _get_admin().auth.get_user(token)
+        response = get_admin().auth.get_user(token)
         user = response.user
         if not user:
             raise HTTPException(status_code=401, detail="Não autenticado")
-        return UserContext(id=user.id, email=user.email or "")
+        plan = get_user_plan(user.id)
+        return UserContext(id=user.id, email=user.email or "", plan=plan)
     except HTTPException:
         raise
     except Exception as e:

@@ -3,11 +3,10 @@ import logging
 from fastapi import UploadFile
 
 from core.config import get_settings
-from core.exceptions import FileTooLargeError, UnsupportedFileTypeError, SlotLimitError
+from core.exceptions import FileTooLargeError, UnsupportedFileTypeError
 from db import redis as redis_db
-from db.pinecone import delete_namespace
-from ingestion.loader import load_document_from_bytes
-from ingestion.chunker import chunk_text
+from ingestion.loader import load_pages_from_bytes
+from ingestion.chunker import chunk_pages
 from ingestion.embedder import upsert_chunks
 from utils.sanitize import sanitize_namespace
 from utils.hashing import sha256_bytes
@@ -30,7 +29,6 @@ async def remove_files(user_id: str, namespaces: list[str]) -> None:
         raise ForbiddenError("Um ou mais arquivos não pertencem ao usuário")
 
     for ns in namespaces:
-        delete_namespace(ns)
         redis_db.remove_namespace(user_id, ns)
 
 
@@ -47,14 +45,6 @@ async def ingest_files(user_id: str, files: list[UploadFile]) -> tuple[list[str]
         if len(contents) > settings.max_file_size_mb * 1024 * 1024:
             raise FileTooLargeError(settings.max_file_size_mb)
         all_contents.append((file, contents))
-
-    async with _INGEST_LOCK:
-        current = redis_db.get_namespaces(user_id)
-        slots = settings.max_files_per_user - len(current)
-        if slots <= 0:
-            raise SlotLimitError(0)
-        if len(files) > slots:
-            raise SlotLimitError(slots)
 
     results = await asyncio.gather(*[_process_file(user_id, f, c) for f, c in all_contents])
 
@@ -75,11 +65,11 @@ async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tupl
 
         loop = asyncio.get_event_loop()
         try:
-            text = await loop.run_in_executor(None, load_document_from_bytes, contents)
-            if not text or not text.strip():
+            pages = await loop.run_in_executor(None, load_pages_from_bytes, contents)
+            if not pages or not any(t.strip() for _, t in pages):
                 raise ValueError(f"'{file.filename}' não contém texto extraível")
 
-            chunks = chunk_text(text)
+            chunks = chunk_pages(pages)
             if not chunks:
                 raise ValueError(f"'{file.filename}' resultou em 0 chunks")
 

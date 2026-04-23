@@ -1,19 +1,47 @@
-import anthropic
-from typing import cast
-from anthropic.types import TextBlock, Usage
+from openai import OpenAI
+from agent.answerer import Usage
 
-client = anthropic.Anthropic()
+client = OpenAI()
 
-def validate(query: str, chunks: list[str], resposta: str) -> tuple[bool, Usage]:
+def validate(
+    query: str,
+    chunks: list[str],
+    resposta: str,
+    historico: list[dict] = [],
+    summary: str = "",
+) -> tuple[bool, Usage]:
     context = "\n\n".join(chunks)
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=10,
-        messages=[{"role": "user", "content": f"Trechos:\n{context}\n\nPergunta:{query}\n\nResposta:{resposta}"}],
-        system="Você é um validador de respostas de documentação. Dado um conjunto de trechos e uma resposta gerada, avalie se a resposta: (1) está diretamente baseada nas informações dos trechos, e (2) responde à pergunta feita ou indica corretamente que a informação não está nos documentos. Responda APENAS com sim ou não."
-    )
-    if not message.content or not isinstance(message.content[0], TextBlock):
-        return False, message.usage
 
-    resultado = message.content[0].text.strip().lower()
-    return resultado.startswith("sim"), message.usage
+    history_context = ""
+    if summary:
+        history_context += f"Resumo da conversa:\n{summary}\n\n"
+    if historico:
+        trocas = "\n".join(f"Usuário: {h['pergunta']}\nAssistente: {h['resposta']}" for h in historico)
+        history_context += f"Histórico recente:\n{trocas}\n\n"
+
+    user_content = ""
+    if history_context:
+        user_content += f"{history_context}"
+    user_content += f"Trechos do documento:\n{context}\n\nPergunta:{query}\n\nResposta:{resposta}"
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=10,
+        messages=[
+            {
+                "role": "system",
+                "content": "Você é um validador de respostas de documentação. Avalie se a resposta está embasada nos trechos do documento ou no histórico da conversa fornecidos. Responda APENAS com sim ou não.",
+            },
+            {"role": "user", "content": user_content},
+        ],
+    )
+
+    usage = Usage(
+        input_tokens=response.usage.prompt_tokens,
+        output_tokens=response.usage.completion_tokens,
+    )
+    content = response.choices[0].message.content if response.choices else None
+    if not content:
+        return False, usage
+
+    return content.strip().lower().startswith("sim"), usage

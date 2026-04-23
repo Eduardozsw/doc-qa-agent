@@ -1,4 +1,5 @@
 import logging
+import time
 import redis
 from redis.exceptions import ConnectionError as RedisConnectionError
 from core.config import get_settings
@@ -13,11 +14,17 @@ def get_client() -> redis.Redis:
     if _client is None:
         settings = get_settings()
         r = redis.from_url(settings.redis_url, decode_responses=True)
-        try:
-            r.ping()
-        except RedisConnectionError as e:
-            raise RuntimeError(f"Falha ao conectar ao Redis: {e}") from e
-        _client = r
+        for attempt in range(5):
+            try:
+                r.ping()
+                _client = r
+                return _client
+            except Exception as e:
+                if attempt < 4:
+                    logger.warning(f"Redis não disponível, tentativa {attempt + 1}/5: {e}")
+                    time.sleep(2)
+                else:
+                    raise RuntimeError(f"Falha ao conectar ao Redis após 5 tentativas: {e}") from e
     return _client
 
 

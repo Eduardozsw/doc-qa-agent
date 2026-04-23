@@ -1,12 +1,20 @@
-import anthropic
-from typing import cast
-from anthropic.types import TextBlock, Usage
+from dataclasses import dataclass
+from openai import OpenAI
 
-client = anthropic.Anthropic()
+client = OpenAI()
 
-def answer(query: str, chunks: list[str], historico: list[dict] = []) -> tuple[str, Usage]:
+@dataclass
+class Usage:
+    input_tokens: int
+    output_tokens: int
+
+def answer(query: str, chunks: list[str], historico: list[dict] = [], summary: str = "") -> tuple[str, Usage]:
     context = "\n\n".join(chunks)
-    messages = []
+    system = "Você é um assistente de documentação. Responda APENAS com base nos trechos fornecidos. Se os trechos não contiverem a informação necessária para responder à pergunta, diga claramente que não encontrou nos documentos. Não tente inferir ou especular além do que está escrito nos trechos."
+    if summary:
+        system += f"\n\nContexto resumido da conversa:\n{summary}"
+
+    messages = [{"role": "system", "content": system}]
 
     for h in historico[:10]:
         if not isinstance(h, dict):
@@ -21,15 +29,20 @@ def answer(query: str, chunks: list[str], historico: list[dict] = []) -> tuple[s
         messages.append({"role": "assistant", "content": resposta})
 
     messages.append({"role": "user", "content": f"Trechos:\n{context}\n\nPergunta: {query}"})
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
         max_tokens=1024,
         temperature=0,
         messages=messages,
-        system="Você é um assistente de documentação. Responda APENAS com base nos trechos fornecidos. Se os trechos não contiverem a informação necessária para responder à pergunta, diga claramente que não encontrou nos documentos. Não tente inferir ou especular além do que está escrito nos trechos."
     )
 
-    if not message.content or not isinstance(message.content[0], TextBlock):
-        raise ValueError("Resposta inesperada da API Anthropic")
+    content = response.choices[0].message.content if response.choices else None
+    if not content:
+        raise ValueError("Resposta inesperada da API OpenAI")
 
-    return message.content[0].text, message.usage
+    usage = Usage(
+        input_tokens=response.usage.prompt_tokens,
+        output_tokens=response.usage.completion_tokens,
+    )
+    return content, usage

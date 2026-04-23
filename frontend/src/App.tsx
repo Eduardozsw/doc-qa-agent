@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 import { PDFUpload } from './components/PDFUpload';
@@ -30,7 +30,7 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={user ? <Navigate to="/app" replace /> : <LandingPage />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={user ? <Navigate to="/app" replace /> : <LoginPage />} />
       <Route path="/app" element={user ? <MainApp session={session} /> : <Navigate to="/login" replace />} />
       <Route path="/configuracoes" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
@@ -41,6 +41,7 @@ function App() {
 }
 
 function MainApp({ session }: { session: Session | null }) {
+  const navigate = useNavigate();
   const authFetch = useAuthFetch(session);
   const {
     indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError,
@@ -63,29 +64,28 @@ function MainApp({ session }: { session: Session | null }) {
     setQuestion('');
     setLoading(true);
 
+    setHistory(prev => [...prev, { question: currentQuestion, answer: '', sources: [] }]);
+
     const namespacesToQuery = searchSelected.size > 0 ? Array.from(searchSelected) : [];
-    const historico = history.map(m => ({ pergunta: m.question, resposta: m.answer }));
 
     try {
       const res = await authFetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: currentQuestion, namespaces: namespacesToQuery, historico }),
+        body: JSON.stringify({ query: currentQuestion, namespaces: namespacesToQuery }),
       });
 
       if (!res.ok) throw new Error(`Erro ${res.status}`);
 
       const data = await res.json();
-      setHistory(prev => [
-        ...prev,
-        { question: currentQuestion, answer: data.resposta, sources: data.fontes ?? [] },
-      ]);
+      setHistory(prev => prev.map((m, i) =>
+        i === prev.length - 1 ? { ...m, answer: data.resposta, sources: data.fontes ?? [] } : m
+      ));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao consultar. Tente novamente.';
-      setHistory(prev => [
-        ...prev,
-        { question: currentQuestion, answer: `Erro: ${message}`, sources: [] },
-      ]);
+      setHistory(prev => prev.map((m, i) =>
+        i === prev.length - 1 ? { ...m, answer: `Erro: ${message}`, sources: [] } : m
+      ));
     } finally {
       setLoading(false);
     }
@@ -113,7 +113,10 @@ function MainApp({ session }: { session: Session | null }) {
         style={{ backdropFilter: 'blur(16px)', background: 'rgba(8,8,15,0.85)', borderBottom: `1px solid ${DARK.borderLight}` }}
       >
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          >
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center"
               style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}
@@ -121,7 +124,7 @@ function MainApp({ session }: { session: Session | null }) {
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <span className="font-display text-base text-white tracking-tight">DocAI</span>
-          </div>
+          </button>
           <UserMenu />
         </div>
       </header>

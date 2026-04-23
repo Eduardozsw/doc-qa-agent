@@ -26,3 +26,11 @@ def load_document_from_bytes(contents: bytes) -> str:
         return "\n".join(page.get_text() for page in doc)
     finally:
         doc.close()
+
+
+def load_pages_from_bytes(contents: bytes) -> list[tuple[int, str]]:
+    doc = fitz.open(stream=contents, filetype="pdf")
+    try:
+        return [(i + 1, page.get_text()) for i, page in enumerate(doc)]
+    finally:
+        doc.close()
