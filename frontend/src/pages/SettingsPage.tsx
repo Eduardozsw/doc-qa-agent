@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, ArrowLeft, User, Mail, Lock, Check, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Link2 } from 'lucide-react';
+import { Sparkles, ArrowLeft, User, Mail, Lock, Check, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Link2, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DARK } from '../constants/theme';
+
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 function GoogleIcon() {
   return (
@@ -89,8 +91,30 @@ function SectionCard({ icon, title, children }: { icon: React.ReactNode; title: 
   );
 }
 
+const PLAN_LABEL: Record<string, string> = { free: 'Grátis', solo: 'Solo', pro: 'Pro' };
+
 export function SettingsPage() {
-  const { user, updateName, updateEmail, updatePassword } = useAuth();
+  const { user, session, profile, updateName, updateEmail, updatePassword } = useAuth();
+  const plan = profile?.plan ?? 'free';
+
+  const [portalLoading, setPortalLoading] = useState(false);
+  const handleManageSubscription = async () => {
+    if (!session) return;
+    setPortalLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/billing/portal`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      window.location.href = data.url;
+    } catch {
+      alert('Erro ao abrir portal. Tente novamente.');
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   const inputStyle = {
     background: 'rgba(255,255,255,0.05)',
@@ -238,6 +262,27 @@ export function SettingsPage() {
           <h1 className="font-display text-2xl text-white">Configurações</h1>
           <p className="text-sm font-sans mt-1" style={{ color: DARK.textMuted }}>Gerencie suas informações de conta.</p>
         </div>
+
+        {/* Assinatura */}
+        {plan !== 'free' && (
+          <SectionCard icon={<CreditCard className="w-4 h-4" style={{ color: DARK.textMuted }} />} title="Assinatura">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-sans text-white">Plano {PLAN_LABEL[plan]}</p>
+                <p className="text-xs font-sans mt-0.5" style={{ color: DARK.textFaint }}>Gerencie sua assinatura, troque o cartão ou cancele.</p>
+              </div>
+              <button
+                onClick={handleManageSubscription}
+                disabled={portalLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}
+              >
+                {portalLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Gerenciar
+              </button>
+            </div>
+          </SectionCard>
+        )}
 
         {/* Nome */}
         <SectionCard icon={<User className="w-4 h-4" style={{ color: DARK.textMuted }} />} title="Nome de exibição">

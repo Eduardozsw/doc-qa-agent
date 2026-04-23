@@ -10,6 +10,7 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SuccessPage } from './pages/SuccessPage';
 import { useAuth } from './contexts/AuthContext';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import { useFileManagement } from './hooks/useFileManagement';
@@ -35,6 +36,7 @@ function App() {
       <Route path="/app" element={user ? <MainApp session={session} /> : <Navigate to="/login" replace />} />
       <Route path="/configuracoes" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
       <Route path="/privacidade" element={<PrivacyPolicyPage />} />
+      <Route path="/sucesso" element={<SuccessPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

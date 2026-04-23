@@ -56,16 +56,16 @@ def remove_namespace(user_id: str, name: str) -> None:
         raise
 
 
-def get_cached_namespace(sha256: str) -> str | None:
+def get_cached_namespace(sha256: str, user_id: str) -> str | None:
     try:
-        return get_client().get(f"pdf_hash:{sha256}")
+        return get_client().get(f"pdf_hash:{sha256}:{user_id}")
     except Exception as e:
         logger.error(f"Redis get_cached_namespace falhou: {e}")
         return None
 
 
-def set_cached_namespace(sha256: str, namespace: str, ttl_days: int = 30) -> None:
+def set_cached_namespace(sha256: str, user_id: str, namespace: str, ttl_days: int = 30) -> None:
     try:
-        get_client().set(f"pdf_hash:{sha256}", namespace, ex=ttl_days * 86400)
+        get_client().set(f"pdf_hash:{sha256}:{user_id}", namespace, ex=ttl_days * 86400)
     except Exception as e:
         logger.error(f"Redis set_cached_namespace falhou: {e}")
