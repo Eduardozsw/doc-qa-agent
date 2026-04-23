@@ -4,6 +4,11 @@ import ReactMarkdown from 'react-markdown';
 import type { Message } from '../App';
 import { DARK } from '../constants/theme';
 
+function displayName(namespace: string): string {
+  const parts = namespace.split('_');
+  return parts.length > 2 ? parts.slice(2).join('_') : namespace;
+}
+
 interface AnswerSectionProps {
   history: Message[];
   loading: boolean;
@@ -93,7 +98,7 @@ export function AnswerSection({ history, loading }: AnswerSectionProps) {
                     style={{ background: DARK.emeraldSubtle, color: DARK.emerald, border: `1px solid ${DARK.emeraldBorder}` }}
                   >
                     <FileText className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate max-w-[200px]">{msg.sources[0]}</span>
+                    <span className="truncate max-w-[200px]">{displayName(msg.sources[0])}</span>
                   </div>
                 )}
               </div>

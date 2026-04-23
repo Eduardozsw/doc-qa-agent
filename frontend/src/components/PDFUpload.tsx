@@ -3,6 +3,11 @@ import { Plus, X, Loader2, Trash2, FileText } from 'lucide-react';
 import { IngestStatus } from '../hooks/useFileManagement';
 import { DARK } from '../constants/theme';
 
+function displayName(namespace: string): string {
+  const parts = namespace.split('_');
+  return parts.length > 2 ? parts.slice(2).join('_') : namespace;
+}
+
 interface PDFUploadProps {
   indexedFiles: string[];
   pendingFiles: File[];
@@ -120,7 +125,7 @@ export function PDFUpload({
                 color: sel ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.6)',
                 transition: 'color 0.15s',
               }}>
-                {name}
+                {displayName(name)}
               </span>
               <button
                 onClick={e => { e.stopPropagation(); onRemoveIndexed([name]); }}

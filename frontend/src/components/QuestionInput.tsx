@@ -23,7 +23,7 @@ export function QuestionInput({ question, onQuestionChange, onSubmit, disabled, 
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'flex-end', gap: 8,
+        display: 'flex', alignItems: 'center', gap: 8,
         background: 'rgba(255,255,255,0.04)',
         border: `1px solid ${DARK.border}`,
         borderRadius: 14, padding: '10px 12px',
