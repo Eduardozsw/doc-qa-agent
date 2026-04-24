@@ -1,9 +1,6 @@
-import base64
-import hmac
-import hashlib
-import httpx
 import json
 import logging
+import stripe
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -17,12 +14,12 @@ from models.responses import BillingUrlResponse
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["billing"])
 
-ABACATEPAY_V2 = "https://api.abacatepay.com/v2"
 _WEBHOOK_EVENT_TTL = 7 * 86400
 
 
-def _headers(api_key: str) -> dict:
-    return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+def _stripe():
+    stripe.api_key = get_settings().stripe_secret_key
+    return stripe
 
 
 @router.post("/checkout", response_model=BillingUrlResponse)
@@ -33,80 +30,82 @@ async def create_checkout(
     user: UserContext = Depends(get_current_user),
 ):
     settings = get_settings()
+    s = _stripe()
 
-    product_id = (
-        settings.abacatepay_product_solo if body.plan == "solo"
-        else settings.abacatepay_product_pro
+    price_id = (
+        settings.stripe_price_solo if body.plan == "solo"
+        else settings.stripe_price_pro
     )
-    if not product_id:
+    if not price_id:
         raise HTTPException(status_code=500, detail="Plano não configurado")
 
     customer_id = get_customer_id(user.id)
 
     if not customer_id:
         try:
-            resp = httpx.post(
-                f"{ABACATEPAY_V2}/customers/create",
-                json={"email": user.email, "name": user.name or user.email},
-                headers=_headers(settings.abacatepay_api_key),
-                timeout=15,
+            customer = s.Customer.create(
+                email=user.email,
+                name=user.name or user.email,
+                metadata={"user_id": user.id},
             )
-            resp.raise_for_status()
-            customer_id = resp.json()["data"]["id"]
+            customer_id = customer.id
             set_customer_id(user.id, customer_id)
-        except Exception as e:
-            body_text = getattr(getattr(e, "response", None), "text", None)
-            logger.error(f"AbacatePay customers.create falhou: {e} | body: {body_text}")
-            raise HTTPException(status_code=502, detail=f"Erro AbacatePay ao criar cliente: {body_text or e}")
+        except stripe.StripeError as e:
+            logger.error(f"Stripe Customer.create falhou: {e}")
+            raise HTTPException(status_code=502, detail=f"Erro Stripe ao criar cliente: {e.user_message}")
 
     try:
-        resp = httpx.post(
-            f"{ABACATEPAY_V2}/subscriptions/create",
-            json={
-                "items": [{"id": product_id, "quantity": 1}],
-                "customerId": customer_id,
-                "returnUrl": f"{settings.frontend_url}/#precos",
-                "completionUrl": f"{settings.frontend_url}/sucesso",
-                "metadata": {"user_id": user.id, "plan": body.plan},
-            },
-            headers=_headers(settings.abacatepay_api_key),
-            timeout=15,
+        session = s.checkout.Session.create(
+            customer=customer_id,
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=f"{settings.frontend_url}/sucesso",
+            cancel_url=f"{settings.frontend_url}/#precos",
+            subscription_data={"metadata": {"user_id": user.id, "plan": body.plan}},
         )
-        resp.raise_for_status()
-        billing_url = resp.json()["data"]["url"]
-    except Exception as e:
-        body_text = getattr(getattr(e, "response", None), "text", None)
-        logger.error(f"AbacatePay subscriptions.create falhou: {e} | body: {body_text}")
-        raise HTTPException(status_code=502, detail=f"Erro AbacatePay: {body_text or e}")
+    except stripe.StripeError as e:
+        logger.error(f"Stripe checkout.Session.create falhou: {e}")
+        raise HTTPException(status_code=502, detail=f"Erro Stripe: {e.user_message}")
 
-    return BillingUrlResponse(url=billing_url)
+    return BillingUrlResponse(url=session.url)
 
 
 @router.post("/portal", response_model=BillingUrlResponse)
 async def create_portal(user: UserContext = Depends(get_current_user)):
-    raise HTTPException(status_code=501, detail="Gerenciamento de assinatura em breve")
+    s = _stripe()
+    customer_id = get_customer_id(user.id)
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="Nenhuma assinatura encontrada")
+
+    try:
+        portal = s.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=f"{get_settings().frontend_url}/configuracoes",
+        )
+    except stripe.StripeError as e:
+        logger.error(f"Stripe billing_portal.Session.create falhou: {e}")
+        raise HTTPException(status_code=502, detail=f"Erro Stripe: {e.user_message}")
+
+    return BillingUrlResponse(url=portal.url)
 
 
 @router.post("/webhook", status_code=200)
-async def abacatepay_webhook(request: Request):
+async def stripe_webhook(request: Request):
     settings = get_settings()
     payload = await request.body()
-    sig = request.headers.get("x-webhook-signature", "")
+    sig_header = request.headers.get("stripe-signature", "")
 
-    # V2: HMAC-SHA256 com o secret definido no painel, codificado em base64
-    expected = base64.b64encode(
-        hmac.new(settings.abacatepay_webhook_secret.encode(), payload, hashlib.sha256).digest()
-    ).decode()
-
-    if not hmac.compare_digest(expected, sig):
+    try:
+        event = _stripe().Webhook.construct_event(
+            payload, sig_header, settings.stripe_webhook_secret
+        )
+    except stripe.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Assinatura inválida")
-
-    event = json.loads(payload)
 
     from db.redis import get_client as get_redis
     event_id = event.get("id")
     if event_id:
-        key = f"abacatepay:webhook:{event_id}"
+        key = f"stripe:webhook:{event_id}"
         try:
             if not get_redis().set(key, "1", nx=True, ex=_WEBHOOK_EVENT_TTL):
                 logger.info(f"Webhook {event_id} já processado, ignorando replay")
@@ -117,38 +116,41 @@ async def abacatepay_webhook(request: Request):
     try:
         _handle_event(event)
     except Exception as e:
-        logger.error(f"Erro ao processar webhook {event.get('event')}: {e}")
+        logger.error(f"Erro ao processar webhook {event.get('type')}: {e}")
         raise HTTPException(status_code=500, detail="Erro ao processar evento")
 
     return {"received": True}
 
 
 def _handle_event(event: dict) -> None:
-    etype = event.get("event")
-    data = event.get("data", {})
-    subscription = data.get("subscription", {})
-    customer = data.get("customer", {})
-    metadata = subscription.get("metadata") or {}
+    etype = event.get("type")
+    data = event.get("data", {}).get("object", {})
 
-    if etype == "subscription.completed":
-        user_id = metadata.get("user_id") or _user_id_from_customer(customer.get("id"))
-        plan = metadata.get("plan", "solo")
-        subscription_id = subscription.get("id")
-        period_end = _parse_date(subscription.get("updatedAt"))
+    if etype == "checkout.session.completed":
+        user_id = data.get("metadata", {}).get("user_id")
+        customer_id = data.get("customer")
+        if not user_id and customer_id:
+            user_id = _user_id_from_customer(customer_id)
+        plan = data.get("metadata", {}).get("plan", "solo")
+        subscription_id = data.get("subscription")
         if user_id:
+            period_end = _period_end_from_subscription(subscription_id)
             update_plan_and_status(user_id, plan, "active", subscription_id, period_end)
 
-    elif etype == "subscription.renewed":
-        user_id = _user_id_from_customer(customer.get("id"))
-        subscription_id = subscription.get("id")
-        period_end = _parse_date(subscription.get("updatedAt"))
+    elif etype == "invoice.paid":
+        subscription_id = data.get("subscription")
+        customer_id = data.get("customer")
+        user_id = _user_id_from_customer(customer_id)
         if user_id:
             current_plan = get_user_plan(user_id)
+            period_end = _period_end_from_subscription(subscription_id)
             update_plan_and_status(user_id, current_plan, "active", subscription_id, period_end)
 
-    elif etype == "subscription.cancelled":
-        user_id = metadata.get("user_id") or _user_id_from_customer(customer.get("id"))
-        period_end = _parse_date(subscription.get("canceledAt"))
+    elif etype == "customer.subscription.deleted":
+        customer_id = data.get("customer")
+        user_id = _user_id_from_customer(customer_id)
+        canceled_at = data.get("canceled_at")
+        period_end = datetime.fromtimestamp(canceled_at, tz=timezone.utc) if canceled_at else None
         if user_id:
             update_plan_and_status(user_id, "free", "canceled", None, period_end)
 
@@ -171,14 +173,12 @@ def _user_id_from_customer(customer_id: str) -> str | None:
         return None
 
 
-def _parse_date(value) -> datetime | None:
-    if not value:
+def _period_end_from_subscription(subscription_id: str | None) -> datetime | None:
+    if not subscription_id:
         return None
-    if isinstance(value, int):
-        return datetime.fromtimestamp(value, tz=timezone.utc)
-    if isinstance(value, str):
-        try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    return None
+    try:
+        sub = _stripe().Subscription.retrieve(subscription_id)
+        ts = sub.get("current_period_end")
+        return datetime.fromtimestamp(ts, tz=timezone.utc) if ts else None
+    except Exception:
+        return None
