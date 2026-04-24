@@ -45,14 +45,17 @@ async def create_checkout(
 
     customer_id = get_customer_id(user.id)
 
+    kwargs = dict(
+        products=[{"external_id": product_id, "name": body.plan, "quantity": 1, "price": 1900 if body.plan == "solo" else 4900, "description": f"Plano {body.plan}"}],
+        return_url=f"{settings.frontend_url}/#precos",
+        completion_url=f"{settings.frontend_url}/sucesso",
+        metadata={"user_id": user.id, "plan": body.plan},
+    )
+    if customer_id:
+        kwargs["customer_id"] = customer_id
+
     try:
-        billing = client.billing.create(
-            products=[{"external_id": product_id, "name": body.plan, "quantity": 1, "price": 1900 if body.plan == "solo" else 4900, "description": f"Plano {body.plan}"}],
-            return_url=f"{settings.frontend_url}/#precos",
-            completion_url=f"{settings.frontend_url}/sucesso",
-            customer_id=customer_id,
-            metadata={"user_id": user.id, "plan": body.plan},
-        )
+        billing = client.billing.create(**kwargs)
     except Exception as e:
         body = getattr(getattr(e, "response", None), "text", None)
         logger.error(f"AbacatePay billing.create falhou: {e} | body: {body}")
