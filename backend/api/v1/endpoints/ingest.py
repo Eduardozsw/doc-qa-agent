@@ -67,10 +67,8 @@ async def ingest_files(
         nomes = ", ".join(f'"{n}"' for n in skipped_names)
         verb = "foi" if len(skipped_names) == 1 else "foram"
         message = (
-            f"{total_chunks} chunks indexados. "
-            f"O arquivo {nomes} não {verb} adicionado(s) pois você atingiu o limite de {limit} "
-            f"documentos mensais do plano free. "
-            f"Assine o plano Solo para ter documentos ilimitados."
+            f"O arquivo {nomes} não {verb} adicionado(s) pois você atingiu o limite de "
+            f"{limit} documentos mensais do plano free."
         )
     else:
         message = f"{total_chunks} chunks indexados"

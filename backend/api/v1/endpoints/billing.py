@@ -1,3 +1,4 @@
+import base64
 import hmac
 import hashlib
 import json
@@ -18,6 +19,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["billing"])
 
 _WEBHOOK_EVENT_TTL = 7 * 86400
+
+# Chave pública fixa da AbacatePay para verificação de assinatura de webhook (v2)
+_ABACATEPAY_PUBLIC_KEY = (
+    "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4"
+    "L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4"
+    "IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdi"
+    "DkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9"
+)
 
 
 def _get_client():
@@ -66,16 +75,13 @@ async def create_portal(user: UserContext = Depends(get_current_user)):
 
 @router.post("/webhook", status_code=200)
 async def abacatepay_webhook(request: Request):
-    _, settings = _get_client()
-
     payload = await request.body()
     sig = request.headers.get("x-webhook-signature", "")
 
-    expected = hmac.new(
-        settings.abacatepay_webhook_secret.encode(),
-        payload,
-        hashlib.sha256,
-    ).hexdigest()
+    # V2: HMAC-SHA256 com chave pública fixa da AbacatePay, codificado em base64
+    expected = base64.b64encode(
+        hmac.new(_ABACATEPAY_PUBLIC_KEY.encode(), payload, hashlib.sha256).digest()
+    ).decode()
 
     if not hmac.compare_digest(expected, sig):
         raise HTTPException(status_code=400, detail="Assinatura inválida")
@@ -105,32 +111,28 @@ async def abacatepay_webhook(request: Request):
 def _handle_event(event: dict) -> None:
     etype = event.get("event")
     data = event.get("data", {})
+    subscription = data.get("subscription", {})
+    customer = data.get("customer", {})
+    metadata = subscription.get("metadata") or {}
 
     if etype == "subscription.completed":
-        subscription = data.get("subscription", {})
-        customer = data.get("customer", {})
-        metadata = subscription.get("metadata", {})
         user_id = metadata.get("user_id") or _user_id_from_customer(customer.get("id"))
         plan = metadata.get("plan", "solo")
         subscription_id = subscription.get("id")
-        period_end = _parse_date(subscription.get("nextBillingDate"))
+        period_end = _parse_date(subscription.get("updatedAt"))
         if user_id:
             update_plan_and_status(user_id, plan, "active", subscription_id, period_end)
 
     elif etype == "subscription.renewed":
-        subscription = data.get("subscription", {})
-        customer = data.get("customer", {})
         user_id = _user_id_from_customer(customer.get("id"))
         subscription_id = subscription.get("id")
-        period_end = _parse_date(subscription.get("nextBillingDate"))
+        period_end = _parse_date(subscription.get("updatedAt"))
         if user_id:
             current_plan = get_user_plan(user_id)
             update_plan_and_status(user_id, current_plan, "active", subscription_id, period_end)
 
     elif etype == "subscription.cancelled":
-        subscription = data.get("subscription", {})
-        customer = data.get("customer", {})
-        user_id = _user_id_from_customer(customer.get("id"))
+        user_id = metadata.get("user_id") or _user_id_from_customer(customer.get("id"))
         period_end = _parse_date(subscription.get("canceledAt"))
         if user_id:
             update_plan_and_status(user_id, "free", "canceled", None, period_end)
@@ -141,7 +143,14 @@ def _user_id_from_customer(customer_id: str) -> str | None:
         return None
     try:
         from db.supabase import get_admin
-        result = get_admin().table("profiles").select("id").eq("customer_id", customer_id).single().execute()
+        result = (
+            get_admin()
+            .table("profiles")
+            .select("id")
+            .eq("customer_id", customer_id)
+            .single()
+            .execute()
+        )
         return result.data.get("id") if result.data else None
     except Exception:
         return None
@@ -153,5 +162,8 @@ def _parse_date(value) -> datetime | None:
     if isinstance(value, int):
         return datetime.fromtimestamp(value, tz=timezone.utc)
     if isinstance(value, str):
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
     return None

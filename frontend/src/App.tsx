@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 import { PDFUpload } from './components/PDFUpload';
+import { PlanLimitModal } from './components/PlanLimitModal';
 import { QuestionInput } from './components/QuestionInput';
 import { AnswerSection } from './components/AnswerSection';
 import { UserMenu } from './components/UserMenu';
@@ -48,7 +49,7 @@ function MainApp({ session }: { session: Session | null }) {
   const {
     indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError, ingestWarning,
     slotsAvailable, handleToggleSearch, handleAddFiles, handleRemovePending,
-    handleIngest, handleRemoveIndexed, loadIndexedFiles,
+    handleIngest, handleRemoveIndexed, loadIndexedFiles, dismissWarning,
   } = useFileManagement(authFetch);
 
   const [question, setQuestion] = useState('');
@@ -93,7 +94,21 @@ function MainApp({ session }: { session: Session | null }) {
     }
   };
 
-  const canSubmit = ingestStatus === 'ready' && question.trim().length > 0 && !loading;
+  const canSubmit = (ingestStatus === 'ready' || ingestStatus === 'partial') && question.trim().length > 0 && !loading;
+
+  const handleUpgradeSolo = async () => {
+    try {
+      const res = await authFetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: 'solo' }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch {
+      // mantém o modal aberto
+    }
+  };
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
@@ -145,7 +160,6 @@ function MainApp({ session }: { session: Session | null }) {
             isLoading={ingestStatus === 'loading'}
             ingestStatus={ingestStatus}
             ingestError={ingestError}
-            ingestWarning={ingestWarning}
           />
         </aside>
 
@@ -189,6 +203,15 @@ function MainApp({ session }: { session: Session | null }) {
           </div>
         </div>
       </div>
+
+      {/* Modal de limite de documentos */}
+      {ingestWarning && ingestStatus === 'partial' && (
+        <PlanLimitModal
+          warning={ingestWarning}
+          onClose={dismissWarning}
+          onUpgrade={handleUpgradeSolo}
+        />
+      )}
     </div>
   );
 }

@@ -86,6 +86,11 @@ export function useFileManagement(authFetch: AuthFetch) {
     }
   };
 
+  const dismissWarning = () => {
+    setIngestWarning(null);
+    setIngestStatus(prev => prev === 'partial' ? 'ready' : prev);
+  };
+
   const handleRemoveIndexed = async (toRemove: string[]) => {
     try {
       const res = await authFetch('/api/ingest', {
@@ -137,5 +142,6 @@ export function useFileManagement(authFetch: AuthFetch) {
     handleIngest,
     handleRemoveIndexed,
     loadIndexedFiles,
+    dismissWarning,
   };
 }
