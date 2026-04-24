@@ -54,8 +54,9 @@ async def create_checkout(
             metadata={"user_id": user.id, "plan": body.plan},
         )
     except Exception as e:
-        logger.error(f"AbacatePay billing.create falhou: {e}")
-        raise HTTPException(status_code=502, detail=f"Erro AbacatePay: {e}")
+        body = getattr(getattr(e, "response", None), "text", None)
+        logger.error(f"AbacatePay billing.create falhou: {e} | body: {body}")
+        raise HTTPException(status_code=502, detail=f"Erro AbacatePay: {body or e}")
 
     if not customer_id and hasattr(billing, "customer") and billing.customer:
         new_customer_id = getattr(billing.customer, "id", None)
