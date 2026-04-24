@@ -46,7 +46,7 @@ async def create_checkout(
     customer_id = get_customer_id(user.id)
 
     billing = client.billing.create(
-        products=[{"external_id": product_id, "name": body.plan, "quantity": 1, "price": 0, "description": f"Plano {body.plan}"}],
+        products=[{"external_id": product_id, "name": body.plan, "quantity": 1, "price": 1900 if body.plan == "solo" else 4900, "description": f"Plano {body.plan}"}],
         return_url=f"{settings.frontend_url}/#precos",
         completion_url=f"{settings.frontend_url}/sucesso",
         customer_id=customer_id,
