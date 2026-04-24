@@ -50,6 +50,8 @@ async def create_checkout(
             customer = client.customers.create({
                 "email": user.email,
                 "name": user.name or user.email,
+                "taxId": "",
+                "cellphone": "",
             })
             customer_id = customer.id
             set_customer_id(user.id, customer_id)
