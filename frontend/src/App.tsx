@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 import { PDFUpload } from './components/PDFUpload';
+import { PlanLimitModal } from './components/PlanLimitModal';
 import { QuestionInput } from './components/QuestionInput';
 import { AnswerSection } from './components/AnswerSection';
 import { UserMenu } from './components/UserMenu';
@@ -205,46 +206,11 @@ function MainApp({ session }: { session: Session | null }) {
 
       {/* Modal de limite de documentos */}
       {ingestWarning && ingestStatus === 'partial' && (
-        <div
-          onClick={dismissWarning}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1000,
-            background: 'rgba(0,0,0,0.6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: DARK.card,
-              border: `1px solid ${DARK.border}`,
-              borderRadius: 16,
-              padding: '28px 32px',
-              maxWidth: 380,
-              width: '90%',
-              display: 'flex', flexDirection: 'column', gap: 20,
-            }}
-          >
-            <p style={{ color: DARK.text, fontSize: 14, lineHeight: 1.6, margin: 0 }}>
-              {ingestWarning.split(/(plano free|plano Solo|plano Pro)/gi).map((part, i) =>
-                /plano (free|solo|pro)/i.test(part)
-                  ? <strong key={i} style={{ color: '#fff', fontWeight: 700 }}>{part}</strong>
-                  : part
-              )}{' '}Assine o <strong style={{ color: '#fff', fontWeight: 700 }}>plano Solo</strong> para ter documentos ilimitados.
-            </p>
-            <button
-              onClick={handleUpgradeSolo}
-              style={{
-                padding: '10px 0', borderRadius: 8,
-                background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
-                color: DARK.bg, border: 'none',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              plano Solo
-            </button>
-          </div>
-        </div>
+        <PlanLimitModal
+          warning={ingestWarning}
+          onClose={dismissWarning}
+          onUpgrade={handleUpgradeSolo}
+        />
       )}
     </div>
   );
