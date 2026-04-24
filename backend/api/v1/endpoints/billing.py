@@ -1,12 +1,11 @@
 import base64
 import hmac
 import hashlib
+import httpx
 import json
 import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
-
-import abacatepay
 
 from api.deps import get_current_user, UserContext
 from core.config import get_settings
@@ -18,13 +17,12 @@ from models.responses import BillingUrlResponse
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["billing"])
 
+ABACATEPAY_V2 = "https://api.abacatepay.com/v2"
 _WEBHOOK_EVENT_TTL = 7 * 86400
 
 
-
-def _get_client():
-    settings = get_settings()
-    return abacatepay.AbacatePay(settings.abacatepay_api_key), settings
+def _headers(api_key: str) -> dict:
+    return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
 
 @router.post("/checkout", response_model=BillingUrlResponse)
@@ -34,7 +32,7 @@ async def create_checkout(
     body: CheckoutRequest,
     user: UserContext = Depends(get_current_user),
 ):
-    client, settings = _get_client()
+    settings = get_settings()
 
     product_id = (
         settings.abacatepay_product_solo if body.plan == "solo"
@@ -47,35 +45,41 @@ async def create_checkout(
 
     if not customer_id:
         try:
-            customer = client.customers.create({
-                "email": user.email,
-                "name": user.name or user.email,
-                "taxId": "",
-                "cellphone": "",
-            })
-            customer_id = customer.id
+            resp = httpx.post(
+                f"{ABACATEPAY_V2}/customers/create",
+                json={"email": user.email, "name": user.name or user.email},
+                headers=_headers(settings.abacatepay_api_key),
+                timeout=15,
+            )
+            resp.raise_for_status()
+            customer_id = resp.json()["data"]["id"]
             set_customer_id(user.id, customer_id)
         except Exception as e:
             body_text = getattr(getattr(e, "response", None), "text", None)
             logger.error(f"AbacatePay customers.create falhou: {e} | body: {body_text}")
             raise HTTPException(status_code=502, detail=f"Erro AbacatePay ao criar cliente: {body_text or e}")
 
-    kwargs = dict(
-        products=[{"external_id": product_id, "name": body.plan, "quantity": 1, "price": 1900 if body.plan == "solo" else 4900, "description": f"Plano {body.plan}"}],
-        return_url=f"{settings.frontend_url}/#precos",
-        completion_url=f"{settings.frontend_url}/sucesso",
-        metadata={"user_id": user.id, "plan": body.plan},
-        customer_id=customer_id,
-    )
-
     try:
-        billing = client.billing.create(**kwargs)
+        resp = httpx.post(
+            f"{ABACATEPAY_V2}/subscriptions/create",
+            json={
+                "items": [{"id": product_id, "quantity": 1}],
+                "customerId": customer_id,
+                "returnUrl": f"{settings.frontend_url}/#precos",
+                "completionUrl": f"{settings.frontend_url}/sucesso",
+                "metadata": {"user_id": user.id, "plan": body.plan},
+            },
+            headers=_headers(settings.abacatepay_api_key),
+            timeout=15,
+        )
+        resp.raise_for_status()
+        billing_url = resp.json()["data"]["url"]
     except Exception as e:
         body_text = getattr(getattr(e, "response", None), "text", None)
-        logger.error(f"AbacatePay billing.create falhou: {e} | body: {body_text}")
+        logger.error(f"AbacatePay subscriptions.create falhou: {e} | body: {body_text}")
         raise HTTPException(status_code=502, detail=f"Erro AbacatePay: {body_text or e}")
 
-    return BillingUrlResponse(url=billing.url)
+    return BillingUrlResponse(url=billing_url)
 
 
 @router.post("/portal", response_model=BillingUrlResponse)
@@ -85,7 +89,7 @@ async def create_portal(user: UserContext = Depends(get_current_user)):
 
 @router.post("/webhook", status_code=200)
 async def abacatepay_webhook(request: Request):
-    _, settings = _get_client()
+    settings = get_settings()
     payload = await request.body()
     sig = request.headers.get("x-webhook-signature", "")
 
