@@ -31,7 +31,7 @@ async def remove_files(user_id: str, namespaces: list[str]) -> None:
         redis_db.remove_namespace(user_id, ns)
 
 
-async def ingest_files(user_id: str, files: list[UploadFile]) -> tuple[list[str], int]:
+async def ingest_files(user_id: str, files: list[UploadFile]) -> tuple[list[str], int, list[str]]:
     settings = get_settings()
 
     for file in files:
@@ -49,12 +49,13 @@ async def ingest_files(user_id: str, files: list[UploadFile]) -> tuple[list[str]
 
     results = await asyncio.gather(*[_process_file(user_id, f, c) for f, c in all_contents])
 
-    added = [ns for ns, _ in results]
-    total_chunks = sum(n for _, n in results)
-    return added, total_chunks
+    added = [ns for ns, _, _ in results]
+    total_chunks = sum(n for _, n, _ in results)
+    new_namespaces = [ns for ns, _, is_new in results if is_new]
+    return added, total_chunks, new_namespaces
 
 
-async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tuple[str, int]:
+async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tuple[str, int, bool]:
     async with _SEM:
         sha256 = sha256_bytes(contents)
         namespace = f"{user_id[:8]}_{sha256[:8]}_{sanitize_namespace(file.filename or 'unknown')}"
@@ -62,7 +63,7 @@ async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tupl
         cached_ns = redis_db.get_cached_namespace(sha256, user_id)
         if cached_ns:
             redis_db.add_namespace(user_id, cached_ns)
-            return cached_ns, 0
+            return cached_ns, 0, False
 
         loop = asyncio.get_event_loop()
         try:
@@ -91,4 +92,4 @@ async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tupl
         redis_db.set_cached_namespace(sha256, user_id, namespace)
         redis_db.add_namespace(user_id, namespace)
         logger.info(f"Arquivo indexado: {len(chunks)} chunks — user {user_id}")
-        return namespace, len(chunks)
+        return namespace, len(chunks), True
