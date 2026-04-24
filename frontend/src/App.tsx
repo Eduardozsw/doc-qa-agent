@@ -48,7 +48,7 @@ function MainApp({ session }: { session: Session | null }) {
   const {
     indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError, ingestWarning,
     slotsAvailable, handleToggleSearch, handleAddFiles, handleRemovePending,
-    handleIngest, handleRemoveIndexed, loadIndexedFiles,
+    handleIngest, handleRemoveIndexed, loadIndexedFiles, dismissWarning,
   } = useFileManagement(authFetch);
 
   const [question, setQuestion] = useState('');
@@ -93,7 +93,21 @@ function MainApp({ session }: { session: Session | null }) {
     }
   };
 
-  const canSubmit = ingestStatus === 'ready' && question.trim().length > 0 && !loading;
+  const canSubmit = (ingestStatus === 'ready' || ingestStatus === 'partial') && question.trim().length > 0 && !loading;
+
+  const handleUpgradeSolo = async () => {
+    try {
+      const res = await authFetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: 'solo' }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch {
+      // mantém o modal aberto
+    }
+  };
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
@@ -145,7 +159,6 @@ function MainApp({ session }: { session: Session | null }) {
             isLoading={ingestStatus === 'loading'}
             ingestStatus={ingestStatus}
             ingestError={ingestError}
-            ingestWarning={ingestWarning}
           />
         </aside>
 
@@ -189,6 +202,50 @@ function MainApp({ session }: { session: Session | null }) {
           </div>
         </div>
       </div>
+
+      {/* Modal de limite de documentos */}
+      {ingestWarning && ingestStatus === 'partial' && (
+        <div
+          onClick={dismissWarning}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: DARK.card,
+              border: `1px solid ${DARK.border}`,
+              borderRadius: 16,
+              padding: '28px 32px',
+              maxWidth: 380,
+              width: '90%',
+              display: 'flex', flexDirection: 'column', gap: 20,
+            }}
+          >
+            <p style={{ color: DARK.text, fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+              {ingestWarning.split(/(plano free|plano Solo|plano Pro)/gi).map((part, i) =>
+                /plano (free|solo|pro)/i.test(part)
+                  ? <strong key={i} style={{ color: '#fff', fontWeight: 700 }}>{part}</strong>
+                  : part
+              )}{' '}Assine o <strong style={{ color: '#fff', fontWeight: 700 }}>plano Solo</strong> para ter documentos ilimitados.
+            </p>
+            <button
+              onClick={handleUpgradeSolo}
+              style={{
+                padding: '10px 0', borderRadius: 8,
+                background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+                color: DARK.bg, border: 'none',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              plano Solo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
