@@ -21,12 +21,13 @@ interface PDFUploadProps {
   isLoading: boolean;
   ingestStatus: IngestStatus;
   ingestError: string | null;
+  ingestWarning: string | null;
 }
 
 export function PDFUpload({
   indexedFiles, pendingFiles, searchSelected, onToggleSearch, onAddFiles,
   onRemovePending, onRemoveIndexed, onSubmit, slotsAvailable, isLoading,
-  ingestStatus, ingestError,
+  ingestStatus, ingestError, ingestWarning,
 }: PDFUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -60,6 +61,7 @@ export function PDFUpload({
 
   const statusDotColor =
     ingestStatus === 'error' ? '#f87171' :
+    ingestStatus === 'partial' ? DARK.accent :
     ingestStatus === 'ready' && totalFiles > 0 ? '#34d399' :
     'rgba(255,255,255,0.2)';
 
@@ -218,6 +220,22 @@ export function PDFUpload({
             ? <><Loader2 style={{ width: 12, height: 12 }} /> Indexando...</>
             : `Enviar ${pendingFiles.length} arquivo${pendingFiles.length > 1 ? 's' : ''}`}
         </button>
+      )}
+
+      {/* Partial warning */}
+      {ingestWarning && ingestStatus === 'partial' && (
+        <div style={{
+          margin: '0 8px 8px',
+          padding: '8px 10px',
+          borderRadius: 8,
+          background: 'rgba(245,158,11,0.08)',
+          border: '1px solid rgba(245,158,11,0.2)',
+          fontSize: 11,
+          color: DARK.accent,
+          lineHeight: 1.5,
+        }}>
+          {ingestWarning}
+        </div>
       )}
 
       {/* Status bar */}
