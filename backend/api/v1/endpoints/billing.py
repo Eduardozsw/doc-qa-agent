@@ -20,13 +20,6 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 
 _WEBHOOK_EVENT_TTL = 7 * 86400
 
-# Chave pública fixa da AbacatePay para verificação de assinatura de webhook (v2)
-_ABACATEPAY_PUBLIC_KEY = (
-    "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4"
-    "L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4"
-    "IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdi"
-    "DkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9"
-)
 
 
 def _get_client():
@@ -75,12 +68,13 @@ async def create_portal(user: UserContext = Depends(get_current_user)):
 
 @router.post("/webhook", status_code=200)
 async def abacatepay_webhook(request: Request):
+    _, settings = _get_client()
     payload = await request.body()
     sig = request.headers.get("x-webhook-signature", "")
 
-    # V2: HMAC-SHA256 com chave pública fixa da AbacatePay, codificado em base64
+    # V2: HMAC-SHA256 com o secret definido no painel, codificado em base64
     expected = base64.b64encode(
-        hmac.new(_ABACATEPAY_PUBLIC_KEY.encode(), payload, hashlib.sha256).digest()
+        hmac.new(settings.abacatepay_webhook_secret.encode(), payload, hashlib.sha256).digest()
     ).decode()
 
     if not hmac.compare_digest(expected, sig):
