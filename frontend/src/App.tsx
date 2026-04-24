@@ -46,7 +46,7 @@ function MainApp({ session }: { session: Session | null }) {
   const navigate = useNavigate();
   const authFetch = useAuthFetch(session);
   const {
-    indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError,
+    indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError, ingestWarning,
     slotsAvailable, handleToggleSearch, handleAddFiles, handleRemovePending,
     handleIngest, handleRemoveIndexed, loadIndexedFiles,
   } = useFileManagement(authFetch);
@@ -145,6 +145,7 @@ function MainApp({ session }: { session: Session | null }) {
             isLoading={ingestStatus === 'loading'}
             ingestStatus={ingestStatus}
             ingestError={ingestError}
+            ingestWarning={ingestWarning}
           />
         </aside>
 
