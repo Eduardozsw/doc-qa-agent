@@ -11,6 +11,7 @@ class UserContext:
     id: str
     email: str
     plan: str
+    name: str = ""
 
 
 async def get_current_user(authorization: str = Header(...)) -> UserContext:
@@ -28,7 +29,9 @@ async def get_current_user(authorization: str = Header(...)) -> UserContext:
         if not user:
             raise HTTPException(status_code=401, detail="Não autenticado")
         plan = get_user_plan(user.id)
-        return UserContext(id=user.id, email=user.email or "", plan=plan)
+        meta = user.user_metadata or {}
+        name = meta.get("full_name") or meta.get("name") or ""
+        return UserContext(id=user.id, email=user.email or "", plan=plan, name=name)
     except HTTPException:
         raise
     except Exception as e:
