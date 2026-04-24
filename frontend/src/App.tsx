@@ -10,6 +10,7 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SuccessPage } from './pages/SuccessPage';
 import { useAuth } from './contexts/AuthContext';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import { useFileManagement } from './hooks/useFileManagement';
@@ -35,6 +36,7 @@ function App() {
       <Route path="/app" element={user ? <MainApp session={session} /> : <Navigate to="/login" replace />} />
       <Route path="/configuracoes" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
       <Route path="/privacidade" element={<PrivacyPolicyPage />} />
+      <Route path="/sucesso" element={<SuccessPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -44,7 +46,7 @@ function MainApp({ session }: { session: Session | null }) {
   const navigate = useNavigate();
   const authFetch = useAuthFetch(session);
   const {
-    indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError,
+    indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError, ingestWarning,
     slotsAvailable, handleToggleSearch, handleAddFiles, handleRemovePending,
     handleIngest, handleRemoveIndexed, loadIndexedFiles,
   } = useFileManagement(authFetch);
@@ -94,121 +96,99 @@ function MainApp({ session }: { session: Session | null }) {
   const canSubmit = ingestStatus === 'ready' && question.trim().length > 0 && !loading;
 
   return (
-    <div className="h-screen flex flex-col font-sans" style={{ background: DARK.bg }}>
-      {/* Ambient blobs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden>
-        <div
-          className="absolute rounded-full blur-3xl opacity-10"
-          style={{ width: 500, height: 500, top: -150, left: -150, background: `radial-gradient(circle, ${DARK.accent}, transparent 70%)` }}
-        />
-        <div
-          className="absolute rounded-full blur-3xl opacity-5"
-          style={{ width: 400, height: 400, bottom: -100, right: -100, background: `radial-gradient(circle, ${DARK.sky}, transparent 70%)` }}
-        />
-      </div>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
 
       {/* Header */}
-      <header
-        className="flex-shrink-0 z-40"
-        style={{ backdropFilter: 'blur(16px)', background: 'rgba(8,8,15,0.85)', borderBottom: `1px solid ${DARK.borderLight}` }}
-      >
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          >
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}
-            >
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-display text-base text-white tracking-tight">DocAI</span>
-          </button>
-          <UserMenu />
-        </div>
+      <header style={{
+        height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px', flexShrink: 0, zIndex: 10,
+        borderBottom: `1px solid ${DARK.borderLight}`,
+        background: 'rgba(8,8,15,0.95)',
+        backdropFilter: 'blur(16px)',
+      }}>
+        <button
+          onClick={() => navigate('/')}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer' }}
+        >
+          <div style={{
+            width: 28, height: 28, borderRadius: 8,
+            background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Sparkles style={{ width: 14, height: 14, color: 'white' }} />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>DocAI</span>
+        </button>
+        <UserMenu />
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-hidden px-4 py-5 sm:px-6 lg:px-8">
-        <div className="h-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
+      {/* Body */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-          {/* Left — PDF management */}
-          <div
-            className="overflow-y-auto rounded-2xl p-6 space-y-4"
-            style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}
-          >
-            <PDFUpload
-              indexedFiles={indexedFiles}
-              pendingFiles={pendingFiles}
-              searchSelected={searchSelected}
-              onToggleSearch={handleToggleSearch}
-              onAddFiles={handleAddFiles}
-              onRemovePending={handleRemovePending}
-              onRemoveIndexed={handleRemoveIndexed}
-              onSubmit={handleIngest}
-              slotsAvailable={slotsAvailable}
-              isLoading={ingestStatus === 'loading'}
-              ingestStatus={ingestStatus}
-              ingestError={ingestError}
-            />
-            {ingestStatus === 'idle' && indexedFiles.length === 0 && pendingFiles.length === 0 && (
-              <div
-                className="rounded-xl px-4 py-3 text-xs font-sans"
-                style={{ background: 'rgba(245,158,11,0.08)', border: `1px solid ${DARK.accentBorder}`, color: '#fbbf24' }}
-              >
-                Selecione ao menos um arquivo PDF para habilitar o envio de perguntas.
-              </div>
-            )}
-          </div>
+        {/* Sidebar */}
+        <aside style={{
+          width: 260, flexShrink: 0,
+          borderRight: `1px solid ${DARK.border}`,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          background: '#0d0d1a',
+        }}>
+          <PDFUpload
+            indexedFiles={indexedFiles}
+            pendingFiles={pendingFiles}
+            searchSelected={searchSelected}
+            onToggleSearch={handleToggleSearch}
+            onAddFiles={handleAddFiles}
+            onRemovePending={handleRemovePending}
+            onRemoveIndexed={handleRemoveIndexed}
+            onSubmit={handleIngest}
+            slotsAvailable={slotsAvailable}
+            isLoading={ingestStatus === 'loading'}
+            ingestStatus={ingestStatus}
+            ingestError={ingestError}
+            ingestWarning={ingestWarning}
+          />
+        </aside>
 
-          {/* Right — Chat */}
-          <div
-            className="flex flex-col rounded-2xl overflow-hidden"
-            style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}
-          >
-            {/* Chat header */}
-            <div
-              className="flex-shrink-0 flex items-center justify-between px-6 py-4"
-              style={{ borderBottom: `1px solid ${DARK.border}` }}
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                <h2 className="text-sm font-sans font-semibold text-white">Conversa</h2>
-              </div>
-              {history.length > 0 && (
+        {/* Chat */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0a0a14' }}>
+
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', position: 'relative' }}>
+            {history.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
                 <button
                   onClick={() => setHistory([])}
-                  className="text-xs font-sans transition-colors hover:text-red-400"
-                  style={{ color: DARK.textFaint }}
+                  style={{
+                    fontSize: 11, color: 'rgba(255,255,255,0.25)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    transition: 'color 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
                 >
-                  Limpar
+                  Limpar conversa
                 </button>
-              )}
-            </div>
-
-            {/* Messages — only this zone scrolls */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              <AnswerSection history={history} loading={loading} />
-            </div>
-
-            {/* Input — always visible at bottom */}
-            <div
-              className="flex-shrink-0 px-6 py-4"
-              style={{ borderTop: `1px solid ${DARK.border}` }}
-            >
-              <QuestionInput
-                question={question}
-                onQuestionChange={setQuestion}
-                onSubmit={handleSubmit}
-                disabled={!canSubmit}
-                loading={loading}
-              />
-            </div>
+              </div>
+            )}
+            <AnswerSection history={history} loading={loading} />
           </div>
 
+          {/* Input */}
+          <div style={{
+            flexShrink: 0,
+            padding: '16px 24px 20px',
+            borderTop: `1px solid ${DARK.border}`,
+          }}>
+            <QuestionInput
+              question={question}
+              onQuestionChange={setQuestion}
+              onSubmit={handleSubmit}
+              disabled={!canSubmit}
+              loading={loading}
+            />
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

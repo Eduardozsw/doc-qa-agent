@@ -1,7 +1,12 @@
 import { useRef, useState, DragEvent, ChangeEvent } from 'react';
-import { FileText, UploadCloud, X, CheckCircle2, AlertCircle, Loader2, Send, Trash2, Search } from 'lucide-react';
+import { Plus, X, Loader2, Trash2, FileText } from 'lucide-react';
 import { IngestStatus } from '../hooks/useFileManagement';
 import { DARK } from '../constants/theme';
+
+function displayName(namespace: string): string {
+  const parts = namespace.split('_');
+  return parts.length > 2 ? parts.slice(2).join('_') : namespace;
+}
 
 interface PDFUploadProps {
   indexedFiles: string[];
@@ -16,32 +21,16 @@ interface PDFUploadProps {
   isLoading: boolean;
   ingestStatus: IngestStatus;
   ingestError: string | null;
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  ingestWarning: string | null;
 }
 
 export function PDFUpload({
-  indexedFiles,
-  pendingFiles,
-  searchSelected,
-  onToggleSearch,
-  onAddFiles,
-  onRemovePending,
-  onRemoveIndexed,
-  onSubmit,
-  slotsAvailable,
-  isLoading,
-  ingestStatus,
-  ingestError,
+  indexedFiles, pendingFiles, searchSelected, onToggleSearch, onAddFiles,
+  onRemovePending, onRemoveIndexed, onSubmit, slotsAvailable, isLoading,
+  ingestStatus, ingestError, ingestWarning,
 }: PDFUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-
-  const usedSlots = indexedFiles.length + pendingFiles.length;
 
   const pickPdfs = (fileList: FileList) => {
     const pdfs = Array.from(fileList).filter(f => f.type === 'application/pdf');
@@ -59,172 +48,203 @@ export function PDFUpload({
     e.target.value = '';
   };
 
+  const selectedCount = searchSelected.size;
+  const totalFiles = indexedFiles.length;
+
+  const statusText = () => {
+    if (ingestStatus === 'error') return ingestError ?? 'Erro ao indexar';
+    if (ingestStatus === 'loading') return 'Indexando...';
+    if (totalFiles === 0) return 'Nenhum documento';
+    if (selectedCount === 0 || selectedCount === totalFiles) return `${totalFiles} documento${totalFiles !== 1 ? 's' : ''}`;
+    return `${selectedCount} de ${totalFiles} selecionado${selectedCount !== 1 ? 's' : ''}`;
+  };
+
+  const statusDotColor =
+    ingestStatus === 'error' ? '#f87171' :
+    ingestStatus === 'partial' ? DARK.accent :
+    ingestStatus === 'ready' && totalFiles > 0 ? '#34d399' :
+    'rgba(255,255,255,0.2)';
+
   return (
-    <div className="w-full space-y-3">
-      <div className="flex items-center justify-between">
-        <label className="block text-sm font-sans font-medium" style={{ color: DARK.textMuted }}>
-          Arquivos PDF
-        </label>
-        <span className="text-xs font-sans" style={{ color: DARK.textFaint }}>{usedSlots}/5 arquivos</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+      {/* Header */}
+      <div style={{
+        padding: '14px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        borderBottom: `1px solid ${DARK.borderLight}`,
+        flexShrink: 0,
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
+          Documentos
+        </span>
+        {slotsAvailable > 0 && (
+          <button
+            onClick={() => inputRef.current?.click()}
+            title="Adicionar PDF"
+            style={{
+              width: 24, height: 24, borderRadius: 6,
+              background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: DARK.accent,
+            }}
+          >
+            <Plus style={{ width: 13, height: 13 }} />
+          </button>
+        )}
+        <input ref={inputRef} type="file" accept="application/pdf" multiple style={{ display: 'none' }} onChange={handleChange} />
       </div>
 
-      {/* Indexed files */}
-      {indexedFiles.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 px-0.5">
-            <Search className="w-3 h-3" style={{ color: DARK.textFaint }} />
-            <p className="text-xs font-sans" style={{ color: DARK.textFaint }}>Marque os arquivos que deseja incluir na busca</p>
-          </div>
-          {indexedFiles.map((name) => {
-            const isSelected = searchSelected.has(name);
-            return (
-              <div
-                key={name}
-                className="flex items-center gap-3 p-3 rounded-xl transition-colors"
+      {/* File list */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+
+        {/* Indexed files */}
+        {indexedFiles.map(name => {
+          const sel = searchSelected.has(name);
+          return (
+            <div
+              key={name}
+              onClick={() => onToggleSearch(name)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '7px 10px', borderRadius: 8, cursor: 'pointer', marginBottom: 2,
+                background: sel ? 'rgba(255,255,255,0.06)' : 'transparent',
+                transition: 'background 0.15s',
+              }}
+            >
+              <div style={{
+                width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                border: `1px solid ${sel ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.2)'}`,
+                background: sel ? 'rgba(245,158,11,0.15)' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s',
+              }}>
+                {sel && <div style={{ width: 8, height: 8, background: DARK.accent, borderRadius: 2 }} />}
+              </div>
+              <span style={{
+                fontSize: 12, flex: 1,
+                overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                color: sel ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.6)',
+                transition: 'color 0.15s',
+              }}>
+                {displayName(name)}
+              </span>
+              <button
+                onClick={e => { e.stopPropagation(); onRemoveIndexed([name]); }}
+                title="Remover"
                 style={{
-                  background: isSelected ? DARK.emeraldSubtle : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${isSelected ? DARK.emeraldBorder : DARK.border}`,
+                  width: 20, height: 20, borderRadius: 4, flexShrink: 0,
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'rgba(255,255,255,0.3)',
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => onToggleSearch(name)}
-                  className="cursor-pointer accent-emerald-400"
-                />
-                <div
-                  className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: isSelected ? DARK.emeraldSubtle : 'rgba(255,255,255,0.05)' }}
-                >
-                  <FileText className="w-4 h-4" style={{ color: isSelected ? DARK.emerald : DARK.textFaint }} />
-                </div>
-                <p className="flex-1 text-sm font-sans font-medium truncate" style={{ color: DARK.text }}>{name}</p>
-                <button
-                  onClick={() => onRemoveIndexed([name])}
-                  className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors group"
-                  style={{ background: 'rgba(255,255,255,0.05)' }}
-                  title="Remover arquivo"
-                >
-                  <Trash2 className="w-3.5 h-3.5 transition-colors group-hover:text-red-400" style={{ color: DARK.textFaint }} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Pending files */}
-      {pendingFiles.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-xs font-sans px-0.5" style={{ color: DARK.textFaint }}>Aguardando envio</p>
-          {pendingFiles.map((file, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: DARK.skySubtle, border: `1px solid ${DARK.skyBorder}` }}
-            >
-              <div
-                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: 'rgba(14,165,233,0.15)' }}
-              >
-                <FileText className="w-4 h-4" style={{ color: '#38bdf8' }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-sans font-medium truncate" style={{ color: DARK.text }}>{file.name}</p>
-                <p className="text-xs font-sans" style={{ color: DARK.textFaint }}>{formatSize(file.size)}</p>
-              </div>
-              <button
-                onClick={() => onRemovePending(i)}
-                disabled={isLoading}
-                className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors group disabled:opacity-40"
-                style={{ background: 'rgba(255,255,255,0.05)' }}
-              >
-                <X className="w-3.5 h-3.5 transition-colors group-hover:text-red-400" style={{ color: DARK.textFaint }} />
+                <Trash2 style={{ width: 11, height: 11 }} />
               </button>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+
+        {/* Pending files */}
+        {pendingFiles.map((file, i) => (
+          <div
+            key={i}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '7px 10px', borderRadius: 8, marginBottom: 2,
+              background: 'rgba(14,165,233,0.06)', border: '1px solid rgba(14,165,233,0.15)',
+            }}
+          >
+            <FileText style={{ width: 12, height: 12, color: '#38bdf8', flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+              {file.name}
+            </span>
+            <button
+              onClick={() => onRemovePending(i)}
+              disabled={isLoading}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center' }}
+            >
+              <X style={{ width: 12, height: 12 }} />
+            </button>
+          </div>
+        ))}
+
+        {/* Empty state */}
+        {totalFiles === 0 && pendingFiles.length === 0 && (
+          <div style={{ padding: '20px 8px', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>
+            Nenhum documento ainda
+          </div>
+        )}
+      </div>
 
       {/* Drop zone */}
       {slotsAvailable > 0 && (
         <div
           onClick={() => inputRef.current?.click()}
           onDrop={handleDrop}
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
-          className="relative cursor-pointer rounded-xl border-2 border-dashed transition-all duration-200 p-6 flex flex-col items-center justify-center gap-2"
           style={{
-            borderColor: dragging ? DARK.accent : DARK.border,
-            background: dragging ? DARK.accentSubtle : 'rgba(255,255,255,0.02)',
-            transform: dragging ? 'scale(1.01)' : 'scale(1)',
+            margin: '0 8px 8px',
+            border: `1px dashed ${dragging ? DARK.accent : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: 10, padding: '12px 8px',
+            textAlign: 'center', cursor: 'pointer',
+            color: dragging ? DARK.accent : 'rgba(255,255,255,0.25)',
+            fontSize: 11, transition: 'all 0.15s',
+            background: dragging ? 'rgba(245,158,11,0.04)' : 'transparent',
           }}
         >
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-            style={{ background: dragging ? DARK.accentSubtle : 'rgba(255,255,255,0.05)' }}
-          >
-            <UploadCloud className="w-5 h-5 transition-colors" style={{ color: dragging ? DARK.accent : DARK.textFaint }} />
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-sans" style={{ color: DARK.textMuted }}>
-              Arraste PDFs aqui ou{' '}
-              <span style={{ color: DARK.accent }}>clique para selecionar</span>
-            </p>
-            <p className="text-xs font-sans mt-0.5" style={{ color: DARK.textFaint }}>
-              Até {slotsAvailable} arquivo{slotsAvailable > 1 ? 's' : ''} restante{slotsAvailable > 1 ? 's' : ''}
-            </p>
-          </div>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="application/pdf"
-            multiple
-            className="hidden"
-            onChange={handleChange}
-          />
+          <div style={{ fontSize: 16, marginBottom: 3 }}>☁</div>
+          Arraste PDFs aqui
         </div>
       )}
 
-      {/* Submit button */}
+      {/* Submit */}
       {pendingFiles.length > 0 && (
         <button
           onClick={onSubmit}
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-sans font-semibold transition-all duration-200 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, color: DARK.bg }}
+          style={{
+            margin: '0 8px 8px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            padding: '8px 12px', borderRadius: 8,
+            background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+            color: DARK.bg, border: 'none',
+            cursor: isLoading ? 'default' : 'pointer',
+            fontSize: 12, fontWeight: 600,
+            opacity: isLoading ? 0.6 : 1,
+            flexShrink: 0,
+          }}
         >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Indexando...
-            </>
-          ) : (
-            <>
-              <Send className="w-4 h-4" />
-              Enviar {pendingFiles.length} arquivo{pendingFiles.length > 1 ? 's' : ''}
-            </>
-          )}
+          {isLoading
+            ? <><Loader2 style={{ width: 12, height: 12 }} /> Indexando...</>
+            : `Enviar ${pendingFiles.length} arquivo${pendingFiles.length > 1 ? 's' : ''}`}
         </button>
       )}
 
-      {ingestStatus === 'ready' && (
-        <div className="flex items-center gap-2 px-1 text-xs font-sans" style={{ color: DARK.emerald }}>
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          <span>
-            {searchSelected.size === 0 || searchSelected.size === indexedFiles.length
-              ? 'Buscando em todos os arquivos'
-              : `Buscando em ${searchSelected.size} de ${indexedFiles.length} arquivo${indexedFiles.length > 1 ? 's' : ''}`}
-          </span>
+      {/* Partial warning */}
+      {ingestWarning && ingestStatus === 'partial' && (
+        <div style={{
+          margin: '0 8px 8px',
+          padding: '8px 10px',
+          borderRadius: 8,
+          background: 'rgba(245,158,11,0.08)',
+          border: '1px solid rgba(245,158,11,0.2)',
+          fontSize: 11,
+          color: DARK.accent,
+          lineHeight: 1.5,
+        }}>
+          {ingestWarning}
         </div>
       )}
 
-      {ingestStatus === 'error' && (
-        <div className="flex items-center gap-2 px-1 text-xs font-sans" style={{ color: '#f87171' }}>
-          <AlertCircle className="w-3.5 h-3.5" />
-          <span>{ingestError ?? 'Falha ao indexar. Tente novamente.'}</span>
+      {/* Status bar */}
+      <div style={{ padding: '10px 16px', borderTop: `1px solid ${DARK.borderLight}`, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: statusDotColor, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{statusText()}</span>
         </div>
-      )}
+      </div>
     </div>
   );
 }

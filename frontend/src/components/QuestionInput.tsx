@@ -1,5 +1,5 @@
 import { KeyboardEvent } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { DARK } from '../constants/theme';
 
 interface QuestionInputProps {
@@ -18,47 +18,64 @@ export function QuestionInput({ question, onQuestionChange, onSubmit, disabled, 
     }
   };
 
+  const canSend = !disabled && !loading && question.trim().length > 0;
+
   return (
-    <div className="w-full">
-      <div className="relative">
-        <textarea
-          value={question}
-          onChange={(e) => onQuestionChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={loading}
-          placeholder="O que você quer saber sobre o documento?"
-          maxLength={5000}
-          rows={3}
-          className="w-full resize-none rounded-xl px-4 py-3 pr-14 text-sm font-sans leading-relaxed transition-all duration-200 focus:outline-none disabled:opacity-50"
-          style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: `1px solid ${DARK.border}`,
-            color: DARK.text,
-            caretColor: DARK.accent,
-          }}
-          onFocus={e => { e.target.style.border = `1px solid ${DARK.accentBorder}`; e.target.style.boxShadow = `0 0 0 3px ${DARK.accentSubtle}`; }}
-          onBlur={e => { e.target.style.border = `1px solid ${DARK.border}`; e.target.style.boxShadow = 'none'; }}
-        />
-        <button
-          onClick={onSubmit}
-          disabled={disabled || loading || !question.trim()}
-          className="absolute bottom-3 right-3 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-30"
-          style={{
-            background: disabled || loading || !question.trim()
-              ? 'rgba(255,255,255,0.08)'
-              : `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
-          }}
-        >
-          {loading ? (
-            <span className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${DARK.accent} transparent transparent transparent` }} />
-          ) : (
-            <Send className="w-4 h-4 text-white" />
-          )}
-        </button>
-      </div>
-      <p className="text-xs font-sans mt-2" style={{ color: DARK.textFaint }}>
-        Enter para enviar &bull; Shift + Enter para nova linha
-      </p>
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: 'rgba(255,255,255,0.04)',
+        border: `1px solid ${DARK.border}`,
+        borderRadius: 14, padding: '10px 12px',
+        transition: 'border 0.2s, box-shadow 0.2s',
+      }}
+      onFocus={e => {
+        (e.currentTarget as HTMLDivElement).style.border = `1px solid ${DARK.accentBorder}`;
+        (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 0 3px rgba(245,158,11,0.06)`;
+      }}
+      onBlur={e => {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+          (e.currentTarget as HTMLDivElement).style.border = `1px solid ${DARK.border}`;
+          (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+        }
+      }}
+    >
+      <textarea
+        value={question}
+        onChange={e => onQuestionChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onInput={e => {
+          const el = e.currentTarget;
+          el.style.height = 'auto';
+          el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+        }}
+        disabled={loading}
+        placeholder="Pergunte sobre os documentos selecionados..."
+        maxLength={5000}
+        rows={1}
+        style={{
+          flex: 1, background: 'none', border: 'none', outline: 'none',
+          color: DARK.text, fontSize: 13, resize: 'none',
+          minHeight: 20, maxHeight: 120, lineHeight: '1.5',
+          fontFamily: 'inherit',
+        }}
+      />
+      <button
+        onClick={onSubmit}
+        disabled={!canSend}
+        style={{
+          width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+          background: canSend ? `linear-gradient(135deg, ${DARK.accent}, #d97706)` : 'rgba(255,255,255,0.06)',
+          border: 'none', cursor: canSend ? 'pointer' : 'default',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'background 0.2s',
+          opacity: canSend ? 1 : 0.4,
+        }}
+      >
+        {loading
+          ? <Loader2 style={{ width: 14, height: 14, color: DARK.accent }} />
+          : <Send style={{ width: 14, height: 14, color: 'white' }} />}
+      </button>
     </div>
   );
 }

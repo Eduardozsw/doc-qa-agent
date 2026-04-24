@@ -27,8 +27,8 @@ class FileTooLargeError(AppError):
 
 
 class UnsupportedFileTypeError(AppError):
-    def __init__(self, filename: str):
-        super().__init__(415, f"'{filename}' não é um PDF")
+    def __init__(self, filename: str | None = None):
+        super().__init__(415, "Arquivo não é um PDF válido")
 
 
 class SlotLimitError(AppError):

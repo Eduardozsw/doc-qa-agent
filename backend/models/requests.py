@@ -33,6 +33,17 @@ class QueryRequest(BaseModel):
         return v
 
 
+class CheckoutRequest(BaseModel):
+    plan: str
+
+    @field_validator("plan")
+    @classmethod
+    def validate_plan(cls, v: str) -> str:
+        if v not in ("solo", "pro"):
+            raise ValueError("plano inválido")
+        return v
+
+
 class DeleteRequest(BaseModel):
     namespaces: list[str]
 

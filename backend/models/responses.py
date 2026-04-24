@@ -18,3 +18,7 @@ class ListFilesResponse(BaseModel):
 class DeleteResponse(BaseModel):
     message: str
     arquivos: list[str]
+
+
+class BillingUrlResponse(BaseModel):
+    url: str

@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 50
     max_files_per_user: int = 5
 
+    # AbacatePay
+    abacatepay_api_key: str = ""
+    abacatepay_webhook_secret: str = ""
+    abacatepay_product_solo: str = ""
+    abacatepay_product_pro: str = ""
+
+    # Frontend
+    frontend_url: str = "http://localhost"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]

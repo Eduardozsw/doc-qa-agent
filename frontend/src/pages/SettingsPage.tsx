@@ -1,13 +1,20 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Sparkles, ArrowLeft, User, Mail, Lock, Check, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Link2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Sparkles, ArrowLeft, User, Mail, Lock, Check, Eye, EyeOff,
+  Loader2, AlertCircle, CheckCircle2, Link2, CreditCard,
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DARK } from '../constants/theme';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
+
+type Section = 'perfil' | 'assinatura' | 'senha' | 'vinculadas';
+
 function GoogleIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+    <svg width="16" height="16" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
       <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908C16.658 14.215 17.64 11.907 17.64 9.2z" fill="#4285F4"/>
       <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
       <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
@@ -22,148 +29,184 @@ const PASSWORD_RULES = [
   { label: 'Ao menos um caractere especial (ex: ! @ # $ % & *)', test: (p: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
 ];
 
-function PasswordRequirements({ password, visible }: { password: string; visible: boolean }) {
-  return (
-    <div
-      className="overflow-hidden transition-all duration-300 ease-in-out"
-      style={{ maxHeight: visible ? '120px' : '0', opacity: visible ? 1 : 0 }}
-    >
-      <div className="pt-2 pb-1 space-y-1.5">
-        {PASSWORD_RULES.map((rule) => {
-          const met = rule.test(password);
-          return (
-            <div key={rule.label} className="flex items-center gap-2">
-              <div
-                className="flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300"
-                style={{
-                  background: met ? DARK.accent : 'rgba(255,255,255,0.06)',
-                  border: met ? 'none' : `1px solid ${DARK.border}`,
-                  transform: met ? 'scale(1)' : 'scale(0.9)',
-                }}
-              >
-                <Check style={{ width: 9, height: 9, color: met ? DARK.bg : 'transparent', strokeWidth: 3 }} />
-              </div>
-              <span className="text-xs font-sans transition-colors duration-300"
-                style={{ color: met ? 'rgba(255,255,255,0.7)' : DARK.textFaint }}>
-                {rule.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 type FeedbackState = { type: 'success' | 'error'; message: string } | null;
 
 function Feedback({ state }: { state: FeedbackState }) {
   if (!state) return null;
-  const isSuccess = state.type === 'success';
+  const ok = state.type === 'success';
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-sans"
-      style={{
-        background: isSuccess ? 'rgba(52,211,153,0.08)' : 'rgba(239,68,68,0.08)',
-        border: `1px solid ${isSuccess ? 'rgba(52,211,153,0.2)' : 'rgba(239,68,68,0.2)'}`,
-        color: isSuccess ? '#34d399' : '#f87171',
-      }}>
-      {isSuccess ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '8px 12px', borderRadius: 8, fontSize: 12,
+      background: ok ? 'rgba(52,211,153,0.08)' : 'rgba(239,68,68,0.08)',
+      border: `1px solid ${ok ? 'rgba(52,211,153,0.2)' : 'rgba(239,68,68,0.2)'}`,
+      color: ok ? '#34d399' : '#f87171',
+    }}>
+      {ok ? <CheckCircle2 style={{ width: 14, height: 14, flexShrink: 0 }} /> : <AlertCircle style={{ width: 14, height: 14, flexShrink: 0 }} />}
       {state.message}
     </div>
   );
 }
 
-function SectionCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="rounded-2xl p-6 space-y-4" style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}>
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${DARK.border}` }}>
-          {icon}
-        </div>
-        <h2 className="text-sm font-sans font-semibold text-white">{title}</h2>
-      </div>
-      <div style={{ borderTop: `1px solid ${DARK.border}` }} />
+    <div style={{ marginBottom: 28 }}>
+      <h2 style={{ fontSize: 22, fontWeight: 600, color: 'white', margin: 0 }}>{title}</h2>
+      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>{subtitle}</p>
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', marginTop: 20 }} />
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: 7 }}>
       {children}
     </div>
   );
 }
 
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      style={{
+        width: '100%', background: 'rgba(255,255,255,0.04)',
+        border: `1px solid ${DARK.border}`, borderRadius: 10,
+        padding: '10px 14px', fontSize: 13, color: DARK.text,
+        outline: 'none', boxSizing: 'border-box' as const,
+        fontFamily: 'inherit',
+        ...props.style,
+      }}
+      onFocus={e => { e.target.style.border = `1px solid ${DARK.accentBorder}`; e.target.style.boxShadow = `0 0 0 3px rgba(245,158,11,0.06)`; props.onFocus?.(e); }}
+      onBlur={e => { e.target.style.border = `1px solid ${DARK.border}`; e.target.style.boxShadow = 'none'; props.onBlur?.(e); }}
+    />
+  );
+}
+
+function BtnPrimary({ children, disabled, loading, onClick, type = 'button' }: {
+  children: React.ReactNode; disabled?: boolean; loading?: boolean; onClick?: () => void; type?: 'button' | 'submit';
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled || loading}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '9px 18px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+        background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+        color: DARK.bg, border: 'none', cursor: disabled || loading ? 'default' : 'pointer',
+        opacity: disabled || loading ? 0.4 : 1, whiteSpace: 'nowrap',
+      }}
+    >
+      {loading && <Loader2 style={{ width: 13, height: 13 }} />}
+      {children}
+    </button>
+  );
+}
+
+function NavItem({
+  icon, label, active, onClick,
+}: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 9,
+        padding: '8px 10px', borderRadius: 7, cursor: 'pointer',
+        fontSize: 13, fontWeight: 500,
+        color: active ? 'white' : 'rgba(255,255,255,0.45)',
+        background: active ? 'rgba(255,255,255,0.06)' : 'transparent',
+        border: 'none',
+        borderLeft: `2px solid ${active ? DARK.accent : 'transparent'}`,
+        marginLeft: -2, transition: 'all 0.15s', width: '100%', textAlign: 'left',
+        fontFamily: 'inherit',
+      }}
+      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.65)'; } }}
+      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.45)'; } }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+const PLAN_LABEL: Record<string, string> = { free: 'Grátis', solo: 'Solo', pro: 'Pro' };
+
 export function SettingsPage() {
-  const { user, updateName, updateEmail, updatePassword } = useAuth();
+  const navigate = useNavigate();
+  const { user, session, profile, updateName, updateEmail, updatePassword } = useAuth();
+  const plan = profile?.plan ?? 'free';
+  const [activeSection, setActiveSection] = useState<Section>('perfil');
 
-  const inputStyle = {
-    background: 'rgba(255,255,255,0.05)',
-    border: `1px solid ${DARK.border}`,
-    color: DARK.text,
-    caretColor: DARK.accent,
-  };
-  const focusStyle = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.border = `1px solid ${DARK.accentBorder}`;
-    e.target.style.boxShadow = `0 0 0 3px ${DARK.accentSubtle}`;
-  };
-  const blurStyle = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.border = `1px solid ${DARK.border}`;
-    e.target.style.boxShadow = 'none';
+  // Assinatura
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalFeedback, setPortalFeedback] = useState<FeedbackState>(null);
+  const handleManageSubscription = async () => {
+    if (!session) return;
+    setPortalLoading(true);
+    setPortalFeedback(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/billing/portal`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.status === 501) {
+        setPortalFeedback({ type: 'error', message: 'Gerenciamento de assinatura em breve. Entre em contato pelo suporte.' });
+        return;
+      }
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      window.location.href = data.url;
+    } catch {
+      setPortalFeedback({ type: 'error', message: 'Erro ao abrir portal. Tente novamente.' });
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
-  // --- Nome ---
+  // Nome
   const [name, setName] = useState(user?.user_metadata?.full_name ?? '');
   const [nameLoading, setNameLoading] = useState(false);
   const [nameFeedback, setNameFeedback] = useState<FeedbackState>(null);
-
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    setNameLoading(true);
-    setNameFeedback(null);
+    setNameLoading(true); setNameFeedback(null);
     try {
       await updateName(name.trim());
       setNameFeedback({ type: 'success', message: 'Nome atualizado com sucesso.' });
     } catch (err) {
       setNameFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar nome.' });
-    } finally {
-      setNameLoading(false);
-    }
+    } finally { setNameLoading(false); }
   };
 
-  // --- Email ---
+  // Email
   const [email, setEmail] = useState(user?.email ?? '');
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState<FeedbackState>(null);
-
   const handleSaveEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (email === user?.email) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailFeedback({ type: 'error', message: 'Informe um email válido.' });
-      return;
-    }
-    setEmailLoading(true);
-    setEmailFeedback(null);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setEmailFeedback({ type: 'error', message: 'Informe um email válido.' }); return; }
+    setEmailLoading(true); setEmailFeedback(null);
     try {
       await updateEmail(email);
-      setEmailFeedback({ type: 'success', message: 'Confirmação enviada para o novo email. Verifique sua caixa de entrada.' });
+      setEmailFeedback({ type: 'success', message: 'Confirmação enviada para o novo email.' });
     } catch (err) {
       setEmailFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar email.' });
-    } finally {
-      setEmailLoading(false);
-    }
+    } finally { setEmailLoading(false); }
   };
 
-  // --- Contas vinculadas ---
+  // Contas vinculadas
   const hasGoogle = user?.identities?.some(i => i.provider === 'google') ?? false;
   const [linkLoading, setLinkLoading] = useState(false);
   const [linkFeedback, setLinkFeedback] = useState<FeedbackState>(null);
-
   const handleLinkGoogle = async () => {
-    setLinkLoading(true);
-    setLinkFeedback(null);
+    setLinkLoading(true); setLinkFeedback(null);
     try {
-      const { error } = await supabase.auth.linkIdentity({
-        provider: 'google',
-        options: { redirectTo: `${window.location.origin}/configuracoes` },
-      });
+      const { error } = await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo: `${window.location.origin}/configuracoes` } });
       if (error) throw new Error(error.message);
     } catch (err) {
       setLinkFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao vincular conta Google.' });
@@ -173,216 +216,280 @@ export function SettingsPage() {
 
   const isOAuthOnly = !user?.identities?.some(i => i.provider === 'email');
 
-  // --- Senha ---
+  // Senha
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordFeedback, setPasswordFeedback] = useState<FeedbackState>(null);
-
   const validatePassword = (p: string) => {
     if (p.length < 8) return 'A senha deve ter no mínimo 8 caracteres.';
     if (!/[A-Z]/.test(p)) return 'A senha deve conter ao menos uma letra maiúscula.';
-    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p)) return 'A senha deve conter ao menos um caractere especial (ex: ! @ # $ % & *).';
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p)) return 'A senha deve conter ao menos um caractere especial.';
     return '';
   };
-
   const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const err = validatePassword(newPassword);
     if (err) { setPasswordFeedback({ type: 'error', message: err }); return; }
     if (newPassword !== confirmPassword) { setPasswordFeedback({ type: 'error', message: 'As senhas não coincidem.' }); return; }
-    setPasswordLoading(true);
-    setPasswordFeedback(null);
+    setPasswordLoading(true); setPasswordFeedback(null);
     try {
       await updatePassword(newPassword);
       setPasswordFeedback({ type: 'success', message: 'Senha atualizada com sucesso.' });
-      setNewPassword('');
-      setConfirmPassword('');
+      setNewPassword(''); setConfirmPassword('');
     } catch (err) {
       setPasswordFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar senha.' });
-    } finally {
-      setPasswordLoading(false);
-    }
+    } finally { setPasswordLoading(false); }
   };
 
+  const iconStyle = { width: 14, height: 14, strokeWidth: 1.8, color: 'currentColor' };
+
   return (
-    <div className="min-h-screen font-sans" style={{ background: DARK.bg }}>
-      <div className="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden>
-        <div className="absolute rounded-full blur-3xl opacity-10"
-          style={{ width: 500, height: 500, top: -150, left: -150, background: `radial-gradient(circle, ${DARK.accent}, transparent 70%)` }} />
-      </div>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
 
       {/* Header */}
-      <header className="sticky top-0 z-40"
-        style={{ backdropFilter: 'blur(16px)', background: 'rgba(8,8,15,0.85)', borderBottom: `1px solid ${DARK.borderLight}` }}>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}>
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-display text-base text-white tracking-tight">DocAI</span>
+      <header style={{
+        height: 56, display: 'flex', alignItems: 'center',
+        padding: '0 20px', borderBottom: `1px solid ${DARK.borderLight}`,
+        background: 'rgba(8,8,15,0.95)', backdropFilter: 'blur(16px)',
+        flexShrink: 0, zIndex: 10, gap: 16,
+      }}>
+        <button
+          onClick={() => navigate('/app')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            color: 'rgba(255,255,255,0.4)', fontSize: 13, background: 'none',
+            border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            transition: 'color 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
+        >
+          <ArrowLeft style={{ width: 16, height: 16 }} />
+          Voltar ao app
+        </button>
+        <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 26, height: 26, borderRadius: 7, background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Sparkles style={{ width: 13, height: 13, color: 'white' }} />
           </div>
-          <Link to="/app" className="flex items-center gap-1.5 text-sm font-sans transition-colors hover:text-white"
-            style={{ color: DARK.textMuted }}>
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </Link>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>Configurações</span>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10 relative space-y-5">
-        <div className="mb-2">
-          <h1 className="font-display text-2xl text-white">Configurações</h1>
-          <p className="text-sm font-sans mt-1" style={{ color: DARK.textMuted }}>Gerencie suas informações de conta.</p>
-        </div>
+      {/* Body */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* Nome */}
-        <SectionCard icon={<User className="w-4 h-4" style={{ color: DARK.textMuted }} />} title="Nome de exibição">
-          <form onSubmit={handleSaveName} className="space-y-3">
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onFocus={focusStyle}
-              onBlur={blurStyle}
-              placeholder="Seu nome"
-              maxLength={100}
-              className="w-full px-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
-              style={inputStyle}
-            />
-            <Feedback state={nameFeedback} />
-            <div className="flex justify-end">
-              <button type="submit" disabled={nameLoading || !name.trim()}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}>
-                {nameLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Salvar
-              </button>
-            </div>
-          </form>
-        </SectionCard>
-
-        {/* Email */}
-        <SectionCard icon={<Mail className="w-4 h-4" style={{ color: DARK.textMuted }} />} title="Endereço de email">
-          <form onSubmit={handleSaveEmail} className="space-y-3">
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              onFocus={focusStyle}
-              onBlur={blurStyle}
-              placeholder="seu@email.com"
-              maxLength={254}
-              className="w-full px-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
-              style={inputStyle}
-            />
-            <p className="text-xs font-sans" style={{ color: DARK.textFaint }}>
-              Um email de confirmação será enviado para o novo endereço antes da troca ser efetivada.
-            </p>
-            <Feedback state={emailFeedback} />
-            <div className="flex justify-end">
-              <button type="submit" disabled={emailLoading || email === user?.email || !email.trim()}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}>
-                {emailLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Salvar
-              </button>
-            </div>
-          </form>
-        </SectionCard>
-
-        {/* Contas vinculadas */}
-        <SectionCard icon={<Link2 className="w-4 h-4" style={{ color: DARK.textMuted }} />} title="Contas vinculadas">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <GoogleIcon />
-              <div>
-                <p className="text-sm font-sans text-white">Google</p>
-                <p className="text-xs font-sans" style={{ color: DARK.textFaint }}>
-                  {hasGoogle ? 'Conta vinculada' : 'Não vinculado'}
-                </p>
-              </div>
-            </div>
-            {hasGoogle ? (
-              <span
-                className="flex items-center gap-1.5 text-xs font-sans font-medium px-2.5 py-1 rounded-full"
-                style={{ background: DARK.emeraldSubtle, color: DARK.emerald, border: `1px solid ${DARK.emeraldBorder}` }}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Vinculado
-              </span>
-            ) : (
-              <button
-                onClick={handleLinkGoogle}
-                disabled={linkLoading}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}
-              >
-                {linkLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Vincular
-              </button>
-            )}
+        {/* Nav sidebar */}
+        <nav style={{
+          width: 200, flexShrink: 0,
+          borderRight: `1px solid ${DARK.border}`,
+          background: '#0d0d1a',
+          padding: '20px 12px',
+          display: 'flex', flexDirection: 'column', gap: 2,
+          overflowY: 'auto',
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.2)', padding: '0 10px', marginBottom: 4 }}>
+            Conta
           </div>
-          <Feedback state={linkFeedback} />
-        </SectionCard>
-
-        {/* Senha */}
-        <SectionCard icon={<Lock className="w-4 h-4" style={{ color: DARK.textMuted }} />} title={isOAuthOnly ? 'Definir senha' : 'Alterar senha'}>
-          {isOAuthOnly && (
-            <p className="text-xs font-sans" style={{ color: DARK.textFaint }}>
-              Defina uma senha para poder entrar também com email e senha.
-            </p>
+          <NavItem icon={<User style={iconStyle} />} label="Perfil" active={activeSection === 'perfil'} onClick={() => setActiveSection('perfil')} />
+          {plan !== 'free' && (
+            <NavItem icon={<CreditCard style={iconStyle} />} label="Assinatura" active={activeSection === 'assinatura'} onClick={() => setActiveSection('assinatura')} />
           )}
-          <form onSubmit={handleSavePassword} className="space-y-3">
-            <div className="space-y-0">
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  onFocus={e => { focusStyle(e); setPasswordFocused(true); }}
-                  onBlur={e => { blurStyle(e); setPasswordFocused(false); }}
-                  placeholder="Nova senha"
-                  maxLength={128}
-                  className="w-full pl-4 pr-10 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
-                  style={inputStyle}
-                />
-                <button type="button" onClick={() => setShowPassword(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: DARK.textFaint }}>
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.2)', padding: '0 10px', marginTop: 16, marginBottom: 4 }}>
+            Segurança
+          </div>
+          <NavItem icon={<Lock style={iconStyle} />} label="Senha" active={activeSection === 'senha'} onClick={() => setActiveSection('senha')} />
+          <NavItem icon={<Link2 style={iconStyle} />} label="Contas vinculadas" active={activeSection === 'vinculadas'} onClick={() => setActiveSection('vinculadas')} />
+        </nav>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ padding: '36px 48px', maxWidth: 760 }}>
+
+            {/* Perfil */}
+            {activeSection === 'perfil' && (
+              <div>
+                <SectionTitle title="Perfil" subtitle="Suas informações de conta" />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
+                  <form onSubmit={handleSaveName} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <FieldLabel>Nome de exibição</FieldLabel>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                      <div style={{ flex: 1 }}>
+                        <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" maxLength={100} />
+                      </div>
+                      <BtnPrimary type="submit" loading={nameLoading} disabled={!name.trim()}>Salvar</BtnPrimary>
+                    </div>
+                    <Feedback state={nameFeedback} />
+                  </form>
+
+                  <form onSubmit={handleSaveEmail} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <FieldLabel>Email</FieldLabel>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                      <div style={{ flex: 1 }}>
+                        <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" maxLength={254} />
+                      </div>
+                      <BtnPrimary type="submit" loading={emailLoading} disabled={email === user?.email || !email.trim()}>Salvar</BtnPrimary>
+                    </div>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', lineHeight: 1.5 }}>Confirmação enviada antes da troca ser efetivada.</p>
+                    <Feedback state={emailFeedback} />
+                  </form>
+                </div>
               </div>
-              <PasswordRequirements password={newPassword} visible={passwordFocused} />
-            </div>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                onFocus={focusStyle}
-                onBlur={blurStyle}
-                placeholder="Confirmar nova senha"
-                maxLength={128}
-                className="w-full px-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
-                style={inputStyle}
-              />
-            </div>
-            <Feedback state={passwordFeedback} />
-            <div className="flex justify-end">
-              <button type="submit" disabled={passwordLoading || !newPassword || !confirmPassword}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}>
-                {passwordLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Atualizar senha
-              </button>
-            </div>
-          </form>
-        </SectionCard>
-      </main>
+            )}
+
+            {/* Assinatura */}
+            {activeSection === 'assinatura' && (
+              <div>
+                <SectionTitle title="Assinatura" subtitle="Plano atual e faturamento" />
+                <div style={{
+                  background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.12)',
+                  borderRadius: 12, padding: '18px 22px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  marginBottom: 16,
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'white' }}>Plano {PLAN_LABEL[plan]}</span>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
+                        background: 'rgba(52,211,153,0.1)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)',
+                      }}>ATIVO</span>
+                    </div>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Gerencie sua assinatura, troque o cartão ou cancele.</p>
+                  </div>
+                  <button
+                    onClick={handleManageSubscription}
+                    disabled={portalLoading}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '9px 18px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+                      background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)',
+                      border: `1px solid ${DARK.border}`, cursor: portalLoading ? 'default' : 'pointer',
+                      opacity: portalLoading ? 0.5 : 1, whiteSpace: 'nowrap', fontFamily: 'inherit',
+                    }}
+                  >
+                    {portalLoading && <Loader2 style={{ width: 13, height: 13 }} />}
+                    Gerenciar assinatura →
+                  </button>
+                </div>
+                <Feedback state={portalFeedback} />
+              </div>
+            )}
+
+            {/* Senha */}
+            {activeSection === 'senha' && (
+              <div>
+                <SectionTitle title={isOAuthOnly ? 'Definir senha' : 'Alterar senha'} subtitle={isOAuthOnly ? 'Defina uma senha para entrar também com email e senha.' : 'Altere sua senha de acesso.'} />
+                <form onSubmit={handleSavePassword} style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 480 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                    <div>
+                      <FieldLabel>Nova senha</FieldLabel>
+                      <div style={{ position: 'relative' }}>
+                        <Input
+                          type={showPassword ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          onFocus={() => setPasswordFocused(true)}
+                          onBlur={() => setPasswordFocused(false)}
+                          placeholder="••••••••"
+                          maxLength={128}
+                          style={{ paddingRight: 40 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(p => !p)}
+                          style={{
+                            position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                            background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)',
+                          }}
+                        >
+                          {showPassword ? <EyeOff style={{ width: 14, height: 14 }} /> : <Eye style={{ width: 14, height: 14 }} />}
+                        </button>
+                      </div>
+                      {/* Password requirements */}
+                      <div style={{ overflow: 'hidden', maxHeight: passwordFocused && newPassword ? 100 : 0, transition: 'max-height 0.3s', marginTop: 8 }}>
+                        {PASSWORD_RULES.map(rule => {
+                          const met = rule.test(newPassword);
+                          return (
+                            <div key={rule.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                              <div style={{
+                                width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                                background: met ? DARK.accent : 'rgba(255,255,255,0.06)',
+                                border: met ? 'none' : `1px solid ${DARK.border}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                <Check style={{ width: 8, height: 8, color: met ? DARK.bg : 'transparent', strokeWidth: 3 }} />
+                              </div>
+                              <span style={{ fontSize: 11, color: met ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }}>{rule.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <FieldLabel>Confirmar senha</FieldLabel>
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        maxLength={128}
+                      />
+                    </div>
+                  </div>
+                  <Feedback state={passwordFeedback} />
+                  <div>
+                    <BtnPrimary type="submit" loading={passwordLoading} disabled={!newPassword || !confirmPassword}>
+                      Atualizar senha
+                    </BtnPrimary>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Contas vinculadas */}
+            {activeSection === 'vinculadas' && (
+              <div>
+                <SectionTitle title="Contas vinculadas" subtitle="Métodos de login associados à conta" />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: `1px solid ${DARK.borderLight}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                      width: 34, height: 34, borderRadius: 8,
+                      background: 'rgba(255,255,255,0.04)', border: `1px solid ${DARK.border}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <GoogleIcon />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>Google</p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>{hasGoogle ? 'Conta vinculada' : 'Não vinculado'}</p>
+                    </div>
+                  </div>
+                  {hasGoogle ? (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99,
+                      background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.15)',
+                      color: '#34d399',
+                    }}>
+                      <CheckCircle2 style={{ width: 13, height: 13 }} />
+                      Vinculado
+                    </span>
+                  ) : (
+                    <BtnPrimary loading={linkLoading} onClick={handleLinkGoogle}>Vincular</BtnPrimary>
+                  )}
+                </div>
+                <Feedback state={linkFeedback} />
+              </div>
+            )}
+
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

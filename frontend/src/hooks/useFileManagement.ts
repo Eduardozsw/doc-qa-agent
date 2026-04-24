@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export type IngestStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type IngestStatus = 'idle' | 'loading' | 'ready' | 'error' | 'partial';
 
 const MAX_FILES = 5;
 
@@ -12,6 +12,7 @@ export function useFileManagement(authFetch: AuthFetch) {
   const [searchSelected, setSearchSelected] = useState<Set<string>>(new Set());
   const [ingestStatus, setIngestStatus] = useState<IngestStatus>('idle');
   const [ingestError, setIngestError] = useState<string | null>(null);
+  const [ingestWarning, setIngestWarning] = useState<string | null>(null);
 
   const slotsAvailable = MAX_FILES - indexedFiles.length - pendingFiles.length;
 
@@ -53,6 +54,7 @@ export function useFileManagement(authFetch: AuthFetch) {
 
     setIngestStatus('loading');
     setIngestError(null);
+    setIngestWarning(null);
 
     const formData = new FormData();
     pendingFiles.forEach(file => formData.append('files', file));
@@ -68,10 +70,16 @@ export function useFileManagement(authFetch: AuthFetch) {
       }
 
       const added: string[] = data.arquivos ?? [];
+      const hadSkipped = added.length < pendingFiles.length;
       setIndexedFiles(prev => [...prev, ...added]);
       addToSelected(added);
       setPendingFiles([]);
-      setIngestStatus('ready');
+      if (hadSkipped) {
+        setIngestWarning(data.message ?? null);
+        setIngestStatus('partial');
+      } else {
+        setIngestStatus('ready');
+      }
     } catch {
       setIngestStatus('error');
       setIngestError('Falha ao conectar com o servidor.');
@@ -121,6 +129,7 @@ export function useFileManagement(authFetch: AuthFetch) {
     searchSelected,
     ingestStatus,
     ingestError,
+    ingestWarning,
     slotsAvailable,
     handleToggleSearch,
     handleAddFiles,

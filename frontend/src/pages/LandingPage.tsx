@@ -9,13 +9,44 @@ import { PricingSection } from './landing/PricingSection';
 import { TrustBarSection } from './landing/TrustBarSection';
 import { FAQSection } from './landing/FAQSection';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
+
 export function LandingPage() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const navigate = useNavigate();
 
   const handleCTA = () => {
     if (user) navigate('/app');
     else navigate('/login');
+  };
+
+  const handleSelectPlan = async (plan: string) => {
+    if (plan === 'free') {
+      handleCTA();
+      return;
+    }
+
+    if (!user || !session) {
+      sessionStorage.setItem('pending_plan', plan);
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/billing/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ plan }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      window.location.href = data.url;
+    } catch {
+      alert('Erro ao iniciar checkout. Tente novamente.');
+    }
   };
 
   return (
@@ -65,7 +96,7 @@ export function LandingPage() {
       <HeroSection onCTA={handleCTA} isLoggedIn={!!user} />
       <HowItWorksSection />
       <UseCasesSection />
-      <PricingSection onCTA={handleCTA} />
+      <PricingSection onCTA={handleCTA} onSelectPlan={handleSelectPlan} />
       <TrustBarSection />
       <FAQSection />
 
@@ -118,7 +149,7 @@ export function LandingPage() {
             <span className="font-display text-sm text-white">DocAI</span>
           </div>
           <p className="text-xs font-sans" style={{ color: 'rgba(255,255,255,0.25)' }}>
-            © {new Date().getFullYear()} DocAI. Feito com Claude + Pinecone.
+            © {new Date().getFullYear()} DocAI.
           </p>
         </div>
       </footer>
