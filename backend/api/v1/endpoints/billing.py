@@ -45,26 +45,33 @@ async def create_checkout(
 
     customer_id = get_customer_id(user.id)
 
+    if not customer_id:
+        try:
+            customer = client.customers.create({
+                "email": user.email,
+                "name": user.name or user.email,
+            })
+            customer_id = customer.id
+            set_customer_id(user.id, customer_id)
+        except Exception as e:
+            body_text = getattr(getattr(e, "response", None), "text", None)
+            logger.error(f"AbacatePay customers.create falhou: {e} | body: {body_text}")
+            raise HTTPException(status_code=502, detail=f"Erro AbacatePay ao criar cliente: {body_text or e}")
+
     kwargs = dict(
         products=[{"external_id": product_id, "name": body.plan, "quantity": 1, "price": 1900 if body.plan == "solo" else 4900, "description": f"Plano {body.plan}"}],
         return_url=f"{settings.frontend_url}/#precos",
         completion_url=f"{settings.frontend_url}/sucesso",
         metadata={"user_id": user.id, "plan": body.plan},
+        customer_id=customer_id,
     )
-    if customer_id:
-        kwargs["customer_id"] = customer_id
 
     try:
         billing = client.billing.create(**kwargs)
     except Exception as e:
-        body = getattr(getattr(e, "response", None), "text", None)
-        logger.error(f"AbacatePay billing.create falhou: {e} | body: {body}")
-        raise HTTPException(status_code=502, detail=f"Erro AbacatePay: {body or e}")
-
-    if not customer_id and hasattr(billing, "customer") and billing.customer:
-        new_customer_id = getattr(billing.customer, "id", None)
-        if new_customer_id:
-            set_customer_id(user.id, new_customer_id)
+        body_text = getattr(getattr(e, "response", None), "text", None)
+        logger.error(f"AbacatePay billing.create falhou: {e} | body: {body_text}")
+        raise HTTPException(status_code=502, detail=f"Erro AbacatePay: {body_text or e}")
 
     return BillingUrlResponse(url=billing.url)
 
