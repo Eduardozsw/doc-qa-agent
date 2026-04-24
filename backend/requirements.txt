@@ -12,4 +12,4 @@ supabase
 pydantic-settings
 tiktoken
 slowapi
-abacatepay
+httpx
