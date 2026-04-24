@@ -6,8 +6,10 @@ from models.requests import DeleteRequest
 from models.responses import IngestResponse, ListFilesResponse, DeleteResponse
 from services import ingest as ingest_service
 from db.usage import get_usage, increment
+from db.redis import get_cached_namespace
 from core.limits import get_limit
 from core.limiter import limiter
+from utils.hashing import sha256_bytes
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
@@ -26,24 +28,54 @@ async def ingest_files(
     user: UserContext = Depends(get_current_user),
 ):
     limit = get_limit(user.plan, "documents")
+
+    file_bytes: list[tuple[UploadFile, bytes]] = []
+    for f in files:
+        contents = await f.read()
+        file_bytes.append((f, contents))
+
+    skipped_names: list[str] = []
+
     if limit is not None:
         current = get_usage(user.id, "documents")
         available = limit - current
-        if available <= 0:
-            raise HTTPException(status_code=429, detail=f"Limite de {limit} documentos mensais atingido")
-        if len(files) > available:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Você pode adicionar no máximo {available} documento(s) este mês",
-            )
 
-    added, total_chunks = await ingest_service.ingest_files(user.id, files)
+        cached: list[tuple[UploadFile, bytes]] = []
+        new: list[tuple[UploadFile, bytes]] = []
+        for f, contents in file_bytes:
+            if get_cached_namespace(sha256_bytes(contents), user.id):
+                cached.append((f, contents))
+            else:
+                new.append((f, contents))
+
+        allowed_new = new[:max(available, 0)]
+        skipped = new[max(available, 0):]
+        skipped_names = [f.filename or "arquivo" for f, _ in skipped]
+        file_bytes = cached + allowed_new
+
+    for f, _ in file_bytes:
+        await f.seek(0)
+
+    allowed_files = [f for f, _ in file_bytes]
+    added, total_chunks, new_namespaces = await ingest_service.ingest_files(user.id, allowed_files)
 
     if limit is not None:
-        for _ in added:
+        for _ in new_namespaces:
             increment(user.id, "documents")
 
-    return IngestResponse(message=f"{total_chunks} chunks indexados", arquivos=added)
+    if skipped_names:
+        nomes = ", ".join(f'"{n}"' for n in skipped_names)
+        verb = "foi" if len(skipped_names) == 1 else "foram"
+        message = (
+            f"{total_chunks} chunks indexados. "
+            f"O arquivo {nomes} não {verb} adicionado(s) pois você atingiu o limite de {limit} "
+            f"documentos mensais do plano free. "
+            f"Assine o plano Solo para ter documentos ilimitados."
+        )
+    else:
+        message = f"{total_chunks} chunks indexados"
+
+    return IngestResponse(message=message, arquivos=added)
 
 
 @router.delete("", response_model=DeleteResponse)
