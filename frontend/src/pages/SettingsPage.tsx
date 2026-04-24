@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, ArrowLeft, User, Mail, Lock, Check, Eye, EyeOff,
-  Loader2, AlertCircle, CheckCircle2, Link2, CreditCard,
+  Loader2, AlertCircle, CheckCircle2, Link2, CreditCard, Zap,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -11,6 +11,13 @@ import { DARK } from '../constants/theme';
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 type Section = 'perfil' | 'assinatura' | 'senha' | 'vinculadas';
+
+const SECTION_ANIM = `
+  @keyframes _sec-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+`;
 
 function GoogleIcon() {
   return (
@@ -24,12 +31,18 @@ function GoogleIcon() {
 }
 
 const PASSWORD_RULES = [
-  { label: 'Mínimo 8 caracteres', test: (p: string) => p.length >= 8 },
-  { label: 'Ao menos uma letra maiúscula', test: (p: string) => /[A-Z]/.test(p) },
-  { label: 'Ao menos um caractere especial (ex: ! @ # $ % & *)', test: (p: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
+  { label: 'Mínimo 8 caracteres',        test: (p: string) => p.length >= 8 },
+  { label: 'Ao menos uma maiúscula',      test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'Ao menos um caractere especial', test: (p: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
 ];
 
 type FeedbackState = { type: 'success' | 'error'; message: string } | null;
+
+const PLAN_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  free:  { label: 'Grátis', color: 'rgba(255,255,255,0.5)',  bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' },
+  solo:  { label: 'Solo',   color: DARK.accent,              bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.25)' },
+  pro:   { label: 'Pro',    color: DARK.emerald,             bg: DARK.emeraldSubtle,       border: DARK.emeraldBorder },
+};
 
 function Feedback({ state }: { state: FeedbackState }) {
   if (!state) return null;
@@ -37,30 +50,26 @@ function Feedback({ state }: { state: FeedbackState }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
-      padding: '8px 12px', borderRadius: 8, fontSize: 12,
-      background: ok ? 'rgba(52,211,153,0.08)' : 'rgba(239,68,68,0.08)',
-      border: `1px solid ${ok ? 'rgba(52,211,153,0.2)' : 'rgba(239,68,68,0.2)'}`,
+      padding: '9px 12px', borderRadius: 8, fontSize: 12,
+      background: ok ? 'rgba(52,211,153,0.07)' : 'rgba(239,68,68,0.07)',
+      border: `1px solid ${ok ? 'rgba(52,211,153,0.18)' : 'rgba(239,68,68,0.18)'}`,
       color: ok ? '#34d399' : '#f87171',
     }}>
-      {ok ? <CheckCircle2 style={{ width: 14, height: 14, flexShrink: 0 }} /> : <AlertCircle style={{ width: 14, height: 14, flexShrink: 0 }} />}
+      {ok
+        ? <CheckCircle2 style={{ width: 13, height: 13, flexShrink: 0 }} />
+        : <AlertCircle  style={{ width: 13, height: 13, flexShrink: 0 }} />}
       {state.message}
-    </div>
-  );
-}
-
-function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div style={{ marginBottom: 28 }}>
-      <h2 style={{ fontSize: 22, fontWeight: 600, color: 'white', margin: 0 }}>{title}</h2>
-      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>{subtitle}</p>
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', marginTop: 20 }} />
     </div>
   );
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: 7 }}>
+    <div style={{
+      fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+      textTransform: 'uppercase' as const,
+      color: 'rgba(255,255,255,0.3)', marginBottom: 7,
+    }}>
       {children}
     </div>
   );
@@ -71,21 +80,36 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       style={{
-        width: '100%', background: 'rgba(255,255,255,0.04)',
-        border: `1px solid ${DARK.border}`, borderRadius: 10,
-        padding: '10px 14px', fontSize: 13, color: DARK.text,
-        outline: 'none', boxSizing: 'border-box' as const,
+        width: '100%',
+        background: 'rgba(255,255,255,0.03)',
+        border: `1px solid ${DARK.border}`,
+        borderRadius: 10,
+        padding: '10px 14px',
+        fontSize: 13,
+        color: DARK.text,
+        outline: 'none',
+        boxSizing: 'border-box' as const,
         fontFamily: 'inherit',
+        transition: 'border 0.15s, box-shadow 0.15s',
         ...props.style,
       }}
-      onFocus={e => { e.target.style.border = `1px solid ${DARK.accentBorder}`; e.target.style.boxShadow = `0 0 0 3px rgba(245,158,11,0.06)`; props.onFocus?.(e); }}
-      onBlur={e => { e.target.style.border = `1px solid ${DARK.border}`; e.target.style.boxShadow = 'none'; props.onBlur?.(e); }}
+      onFocus={e => {
+        e.target.style.border = `1px solid ${DARK.accentBorder}`;
+        e.target.style.boxShadow = `0 0 0 3px rgba(245,158,11,0.07)`;
+        props.onFocus?.(e);
+      }}
+      onBlur={e => {
+        e.target.style.border = `1px solid ${DARK.border}`;
+        e.target.style.boxShadow = 'none';
+        props.onBlur?.(e);
+      }}
     />
   );
 }
 
-function BtnPrimary({ children, disabled, loading, onClick, type = 'button' }: {
-  children: React.ReactNode; disabled?: boolean; loading?: boolean; onClick?: () => void; type?: 'button' | 'submit';
+function BtnPrimary({ children, disabled, loading, onClick, type = 'button', fullWidth }: {
+  children: React.ReactNode; disabled?: boolean; loading?: boolean;
+  onClick?: () => void; type?: 'button' | 'submit'; fullWidth?: boolean;
 }) {
   return (
     <button
@@ -93,38 +117,60 @@ function BtnPrimary({ children, disabled, loading, onClick, type = 'button' }: {
       onClick={onClick}
       disabled={disabled || loading}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        padding: '9px 18px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        padding: '10px 20px', borderRadius: 9, fontSize: 12, fontWeight: 600,
         background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
-        color: DARK.bg, border: 'none', cursor: disabled || loading ? 'default' : 'pointer',
-        opacity: disabled || loading ? 0.4 : 1, whiteSpace: 'nowrap',
+        color: DARK.bg, border: 'none',
+        cursor: disabled || loading ? 'default' : 'pointer',
+        opacity: disabled || loading ? 0.4 : 1,
+        whiteSpace: 'nowrap' as const,
+        width: fullWidth ? '100%' : undefined,
+        transition: 'filter 0.15s, transform 0.1s',
+        fontFamily: 'inherit',
       }}
+      onMouseEnter={e => { if (!disabled && !loading) e.currentTarget.style.filter = 'brightness(1.1)'; }}
+      onMouseLeave={e => { e.currentTarget.style.filter = 'brightness(1)'; }}
     >
-      {loading && <Loader2 style={{ width: 13, height: 13 }} />}
+      {loading && <Loader2 style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} />}
       {children}
     </button>
   );
 }
 
-function NavItem({
-  icon, label, active, onClick,
-}: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.025)',
+      border: `1px solid ${DARK.border}`,
+      borderRadius: 14,
+      padding: '22px 24px',
+      ...style,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function NavItem({ icon, label, active, onClick }: {
+  icon: React.ReactNode; label: string; active: boolean; onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', gap: 9,
-        padding: '8px 10px', borderRadius: 7, cursor: 'pointer',
-        fontSize: 13, fontWeight: 500,
-        color: active ? 'white' : 'rgba(255,255,255,0.45)',
-        background: active ? 'rgba(255,255,255,0.06)' : 'transparent',
+        padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+        fontSize: 13, fontWeight: active ? 600 : 400,
+        color: active ? 'white' : 'rgba(255,255,255,0.4)',
+        background: active ? 'rgba(245,158,11,0.08)' : 'transparent',
         border: 'none',
         borderLeft: `2px solid ${active ? DARK.accent : 'transparent'}`,
-        marginLeft: -2, transition: 'all 0.15s', width: '100%', textAlign: 'left',
+        marginLeft: -2, width: '100%', textAlign: 'left' as const,
         fontFamily: 'inherit',
+        transition: 'all 0.15s',
       }}
-      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.65)'; } }}
-      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.45)'; } }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'rgba(255,255,255,0.65)'; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
     >
       {icon}
       {label}
@@ -132,12 +178,44 @@ function NavItem({
   );
 }
 
-const PLAN_LABEL: Record<string, string> = { free: 'Grátis', solo: 'Solo', pro: 'Pro' };
+function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', margin: '0 0 4px', letterSpacing: '-0.3px' }}>{title}</h2>
+      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: 0 }}>{subtitle}</p>
+    </div>
+  );
+}
+
+function PasswordStrength({ password }: { password: string }) {
+  const score = PASSWORD_RULES.filter(r => r.test(password)).length;
+  const colors = ['transparent', '#f87171', DARK.accent, DARK.emerald];
+  const labels = ['', 'Fraca', 'Média', 'Forte'];
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{
+            flex: 1, height: 3, borderRadius: 99,
+            background: i < score ? colors[score] : 'rgba(255,255,255,0.08)',
+            transition: 'background 0.3s',
+          }} />
+        ))}
+      </div>
+      {password && (
+        <span style={{ fontSize: 10, color: colors[score], fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
+          {labels[score]}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function SettingsPage() {
   const navigate = useNavigate();
   const { user, session, profile, updateName, updateEmail, updatePassword } = useAuth();
   const plan = profile?.plan ?? 'free';
+  const planMeta = PLAN_META[plan] ?? PLAN_META.free;
   const [activeSection, setActiveSection] = useState<Section>('perfil');
 
   // Assinatura
@@ -145,25 +223,18 @@ export function SettingsPage() {
   const [portalFeedback, setPortalFeedback] = useState<FeedbackState>(null);
   const handleManageSubscription = async () => {
     if (!session) return;
-    setPortalLoading(true);
-    setPortalFeedback(null);
+    setPortalLoading(true); setPortalFeedback(null);
     try {
       const res = await fetch(`${API_BASE}/api/billing/portal`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (res.status === 501) {
-        setPortalFeedback({ type: 'error', message: 'Gerenciamento de assinatura em breve. Entre em contato pelo suporte.' });
-        return;
-      }
+      if (res.status === 501) { setPortalFeedback({ type: 'error', message: 'Gerenciamento de assinatura em breve. Entre em contato pelo suporte.' }); return; }
       if (!res.ok) throw new Error();
       const data = await res.json();
       window.location.href = data.url;
-    } catch {
-      setPortalFeedback({ type: 'error', message: 'Erro ao abrir portal. Tente novamente.' });
-    } finally {
-      setPortalLoading(false);
-    }
+    } catch { setPortalFeedback({ type: 'error', message: 'Erro ao abrir portal. Tente novamente.' }); }
+    finally { setPortalLoading(false); }
   };
 
   // Nome
@@ -174,12 +245,9 @@ export function SettingsPage() {
     e.preventDefault();
     if (!name.trim()) return;
     setNameLoading(true); setNameFeedback(null);
-    try {
-      await updateName(name.trim());
-      setNameFeedback({ type: 'success', message: 'Nome atualizado com sucesso.' });
-    } catch (err) {
-      setNameFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar nome.' });
-    } finally { setNameLoading(false); }
+    try { await updateName(name.trim()); setNameFeedback({ type: 'success', message: 'Nome atualizado.' }); }
+    catch (err) { setNameFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar nome.' }); }
+    finally { setNameLoading(false); }
   };
 
   // Email
@@ -191,12 +259,9 @@ export function SettingsPage() {
     if (email === user?.email) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setEmailFeedback({ type: 'error', message: 'Informe um email válido.' }); return; }
     setEmailLoading(true); setEmailFeedback(null);
-    try {
-      await updateEmail(email);
-      setEmailFeedback({ type: 'success', message: 'Confirmação enviada para o novo email.' });
-    } catch (err) {
-      setEmailFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar email.' });
-    } finally { setEmailLoading(false); }
+    try { await updateEmail(email); setEmailFeedback({ type: 'success', message: 'Confirmação enviada para o novo email.' }); }
+    catch (err) { setEmailFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar email.' }); }
+    finally { setEmailLoading(false); }
   };
 
   // Contas vinculadas
@@ -209,7 +274,7 @@ export function SettingsPage() {
       const { error } = await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo: `${window.location.origin}/configuracoes` } });
       if (error) throw new Error(error.message);
     } catch (err) {
-      setLinkFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao vincular conta Google.' });
+      setLinkFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao vincular.' });
       setLinkLoading(false);
     }
   };
@@ -239,257 +304,421 @@ export function SettingsPage() {
       await updatePassword(newPassword);
       setPasswordFeedback({ type: 'success', message: 'Senha atualizada com sucesso.' });
       setNewPassword(''); setConfirmPassword('');
-    } catch (err) {
-      setPasswordFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar senha.' });
-    } finally { setPasswordLoading(false); }
+    } catch (err) { setPasswordFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar senha.' }); }
+    finally { setPasswordLoading(false); }
   };
 
-  const iconStyle = { width: 14, height: 14, strokeWidth: 1.8, color: 'currentColor' };
+  const displayName = user?.user_metadata?.full_name || user?.email || 'Usuário';
+  const avatarInitial = displayName[0].toUpperCase();
+  const iconStyle = { width: 14, height: 14, strokeWidth: 1.7 };
+
+  const navGroups = [
+    {
+      label: 'Conta',
+      items: [
+        { id: 'perfil' as Section, icon: <User style={iconStyle} />, label: 'Perfil' },
+        ...(plan !== 'free' ? [{ id: 'assinatura' as Section, icon: <CreditCard style={iconStyle} />, label: 'Assinatura' }] : []),
+      ],
+    },
+    {
+      label: 'Segurança',
+      items: [
+        { id: 'senha' as Section, icon: <Lock style={iconStyle} />, label: 'Senha' },
+        { id: 'vinculadas' as Section, icon: <Link2 style={iconStyle} />, label: 'Contas vinculadas' },
+      ],
+    },
+  ];
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
+    <>
+      <style>{SECTION_ANIM}</style>
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
 
-      {/* Header */}
-      <header style={{
-        height: 56, display: 'flex', alignItems: 'center',
-        padding: '0 20px', borderBottom: `1px solid ${DARK.borderLight}`,
-        background: 'rgba(8,8,15,0.95)', backdropFilter: 'blur(16px)',
-        flexShrink: 0, zIndex: 10, gap: 16,
-      }}>
-        <button
-          onClick={() => navigate('/app')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            color: 'rgba(255,255,255,0.4)', fontSize: 13, background: 'none',
-            border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-            transition: 'color 0.15s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
-        >
-          <ArrowLeft style={{ width: 16, height: 16 }} />
-          Voltar ao app
-        </button>
-        <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 26, height: 26, borderRadius: 7, background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Sparkles style={{ width: 13, height: 13, color: 'white' }} />
-          </div>
-          <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>Configurações</span>
-        </div>
-      </header>
-
-      {/* Body */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-        {/* Nav sidebar */}
-        <nav style={{
-          width: 200, flexShrink: 0,
-          borderRight: `1px solid ${DARK.border}`,
-          background: '#0d0d1a',
-          padding: '20px 12px',
-          display: 'flex', flexDirection: 'column', gap: 2,
-          overflowY: 'auto',
+        {/* Header */}
+        <header style={{
+          height: 54, display: 'flex', alignItems: 'center', padding: '0 20px',
+          borderBottom: `1px solid ${DARK.borderLight}`,
+          background: 'rgba(8,8,15,0.96)', backdropFilter: 'blur(16px)',
+          flexShrink: 0, zIndex: 10, gap: 14,
         }}>
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.2)', padding: '0 10px', marginBottom: 4 }}>
-            Conta
+          <button
+            onClick={() => navigate('/app')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              color: 'rgba(255,255,255,0.35)', fontSize: 13,
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'inherit', transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
+          >
+            <ArrowLeft style={{ width: 15, height: 15 }} />
+            Voltar
+          </button>
+          <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: 7,
+              background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Sparkles style={{ width: 13, height: 13, color: 'white' }} />
+            </div>
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>
+              Configurações
+            </span>
           </div>
-          <NavItem icon={<User style={iconStyle} />} label="Perfil" active={activeSection === 'perfil'} onClick={() => setActiveSection('perfil')} />
-          {plan !== 'free' && (
-            <NavItem icon={<CreditCard style={iconStyle} />} label="Assinatura" active={activeSection === 'assinatura'} onClick={() => setActiveSection('assinatura')} />
-          )}
+        </header>
 
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.2)', padding: '0 10px', marginTop: 16, marginBottom: 4 }}>
-            Segurança
-          </div>
-          <NavItem icon={<Lock style={iconStyle} />} label="Senha" active={activeSection === 'senha'} onClick={() => setActiveSection('senha')} />
-          <NavItem icon={<Link2 style={iconStyle} />} label="Contas vinculadas" active={activeSection === 'vinculadas'} onClick={() => setActiveSection('vinculadas')} />
-        </nav>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* Content */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          <div style={{ padding: '36px 48px', maxWidth: 760 }}>
-
-            {/* Perfil */}
-            {activeSection === 'perfil' && (
-              <div>
-                <SectionTitle title="Perfil" subtitle="Suas informações de conta" />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
-                  <form onSubmit={handleSaveName} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <FieldLabel>Nome de exibição</FieldLabel>
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                      <div style={{ flex: 1 }}>
-                        <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" maxLength={100} />
-                      </div>
-                      <BtnPrimary type="submit" loading={nameLoading} disabled={!name.trim()}>Salvar</BtnPrimary>
-                    </div>
-                    <Feedback state={nameFeedback} />
-                  </form>
-
-                  <form onSubmit={handleSaveEmail} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <FieldLabel>Email</FieldLabel>
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                      <div style={{ flex: 1 }}>
-                        <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" maxLength={254} />
-                      </div>
-                      <BtnPrimary type="submit" loading={emailLoading} disabled={email === user?.email || !email.trim()}>Salvar</BtnPrimary>
-                    </div>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', lineHeight: 1.5 }}>Confirmação enviada antes da troca ser efetivada.</p>
-                    <Feedback state={emailFeedback} />
-                  </form>
-                </div>
+          {/* Sidebar */}
+          <nav style={{
+            width: 220, flexShrink: 0,
+            borderRight: `1px solid ${DARK.border}`,
+            background: '#0b0b18',
+            padding: '20px 14px',
+            display: 'flex', flexDirection: 'column', gap: 0,
+            overflowY: 'auto',
+          }}>
+            {/* User card */}
+            <div style={{
+              background: 'rgba(255,255,255,0.03)',
+              border: `1px solid ${DARK.border}`,
+              borderRadius: 12,
+              padding: '14px 14px',
+              marginBottom: 20,
+              display: 'flex', alignItems: 'center', gap: 11,
+            }}>
+              {/* Avatar */}
+              <div style={{
+                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                background: `linear-gradient(135deg, ${DARK.accent} 0%, #d97706 100%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, fontWeight: 700, color: '#08080f',
+                boxShadow: '0 4px 12px rgba(245,158,11,0.25)',
+              }}>
+                {avatarInitial}
               </div>
-            )}
-
-            {/* Assinatura */}
-            {activeSection === 'assinatura' && (
-              <div>
-                <SectionTitle title="Assinatura" subtitle="Plano atual e faturamento" />
-                <div style={{
-                  background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.12)',
-                  borderRadius: 12, padding: '18px 22px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  marginBottom: 16,
+              <div style={{ minWidth: 0 }}>
+                <p style={{
+                  fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.88)',
+                  margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: 'white' }}>Plano {PLAN_LABEL[plan]}</span>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
-                        background: 'rgba(52,211,153,0.1)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)',
-                      }}>ATIVO</span>
-                    </div>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Gerencie sua assinatura, troque o cartão ou cancele.</p>
-                  </div>
-                  <button
-                    onClick={handleManageSubscription}
-                    disabled={portalLoading}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      padding: '9px 18px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-                      background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)',
-                      border: `1px solid ${DARK.border}`, cursor: portalLoading ? 'default' : 'pointer',
-                      opacity: portalLoading ? 0.5 : 1, whiteSpace: 'nowrap', fontFamily: 'inherit',
-                    }}
-                  >
-                    {portalLoading && <Loader2 style={{ width: 13, height: 13 }} />}
-                    Gerenciar assinatura →
-                  </button>
+                  {user?.user_metadata?.full_name || 'Usuário'}
+                </p>
+                {/* Plan chip */}
+                <span style={{
+                  display: 'inline-block', marginTop: 5,
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
+                  textTransform: 'uppercase' as const,
+                  padding: '2px 7px', borderRadius: 99,
+                  background: planMeta.bg, color: planMeta.color,
+                  border: `1px solid ${planMeta.border}`,
+                }}>
+                  {planMeta.label}
+                </span>
+              </div>
+            </div>
+
+            {/* Nav groups */}
+            {navGroups.map(group => (
+              <div key={group.label} style={{ marginBottom: 20 }}>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+                  textTransform: 'uppercase' as const,
+                  color: 'rgba(255,255,255,0.18)', padding: '0 10px', marginBottom: 6,
+                }}>
+                  {group.label}
                 </div>
-                <Feedback state={portalFeedback} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {group.items.map(item => (
+                    <NavItem
+                      key={item.id}
+                      icon={item.icon}
+                      label={item.label}
+                      active={activeSection === item.id}
+                      onClick={() => setActiveSection(item.id)}
+                    />
+                  ))}
+                </div>
               </div>
-            )}
+            ))}
+          </nav>
 
-            {/* Senha */}
-            {activeSection === 'senha' && (
-              <div>
-                <SectionTitle title={isOAuthOnly ? 'Definir senha' : 'Alterar senha'} subtitle={isOAuthOnly ? 'Defina uma senha para entrar também com email e senha.' : 'Altere sua senha de acesso.'} />
-                <form onSubmit={handleSavePassword} style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 480 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                    <div>
-                      <FieldLabel>Nova senha</FieldLabel>
-                      <div style={{ position: 'relative' }}>
-                        <Input
-                          type={showPassword ? 'text' : 'password'}
-                          value={newPassword}
-                          onChange={e => setNewPassword(e.target.value)}
-                          onFocus={() => setPasswordFocused(true)}
-                          onBlur={() => setPasswordFocused(false)}
-                          placeholder="••••••••"
-                          maxLength={128}
-                          style={{ paddingRight: 40 }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(p => !p)}
-                          style={{
-                            position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                            background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)',
-                          }}
-                        >
-                          {showPassword ? <EyeOff style={{ width: 14, height: 14 }} /> : <Eye style={{ width: 14, height: 14 }} />}
-                        </button>
-                      </div>
-                      {/* Password requirements */}
-                      <div style={{ overflow: 'hidden', maxHeight: passwordFocused && newPassword ? 100 : 0, transition: 'max-height 0.3s', marginTop: 8 }}>
-                        {PASSWORD_RULES.map(rule => {
-                          const met = rule.test(newPassword);
-                          return (
-                            <div key={rule.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                              <div style={{
-                                width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
-                                background: met ? DARK.accent : 'rgba(255,255,255,0.06)',
-                                border: met ? 'none' : `1px solid ${DARK.border}`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              }}>
-                                <Check style={{ width: 8, height: 8, color: met ? DARK.bg : 'transparent', strokeWidth: 3 }} />
-                              </div>
-                              <span style={{ fontSize: 11, color: met ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }}>{rule.label}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div>
-                      <FieldLabel>Confirmar senha</FieldLabel>
-                      <Input
-                        type={showPassword ? 'text' : 'password'}
-                        value={confirmPassword}
-                        onChange={e => setConfirmPassword(e.target.value)}
-                        placeholder="••••••••"
-                        maxLength={128}
-                      />
-                    </div>
-                  </div>
-                  <Feedback state={passwordFeedback} />
-                  <div>
-                    <BtnPrimary type="submit" loading={passwordLoading} disabled={!newPassword || !confirmPassword}>
-                      Atualizar senha
-                    </BtnPrimary>
-                  </div>
-                </form>
-              </div>
-            )}
+          {/* Content */}
+          <div style={{ flex: 1, overflowY: 'auto', background: '#09091566' }}>
+            <div
+              key={activeSection}
+              style={{
+                padding: '40px 48px', maxWidth: 680,
+                animation: '_sec-in 0.22s ease both',
+              }}
+            >
 
-            {/* Contas vinculadas */}
-            {activeSection === 'vinculadas' && (
-              <div>
-                <SectionTitle title="Contas vinculadas" subtitle="Métodos de login associados à conta" />
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: `1px solid ${DARK.borderLight}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {/* ─── Perfil ─── */}
+              {activeSection === 'perfil' && (
+                <div>
+                  <SectionHeader title="Perfil" subtitle="Seu nome e email de acesso" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                    <Card>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+                        <User style={{ width: 13, height: 13, color: 'rgba(255,255,255,0.3)' }} />
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Nome de exibição</span>
+                      </div>
+                      <form onSubmit={handleSaveName} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" maxLength={100} />
+                          </div>
+                          <BtnPrimary type="submit" loading={nameLoading} disabled={!name.trim()}>Salvar</BtnPrimary>
+                        </div>
+                        <Feedback state={nameFeedback} />
+                      </form>
+                    </Card>
+
+                    <Card>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+                        <Mail style={{ width: 13, height: 13, color: 'rgba(255,255,255,0.3)' }} />
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Email</span>
+                      </div>
+                      <form onSubmit={handleSaveEmail} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" maxLength={254} />
+                          </div>
+                          <BtnPrimary type="submit" loading={emailLoading} disabled={email === user?.email || !email.trim()}>Salvar</BtnPrimary>
+                        </div>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.22)', lineHeight: 1.5, margin: 0 }}>
+                          Um email de confirmação será enviado antes da troca ser efetivada.
+                        </p>
+                        <Feedback state={emailFeedback} />
+                      </form>
+                    </Card>
+
+                  </div>
+                </div>
+              )}
+
+              {/* ─── Assinatura ─── */}
+              {activeSection === 'assinatura' && (
+                <div>
+                  <SectionHeader title="Assinatura" subtitle="Plano atual e faturamento" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                    {/* Plan card */}
                     <div style={{
-                      width: 34, height: 34, borderRadius: 8,
-                      background: 'rgba(255,255,255,0.04)', border: `1px solid ${DARK.border}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      position: 'relative', overflow: 'hidden',
+                      background: 'rgba(245,158,11,0.04)',
+                      border: '1px solid rgba(245,158,11,0.14)',
+                      borderRadius: 16, padding: '22px 24px',
                     }}>
-                      <GoogleIcon />
+                      {/* Glow top */}
+                      <div style={{
+                        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+                        background: 'linear-gradient(90deg, transparent 10%, rgba(245,158,11,0.4) 50%, transparent 90%)',
+                      }} />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div style={{
+                            width: 40, height: 40, borderRadius: 10,
+                            background: 'rgba(245,158,11,0.1)',
+                            border: '1px solid rgba(245,158,11,0.2)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <Zap style={{ width: 18, height: 18, color: DARK.accent }} />
+                          </div>
+                          <div>
+                            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'white' }}>
+                              Plano {PLAN_META[plan]?.label}
+                            </p>
+                            <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                              Gerencie sua assinatura
+                            </p>
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 99,
+                          background: 'rgba(52,211,153,0.1)', color: '#34d399',
+                          border: '1px solid rgba(52,211,153,0.2)', letterSpacing: '0.06em',
+                          textTransform: 'uppercase' as const,
+                        }}>
+                          Ativo
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleManageSubscription}
+                        disabled={portalLoading}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          padding: '9px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+                          background: 'rgba(255,255,255,0.05)',
+                          color: 'rgba(255,255,255,0.55)',
+                          border: `1px solid ${DARK.border}`,
+                          cursor: portalLoading ? 'default' : 'pointer',
+                          opacity: portalLoading ? 0.5 : 1,
+                          whiteSpace: 'nowrap' as const,
+                          fontFamily: 'inherit',
+                          transition: 'background 0.15s, color 0.15s',
+                        }}
+                        onMouseEnter={e => { if (!portalLoading) { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; } }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
+                      >
+                        {portalLoading && <Loader2 style={{ width: 12, height: 12 }} />}
+                        Gerenciar assinatura →
+                      </button>
                     </div>
-                    <div>
-                      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>Google</p>
-                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>{hasGoogle ? 'Conta vinculada' : 'Não vinculado'}</p>
-                    </div>
-                  </div>
-                  {hasGoogle ? (
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 99,
-                      background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.15)',
-                      color: '#34d399',
-                    }}>
-                      <CheckCircle2 style={{ width: 13, height: 13 }} />
-                      Vinculado
-                    </span>
-                  ) : (
-                    <BtnPrimary loading={linkLoading} onClick={handleLinkGoogle}>Vincular</BtnPrimary>
-                  )}
-                </div>
-                <Feedback state={linkFeedback} />
-              </div>
-            )}
 
+                    <Feedback state={portalFeedback} />
+                  </div>
+                </div>
+              )}
+
+              {/* ─── Senha ─── */}
+              {activeSection === 'senha' && (
+                <div>
+                  <SectionHeader
+                    title={isOAuthOnly ? 'Definir senha' : 'Alterar senha'}
+                    subtitle={isOAuthOnly ? 'Defina uma senha para entrar com email e senha.' : 'Atualize sua senha de acesso.'}
+                  />
+                  <Card style={{ maxWidth: 500 }}>
+                    <form onSubmit={handleSavePassword} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+                        <div>
+                          <FieldLabel>Nova senha</FieldLabel>
+                          <div style={{ position: 'relative' }}>
+                            <Input
+                              type={showPassword ? 'text' : 'password'}
+                              value={newPassword}
+                              onChange={e => setNewPassword(e.target.value)}
+                              onFocus={() => setPasswordFocused(true)}
+                              onBlur={() => setPasswordFocused(false)}
+                              placeholder="••••••••"
+                              maxLength={128}
+                              style={{ paddingRight: 40 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(p => !p)}
+                              style={{
+                                position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)',
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center',
+                              }}
+                            >
+                              {showPassword ? <EyeOff style={{ width: 14, height: 14 }} /> : <Eye style={{ width: 14, height: 14 }} />}
+                            </button>
+                          </div>
+
+                          {/* Strength bar */}
+                          {newPassword.length > 0 && <PasswordStrength password={newPassword} />}
+
+                          {/* Rules */}
+                          <div style={{
+                            overflow: 'hidden',
+                            maxHeight: passwordFocused && newPassword ? 90 : 0,
+                            transition: 'max-height 0.3s ease',
+                            marginTop: newPassword ? 10 : 0,
+                          }}>
+                            {PASSWORD_RULES.map(rule => {
+                              const met = rule.test(newPassword);
+                              return (
+                                <div key={rule.label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                                  <div style={{
+                                    width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                                    background: met ? DARK.accent : 'rgba(255,255,255,0.05)',
+                                    border: met ? 'none' : `1px solid ${DARK.border}`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    transition: 'background 0.2s',
+                                  }}>
+                                    <Check style={{ width: 7, height: 7, color: met ? DARK.bg : 'transparent', strokeWidth: 3.5 }} />
+                                  </div>
+                                  <span style={{ fontSize: 11, color: met ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)', transition: 'color 0.2s' }}>
+                                    {rule.label}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <FieldLabel>Confirmar senha</FieldLabel>
+                          <Input
+                            type={showPassword ? 'text' : 'password'}
+                            value={confirmPassword}
+                            onChange={e => setConfirmPassword(e.target.value)}
+                            placeholder="••••••••"
+                            maxLength={128}
+                          />
+                          {confirmPassword && newPassword && (
+                            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {confirmPassword === newPassword
+                                ? <><CheckCircle2 style={{ width: 12, height: 12, color: DARK.emerald }} /><span style={{ fontSize: 11, color: DARK.emerald }}>Senhas coincidem</span></>
+                                : <><AlertCircle  style={{ width: 12, height: 12, color: '#f87171' }} /><span style={{ fontSize: 11, color: '#f87171' }}>Senhas não coincidem</span></>
+                              }
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <Feedback state={passwordFeedback} />
+                      <BtnPrimary type="submit" loading={passwordLoading} disabled={!newPassword || !confirmPassword}>
+                        Atualizar senha
+                      </BtnPrimary>
+                    </form>
+                  </Card>
+                </div>
+              )}
+
+              {/* ─── Contas vinculadas ─── */}
+              {activeSection === 'vinculadas' && (
+                <div>
+                  <SectionHeader title="Contas vinculadas" subtitle="Métodos de login associados à sua conta" />
+                  <Card>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{
+                          width: 38, height: 38, borderRadius: 9,
+                          background: 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${DARK.border}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <GoogleIcon />
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600, margin: 0 }}>Google</p>
+                          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)', marginTop: 2, marginBottom: 0 }}>
+                            {hasGoogle ? 'Conta vinculada' : 'Não vinculado'}
+                          </p>
+                        </div>
+                      </div>
+                      {hasGoogle ? (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99,
+                          background: 'rgba(52,211,153,0.08)',
+                          border: '1px solid rgba(52,211,153,0.15)',
+                          color: '#34d399',
+                        }}>
+                          <CheckCircle2 style={{ width: 12, height: 12 }} />
+                          Vinculado
+                        </span>
+                      ) : (
+                        <BtnPrimary loading={linkLoading} onClick={handleLinkGoogle}>Vincular</BtnPrimary>
+                      )}
+                    </div>
+                    <Feedback state={linkFeedback} />
+                  </Card>
+                </div>
+              )}
+
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
