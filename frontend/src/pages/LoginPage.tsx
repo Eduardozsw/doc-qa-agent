@@ -176,7 +176,7 @@ export function LoginPage() {
               style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}>
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="font-display text-lg text-white tracking-tight">DocAI</span>
+            <span className="font-display text-lg text-white tracking-tight">MindDoc</span>
           </div>
           <h1 className="text-2xl font-display text-white">
             {mode === 'login' ? 'Bem-vindo de volta' : 'Criar conta'}

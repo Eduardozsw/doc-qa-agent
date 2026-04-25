@@ -132,7 +132,7 @@ function MainApp({ session }: { session: Session | null }) {
           }}>
             <Sparkles style={{ width: 14, height: 14, color: 'white' }} />
           </div>
-          <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>DocAI</span>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>MindDoc</span>
         </button>
         <UserMenu />
       </header>
