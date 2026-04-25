@@ -86,7 +86,7 @@ function HeroMockup() {
         <span className="w-3 h-3 rounded-full bg-red-500/70" />
         <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
         <span className="w-3 h-3 rounded-full bg-green-500/70" />
-        <span className="ml-3 text-xs font-sans" style={{ color: DARK.textFaint }}>DocAI</span>
+        <span className="ml-3 text-xs font-sans" style={{ color: DARK.textFaint }}>MindDoc</span>
       </div>
 
       <div className="p-5 space-y-4">

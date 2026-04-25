@@ -22,7 +22,7 @@ export function UseCasesSection() {
             Qualquer profissional que<br className="hidden sm:block" /> lida com documentos
           </h2>
           <p className="text-sm font-sans max-w-md mx-auto" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Se você passa horas lendo documentos para encontrar uma informação pontual, o DocAI foi feito para você.
+            Se você passa horas lendo documentos para encontrar uma informação pontual, o MindDoc foi feito para você.
           </p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

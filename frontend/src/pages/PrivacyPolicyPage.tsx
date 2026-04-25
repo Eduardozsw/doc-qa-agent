@@ -31,7 +31,7 @@ export function PrivacyPolicyPage() {
               style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}>
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="font-display text-base text-white tracking-tight">DocAI</span>
+            <span className="font-display text-base text-white tracking-tight">MindDoc</span>
           </div>
           <Link to="/"
             className="flex items-center gap-1.5 text-sm font-sans transition-colors hover:text-white"
@@ -59,7 +59,7 @@ export function PrivacyPolicyPage() {
 
           <Section title="1. Quem somos">
             <p>
-              O <strong className="text-white">DocAI</strong> é um assistente de perguntas e respostas sobre documentos.
+              O <strong className="text-white">MindDoc</strong> é um assistente de perguntas e respostas sobre documentos.
               Permite que usuários enviem arquivos PDF e façam perguntas sobre o conteúdo,
               recebendo respostas baseadas exclusivamente nos documentos enviados.
             </p>
@@ -158,7 +158,7 @@ export function PrivacyPolicyPage() {
 
           <Section title="8. Cookies e rastreamento">
             <p>
-              O DocAI utiliza apenas cookies de sessão estritamente necessários para manter o usuário autenticado.
+              O MindDoc utiliza apenas cookies de sessão estritamente necessários para manter o usuário autenticado.
               Não utilizamos cookies de rastreamento, publicidade ou analytics de terceiros.
             </p>
           </Section>
