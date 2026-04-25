@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_price_solo: str = ""
     stripe_price_pro: str = ""
+    stripe_price_solo_onetime: str = ""
+    stripe_price_pro_onetime: str = ""
 
     # Frontend
     frontend_url: str = "http://localhost"

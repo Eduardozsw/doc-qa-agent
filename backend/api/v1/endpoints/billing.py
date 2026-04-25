@@ -1,7 +1,7 @@
 import json
 import logging
 import stripe
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.deps import get_current_user, UserContext
@@ -32,10 +32,18 @@ async def create_checkout(
     settings = get_settings()
     s = _stripe()
 
-    price_id = (
-        settings.stripe_price_solo if body.plan == "solo"
-        else settings.stripe_price_pro
-    )
+    use_pix = body.payment_method == "pix"
+
+    if use_pix:
+        price_id = (
+            settings.stripe_price_solo_onetime if body.plan == "solo"
+            else settings.stripe_price_pro_onetime
+        )
+    else:
+        price_id = (
+            settings.stripe_price_solo if body.plan == "solo"
+            else settings.stripe_price_pro
+        )
     if not price_id:
         raise HTTPException(status_code=500, detail="Plano não configurado")
 
@@ -55,14 +63,26 @@ async def create_checkout(
             raise HTTPException(status_code=502, detail=f"Erro Stripe ao criar cliente: {e.user_message}")
 
     try:
-        session = s.checkout.Session.create(
-            customer=customer_id,
-            mode="subscription",
-            line_items=[{"price": price_id, "quantity": 1}],
-            success_url=f"{settings.frontend_url}/sucesso",
-            cancel_url=f"{settings.frontend_url}/#precos",
-            subscription_data={"metadata": {"user_id": user.id, "plan": body.plan}},
-        )
+        if use_pix:
+            session = s.checkout.Session.create(
+                customer=customer_id,
+                mode="payment",
+                payment_method_types=["pix"],
+                line_items=[{"price": price_id, "quantity": 1}],
+                success_url=f"{settings.frontend_url}/sucesso",
+                cancel_url=f"{settings.frontend_url}/#precos",
+                metadata={"user_id": user.id, "plan": body.plan},
+            )
+        else:
+            session = s.checkout.Session.create(
+                customer=customer_id,
+                mode="subscription",
+                payment_method_types=["card"],
+                line_items=[{"price": price_id, "quantity": 1}],
+                success_url=f"{settings.frontend_url}/sucesso",
+                cancel_url=f"{settings.frontend_url}/#precos",
+                subscription_data={"metadata": {"user_id": user.id, "plan": body.plan}},
+            )
     except stripe.StripeError as e:
         logger.error(f"Stripe checkout.Session.create falhou: {e}")
         raise HTTPException(status_code=502, detail=f"Erro Stripe: {e.user_message}")
@@ -132,10 +152,16 @@ def _handle_event(event: dict) -> None:
         if not user_id and customer_id:
             user_id = _user_id_from_customer(customer_id)
         plan = data.get("metadata", {}).get("plan", "solo")
-        subscription_id = data.get("subscription")
-        if user_id:
-            period_end = _period_end_from_subscription(subscription_id)
-            update_plan_and_status(user_id, plan, "active", subscription_id, period_end)
+
+        if data.get("mode") == "payment":
+            period_end = datetime.now(tz=timezone.utc) + timedelta(days=30)
+            if user_id:
+                update_plan_and_status(user_id, plan, "active", None, period_end)
+        else:
+            subscription_id = data.get("subscription")
+            if user_id:
+                period_end = _period_end_from_subscription(subscription_id)
+                update_plan_and_status(user_id, plan, "active", subscription_id, period_end)
 
     elif etype == "invoice.paid":
         subscription_id = data.get("subscription")
