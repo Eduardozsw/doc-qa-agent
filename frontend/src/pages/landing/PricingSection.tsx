@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { DARK } from '../../constants/theme';
 
@@ -6,6 +7,7 @@ const PLANS = [
     name: 'Grátis',
     planKey: 'free',
     price: 'R$0',
+    priceOnetime: null,
     period: 'para sempre',
     description: 'Para experimentar sem compromisso.',
     highlight: false,
@@ -22,6 +24,7 @@ const PLANS = [
     name: 'Solo',
     planKey: 'solo',
     price: 'R$19',
+    priceOnetime: 'R$19',
     period: 'por mês',
     description: 'Para profissionais que consultam documentos no dia a dia.',
     highlight: true,
@@ -39,6 +42,7 @@ const PLANS = [
     name: 'Pro',
     planKey: 'pro',
     price: 'R$49',
+    priceOnetime: 'R$49',
     period: 'por mês',
     description: 'Para quem precisa de mais volume e recursos avançados.',
     highlight: false,
@@ -56,10 +60,13 @@ const PLANS = [
 
 interface PricingSectionProps {
   onCTA: () => void;
-  onSelectPlan: (plan: string) => void;
+  onSelectPlan: (plan: string, paymentMethod: 'card' | 'pix') => void;
 }
 
 export function PricingSection({ onCTA, onSelectPlan }: PricingSectionProps) {
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix'>('card');
+  const isPix = paymentMethod === 'pix';
+
   return (
     <section id="precos" className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
@@ -69,6 +76,29 @@ export function PricingSection({ onCTA, onSelectPlan }: PricingSectionProps) {
           </p>
           <h2 className="font-display text-3xl sm:text-4xl text-white">Comece grátis. Escale quando precisar.</h2>
         </div>
+
+        <div className="flex justify-center mb-10">
+          <div
+            className="flex rounded-xl p-1 gap-1"
+            style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${DARK.border}` }}
+          >
+            {(['card', 'pix'] as const).map((method) => (
+              <button
+                key={method}
+                onClick={() => setPaymentMethod(method)}
+                className="px-5 py-2 rounded-lg text-sm font-sans font-semibold transition-all duration-200"
+                style={
+                  paymentMethod === method
+                    ? { background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, color: DARK.bg }
+                    : { color: 'rgba(255,255,255,0.5)' }
+                }
+              >
+                {method === 'card' ? 'Mensal · Cartão' : '1 mês · PIX'}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid md:grid-cols-3 gap-6 items-start">
           {PLANS.map((plan) => (
             <div
@@ -96,8 +126,12 @@ export function PricingSection({ onCTA, onSelectPlan }: PricingSectionProps) {
                   {plan.name}
                 </p>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="font-display text-4xl text-white">{plan.price}</span>
-                  <span className="text-xs font-sans" style={{ color: 'rgba(255,255,255,0.4)' }}>/{plan.period}</span>
+                  <span className="font-display text-4xl text-white">
+                    {plan.planKey !== 'free' && isPix ? plan.priceOnetime : plan.price}
+                  </span>
+                  <span className="text-xs font-sans" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    /{plan.planKey !== 'free' && isPix ? 'pagamento único' : plan.period}
+                  </span>
                 </div>
                 <p className="text-xs font-sans mt-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
                   {plan.description}
@@ -115,7 +149,9 @@ export function PricingSection({ onCTA, onSelectPlan }: PricingSectionProps) {
                 ))}
               </ul>
               <button
-                onClick={() => onSelectPlan(plan.planKey)}
+                onClick={() =>
+                  plan.planKey === 'free' ? onCTA() : onSelectPlan(plan.planKey, paymentMethod)
+                }
                 className="mt-auto w-full py-3 rounded-xl text-sm font-sans font-semibold transition-all duration-200 hover:opacity-90 active:scale-95"
                 style={
                   plan.highlight
@@ -123,7 +159,7 @@ export function PricingSection({ onCTA, onSelectPlan }: PricingSectionProps) {
                     : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', border: `1px solid ${DARK.border}` }
                 }
               >
-                {plan.cta}
+                {plan.planKey === 'free' ? plan.cta : isPix ? 'Pagar com PIX' : plan.cta}
               </button>
             </div>
           ))}

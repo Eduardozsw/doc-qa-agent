@@ -20,7 +20,7 @@ export function LandingPage() {
     else navigate('/login');
   };
 
-  const handleSelectPlan = async (plan: string) => {
+  const handleSelectPlan = async (plan: string, paymentMethod: 'card' | 'pix' = 'card') => {
     if (plan === 'free') {
       handleCTA();
       return;
@@ -39,7 +39,7 @@ export function LandingPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, payment_method: paymentMethod }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
