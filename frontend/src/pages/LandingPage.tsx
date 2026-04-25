@@ -76,7 +76,7 @@ export function LandingPage() {
             >
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="font-display text-lg text-white tracking-tight">DocAI</span>
+            <span className="font-display text-lg text-white tracking-tight">MindDoc</span>
           </div>
           <div className="flex items-center gap-4">
             <a href="#precos" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>Preços</a>
@@ -146,10 +146,10 @@ export function LandingPage() {
             >
               <Sparkles className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="font-display text-sm text-white">DocAI</span>
+            <span className="font-display text-sm text-white">MindDoc</span>
           </div>
           <p className="text-xs font-sans" style={{ color: 'rgba(255,255,255,0.25)' }}>
-            © {new Date().getFullYear()} DocAI.
+            © {new Date().getFullYear()} MindDoc.
           </p>
         </div>
       </footer>
