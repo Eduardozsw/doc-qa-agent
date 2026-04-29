@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, FileText, X } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 import { PDFUpload } from './components/PDFUpload';
 import { PlanLimitModal } from './components/PlanLimitModal';
@@ -55,10 +55,22 @@ function MainApp({ session }: { session: Session | null }) {
   const [question, setQuestion] = useState('');
   const [history, setHistory] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
     loadIndexedFiles();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => {
+      setIsMobile(e.matches);
+      if (!e.matches) setSidebarOpen(false);
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   const handleSubmit = async () => {
     if (ingestStatus !== 'ready' || !question.trim()) return;
@@ -134,14 +146,54 @@ function MainApp({ session }: { session: Session | null }) {
           </div>
           <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>MindDoc</span>
         </button>
-        <UserMenu />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: sidebarOpen ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${sidebarOpen ? DARK.accentBorder : DARK.border}`,
+                borderRadius: 8, padding: '5px 10px', cursor: 'pointer',
+                color: sidebarOpen ? DARK.accent : DARK.textMuted,
+                fontSize: 12, fontWeight: 500, transition: 'all 0.2s',
+              }}
+            >
+              {sidebarOpen
+                ? <X style={{ width: 14, height: 14 }} />
+                : <FileText style={{ width: 14, height: 14 }} />}
+              {sidebarOpen ? 'Fechar' : 'Documentos'}
+            </button>
+          )}
+          <UserMenu />
+        </div>
       </header>
 
       {/* Body */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+
+        {/* Overlay mobile */}
+        {isMobile && sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, top: 56,
+              background: 'rgba(0,0,0,0.55)', zIndex: 40,
+              backdropFilter: 'blur(2px)',
+            }}
+          />
+        )}
 
         {/* Sidebar */}
-        <aside style={{
+        <aside style={isMobile ? {
+          position: 'fixed', left: 0, top: 56, bottom: 0,
+          width: 280, zIndex: 50,
+          borderRight: `1px solid ${DARK.border}`,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          background: '#0d0d1a',
+          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.25s ease',
+        } : {
           width: 260, flexShrink: 0,
           borderRight: `1px solid ${DARK.border}`,
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
@@ -167,7 +219,7 @@ function MainApp({ session }: { session: Session | null }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0a0a14' }}>
 
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', position: 'relative' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '24px 32px', position: 'relative' }}>
             {history.length > 0 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
                 <button
@@ -190,7 +242,7 @@ function MainApp({ session }: { session: Session | null }) {
           {/* Input */}
           <div style={{
             flexShrink: 0,
-            padding: '16px 24px 20px',
+            padding: isMobile ? '12px 16px 16px' : '16px 24px 20px',
             borderTop: `1px solid ${DARK.border}`,
           }}>
             <QuestionInput
