@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, ArrowLeft, User, Mail, Lock, Check, Eye, EyeOff,
-  Loader2, AlertCircle, CheckCircle2, Link2, CreditCard, Zap,
+  Loader2, AlertCircle, CheckCircle2, Link2, CreditCard, Zap, Menu, X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -217,6 +217,18 @@ export function SettingsPage() {
   const plan = profile?.plan ?? 'free';
   const planMeta = PLAN_META[plan] ?? PLAN_META.free;
   const [activeSection, setActiveSection] = useState<Section>('perfil');
+  const [navOpen, setNavOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => {
+      setIsMobile(e.matches);
+      if (!e.matches) setNavOpen(false);
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // Assinatura
   const [portalLoading, setPortalLoading] = useState(false);
@@ -356,24 +368,64 @@ export function SettingsPage() {
             Voltar
           </button>
           <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              width: 26, height: 26, borderRadius: 7,
-              background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Sparkles style={{ width: 13, height: 13, color: 'white' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: 7,
+                background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Sparkles style={{ width: 13, height: 13, color: 'white' }} />
+              </div>
+              <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>
+                Configurações
+              </span>
             </div>
-            <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>
-              Configurações
-            </span>
+            {isMobile && (
+              <button
+                onClick={() => setNavOpen(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: navOpen ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${navOpen ? DARK.accentBorder : DARK.border}`,
+                  borderRadius: 8, padding: '5px 10px', cursor: 'pointer',
+                  color: navOpen ? DARK.accent : DARK.textMuted,
+                  fontSize: 12, fontWeight: 500, transition: 'all 0.2s',
+                }}
+              >
+                {navOpen ? <X style={{ width: 14, height: 14 }} /> : <Menu style={{ width: 14, height: 14 }} />}
+                {navOpen ? 'Fechar' : 'Menu'}
+              </button>
+            )}
           </div>
         </header>
 
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
 
-          {/* Sidebar */}
-          <nav style={{
+          {/* Overlay mobile */}
+          {isMobile && navOpen && (
+            <div
+              onClick={() => setNavOpen(false)}
+              style={{
+                position: 'fixed', inset: 0, top: 54,
+                background: 'rgba(0,0,0,0.55)', zIndex: 40,
+                backdropFilter: 'blur(2px)',
+              }}
+            />
+          )}
+
+          {/* Sidebar / Drawer */}
+          <nav style={isMobile ? {
+            position: 'fixed', left: 0, top: 54, bottom: 0,
+            width: 260, zIndex: 50,
+            borderRight: `1px solid ${DARK.border}`,
+            background: '#0b0b18',
+            padding: '20px 14px',
+            display: 'flex', flexDirection: 'column', gap: 0,
+            overflowY: 'auto',
+            transform: navOpen ? 'translateX(0)' : 'translateX(-100%)',
+            transition: 'transform 0.25s ease',
+          } : {
             width: 220, flexShrink: 0,
             borderRight: `1px solid ${DARK.border}`,
             background: '#0b0b18',
@@ -438,7 +490,7 @@ export function SettingsPage() {
                       icon={item.icon}
                       label={item.label}
                       active={activeSection === item.id}
-                      onClick={() => setActiveSection(item.id)}
+                      onClick={() => { setActiveSection(item.id); setNavOpen(false); }}
                     />
                   ))}
                 </div>
