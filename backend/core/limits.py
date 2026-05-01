@@ -1,7 +1,7 @@
 PLAN_LIMITS: dict[str, dict] = {
-    "free": {"queries": 30,   "documents": 3,    "history": False, "page_number": False},
-    "solo": {"queries": 300,  "documents": None, "history": True,  "page_number": False},
-    "pro":  {"queries": 1000, "documents": None, "history": True,  "page_number": True},
+    "free": {"queries": 30,   "documents": 3,  "history": False, "page_number": False},
+    "solo": {"queries": 300,  "documents": 10, "history": True,  "page_number": False},
+    "pro":  {"queries": 1000, "documents": 20, "history": True,  "page_number": True},
 }
 
 def get_limit(plan: str, metric: str):

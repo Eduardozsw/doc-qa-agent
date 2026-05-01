@@ -43,14 +43,18 @@ function App() {
   );
 }
 
+const PLAN_MAX_FILES: Record<string, number> = { free: 3, solo: 10, pro: 20 };
+
 function MainApp({ session }: { session: Session | null }) {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const authFetch = useAuthFetch(session);
+  const maxFiles = PLAN_MAX_FILES[profile?.plan ?? 'free'] ?? 3;
   const {
     indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError, ingestWarning,
     slotsAvailable, handleToggleSearch, handleAddFiles, handleRemovePending,
     handleIngest, handleRemoveIndexed, loadIndexedFiles, dismissWarning,
-  } = useFileManagement(authFetch);
+  } = useFileManagement(authFetch, maxFiles);
 
   const [question, setQuestion] = useState('');
   const [history, setHistory] = useState<Message[]>([]);
