@@ -81,6 +81,7 @@ async def create_checkout(
                 line_items=[{"price": price_id, "quantity": 1}],
                 success_url=f"{settings.frontend_url}/sucesso",
                 cancel_url=f"{settings.frontend_url}/#precos",
+                metadata={"user_id": user.id, "plan": body.plan},
                 subscription_data={"metadata": {"user_id": user.id, "plan": body.plan}},
             )
     except stripe.StripeError as e:
@@ -116,11 +117,13 @@ async def stripe_webhook(request: Request):
     sig_header = request.headers.get("stripe-signature", "")
 
     try:
-        event = _stripe().Webhook.construct_event(
+        _stripe().Webhook.construct_event(
             payload, sig_header, settings.stripe_webhook_secret
         )
     except stripe.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Assinatura inválida")
+
+    event = json.loads(payload)
 
     from db.redis import get_client as get_redis
     event_id = event.get("id")
