@@ -2,11 +2,9 @@ import { useState } from 'react';
 
 export type IngestStatus = 'idle' | 'loading' | 'ready' | 'error' | 'partial';
 
-const MAX_FILES = 5;
-
 type AuthFetch = (url: string, options?: RequestInit) => Promise<Response>;
 
-export function useFileManagement(authFetch: AuthFetch) {
+export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
   const [indexedFiles, setIndexedFiles] = useState<string[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [searchSelected, setSearchSelected] = useState<Set<string>>(new Set());
@@ -14,7 +12,7 @@ export function useFileManagement(authFetch: AuthFetch) {
   const [ingestError, setIngestError] = useState<string | null>(null);
   const [ingestWarning, setIngestWarning] = useState<string | null>(null);
 
-  const slotsAvailable = MAX_FILES - indexedFiles.length - pendingFiles.length;
+  const slotsAvailable = maxFiles - indexedFiles.length - pendingFiles.length;
 
   const addToSelected = (names: string[]) =>
     setSearchSelected(prev => {
@@ -43,7 +41,7 @@ export function useFileManagement(authFetch: AuthFetch) {
       return;
     }
     setIngestError(null);
-    setPendingFiles(prev => [...prev, ...newFiles.slice(0, MAX_FILES - indexedFiles.length - prev.length)]);
+    setPendingFiles(prev => [...prev, ...newFiles.slice(0, maxFiles - indexedFiles.length - prev.length)]);
   };
 
   const handleRemovePending = (index: number) =>
