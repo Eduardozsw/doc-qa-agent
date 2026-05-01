@@ -68,7 +68,7 @@ async def ingest_files(
         verb = "foi" if len(skipped_names) == 1 else "foram"
         message = (
             f"O arquivo {nomes} não {verb} adicionado(s) pois você atingiu o limite de "
-            f"{limit} documentos mensais do plano free."
+            f"{limit} documentos do plano {user.plan}."
         )
     else:
         message = f"{total_chunks} chunks indexados"
