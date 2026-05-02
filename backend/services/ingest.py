@@ -5,6 +5,7 @@ from fastapi import UploadFile
 from core.config import get_settings
 from core.exceptions import FileTooLargeError, UnsupportedFileTypeError, ForbiddenError
 from db import redis as redis_db
+from db import supabase as supabase_db
 from ingestion.loader import load_pages_from_bytes
 from ingestion.chunker import chunk_pages
 from ingestion.embedder import upsert_chunks
@@ -18,17 +19,17 @@ _SEM = asyncio.Semaphore(3)
 
 
 async def list_files(user_id: str) -> list[str]:
-    return redis_db.get_namespaces(user_id)
+    return supabase_db.get_namespaces(user_id)
 
 
 async def remove_files(user_id: str, namespaces: list[str]) -> None:
-    user_namespaces = redis_db.get_namespaces(user_id)
+    user_namespaces = supabase_db.get_namespaces(user_id)
     not_owned = [n for n in namespaces if n not in user_namespaces]
     if not_owned:
         raise ForbiddenError("Arquivo não encontrado")
 
     for ns in namespaces:
-        redis_db.remove_namespace(user_id, ns)
+        supabase_db.remove_namespace(user_id, ns)
 
 
 async def ingest_files(user_id: str, files: list[UploadFile]) -> tuple[list[str], int, list[str]]:
@@ -61,8 +62,11 @@ async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tupl
         namespace = f"{user_id[:8]}_{sha256[:8]}_{sanitize_namespace(file.filename or 'unknown')}"
 
         cached_ns = redis_db.get_cached_namespace(sha256, user_id)
+        if not cached_ns:
+            cached_ns = supabase_db.get_namespace_by_sha256(user_id, sha256)
+            if cached_ns:
+                redis_db.set_cached_namespace(sha256, user_id, cached_ns)
         if cached_ns:
-            redis_db.add_namespace(user_id, cached_ns)
             return cached_ns, 0, False
 
         loop = asyncio.get_event_loop()
@@ -89,7 +93,7 @@ async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tupl
             logger.error(f"Erro ao processar arquivo de user {user_id}: {type(e).__name__}")
             raise
 
+        supabase_db.add_namespace(user_id, namespace, sha256, file.filename or "unknown")
         redis_db.set_cached_namespace(sha256, user_id, namespace)
-        redis_db.add_namespace(user_id, namespace)
         logger.info(f"Arquivo indexado: {len(chunks)} chunks — user {user_id}")
         return namespace, len(chunks), True
