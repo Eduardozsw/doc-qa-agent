@@ -5,7 +5,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-import pytz
+from datetime import timezone
 
 from core.config import get_settings
 from core.exceptions import AppError, app_error_handler, generic_error_handler
@@ -16,7 +16,7 @@ from db.supabase import expire_pix_plans
 
 get_settings()
 
-_scheduler = BackgroundScheduler(timezone=pytz.utc)
+_scheduler = BackgroundScheduler(timezone=timezone.utc)
 _scheduler.add_job(
     expire_pix_plans,
     CronTrigger(hour=6, minute=0, timezone="America/Sao_Paulo"),
