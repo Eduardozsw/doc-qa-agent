@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from fastapi import UploadFile
 
 from core.config import get_settings
@@ -97,3 +98,29 @@ async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tupl
         redis_db.set_cached_namespace(sha256, user_id, namespace)
         logger.info(f"Arquivo indexado: {len(chunks)} chunks — user {user_id}")
         return namespace, len(chunks), True
+
+
+def process_file_job(job: dict) -> None:
+    """Processa um job de indexação de forma síncrona. Chamado pelo worker."""
+    tmp_path = job["tmp_path"]
+    try:
+        with open(tmp_path, "rb") as f:
+            contents = f.read()
+
+        pages = load_pages_from_bytes(contents)
+        if not pages or not any(t.strip() for _, t in pages):
+            raise ValueError("Arquivo não contém texto extraível")
+
+        chunks = chunk_pages(pages)
+        if not chunks:
+            raise ValueError("Arquivo resultou em 0 chunks")
+
+        upsert_chunks(chunks, job["namespace"], job["namespace"])
+        supabase_db.add_namespace(job["user_id"], job["namespace"], job["sha256"], job["filename"])
+        redis_db.set_cached_namespace(job["sha256"], job["user_id"], job["namespace"])
+        logger.info(f"Job {job['job_id']} concluído: {len(chunks)} chunks")
+    except Exception:
+        raise
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
