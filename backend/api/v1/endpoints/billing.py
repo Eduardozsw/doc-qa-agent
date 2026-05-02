@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from api.deps import get_current_user, UserContext
 from core.config import get_settings
 from core.limiter import limiter
-from db.supabase import get_customer_id, set_customer_id, update_plan_and_status, get_user_plan
+from db.supabase import get_customer_id, set_customer_id, update_plan_and_status, get_user_plan, get_user_info
 from models.requests import CheckoutRequest
 from models.responses import BillingUrlResponse
 
@@ -165,6 +165,15 @@ def _handle_event(event: dict) -> None:
             if user_id:
                 period_end = _period_end_from_subscription(subscription_id)
                 update_plan_and_status(user_id, plan, "active", subscription_id, period_end)
+
+        if user_id:
+            try:
+                from services.email import send_welcome_email
+                email, name = get_user_info(user_id)
+                if email:
+                    send_welcome_email(email, plan, name)
+            except Exception as e:
+                logger.warning(f"Falha ao enviar email de boas-vindas para user {user_id}: {e}")
 
     elif etype == "invoice.paid":
         subscription_id = data.get("subscription")

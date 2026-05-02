@@ -33,34 +33,6 @@ def get_client() -> redis.Redis:
     return _client
 
 
-def _namespace_key(user_id: str) -> str:
-    return f"user:{user_id}:namespaces"
-
-
-def get_namespaces(user_id: str) -> list[str]:
-    try:
-        return list(get_client().smembers(_namespace_key(user_id)))
-    except Exception as e:
-        logger.error(f"Redis get_namespaces falhou para user {user_id}: {e}")
-        return []
-
-
-def add_namespace(user_id: str, name: str) -> None:
-    try:
-        get_client().sadd(_namespace_key(user_id), name)
-    except Exception as e:
-        logger.error(f"Redis add_namespace falhou: {e}")
-        raise
-
-
-def remove_namespace(user_id: str, name: str) -> None:
-    try:
-        get_client().srem(_namespace_key(user_id), name)
-    except Exception as e:
-        logger.error(f"Redis remove_namespace falhou: {e}")
-        raise
-
-
 def get_cached_namespace(sha256: str, user_id: str) -> str | None:
     try:
         cache_key = _sha256(f"{user_id}:{sha256}")

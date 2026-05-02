@@ -216,6 +216,12 @@ export function SettingsPage() {
   const { user, session, profile, updateName, updateEmail, updatePassword } = useAuth();
   const plan = profile?.plan ?? 'free';
   const planMeta = PLAN_META[plan] ?? PLAN_META.free;
+  const isPix = plan !== 'free' && !profile?.subscription_id;
+  const daysRemaining = (() => {
+    if (!isPix || !profile?.current_period_end) return null;
+    const diff = new Date(profile.current_period_end).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / 86_400_000));
+  })();
   const [activeSection, setActiveSection] = useState<Section>('perfil');
   const [navOpen, setNavOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -599,27 +605,42 @@ export function SettingsPage() {
                           Ativo
                         </span>
                       </div>
-                      <button
-                        onClick={handleManageSubscription}
-                        disabled={portalLoading}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 6,
-                          padding: '9px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-                          background: 'rgba(255,255,255,0.05)',
+                      {isPix ? (
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 8,
+                          padding: '9px 14px', borderRadius: 8, fontSize: 12,
+                          background: 'rgba(245,158,11,0.06)',
+                          border: '1px solid rgba(245,158,11,0.18)',
                           color: 'rgba(255,255,255,0.55)',
-                          border: `1px solid ${DARK.border}`,
-                          cursor: portalLoading ? 'default' : 'pointer',
-                          opacity: portalLoading ? 0.5 : 1,
-                          whiteSpace: 'nowrap' as const,
-                          fontFamily: 'inherit',
-                          transition: 'background 0.15s, color 0.15s',
-                        }}
-                        onMouseEnter={e => { if (!portalLoading) { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; } }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
-                      >
-                        {portalLoading && <Loader2 style={{ width: 12, height: 12 }} />}
-                        Gerenciar assinatura →
-                      </button>
+                        }}>
+                          <span style={{ fontWeight: 700, color: DARK.accent, fontSize: 14 }}>
+                            {daysRemaining !== null ? daysRemaining : '—'}
+                          </span>
+                          {daysRemaining === 1 ? 'dia restante' : 'dias restantes'}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={handleManageSubscription}
+                          disabled={portalLoading}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '9px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+                            background: 'rgba(255,255,255,0.05)',
+                            color: 'rgba(255,255,255,0.55)',
+                            border: `1px solid ${DARK.border}`,
+                            cursor: portalLoading ? 'default' : 'pointer',
+                            opacity: portalLoading ? 0.5 : 1,
+                            whiteSpace: 'nowrap' as const,
+                            fontFamily: 'inherit',
+                            transition: 'background 0.15s, color 0.15s',
+                          }}
+                          onMouseEnter={e => { if (!portalLoading) { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; } }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
+                        >
+                          {portalLoading && <Loader2 style={{ width: 12, height: 12 }} />}
+                          Gerenciar assinatura →
+                        </button>
+                      )}
                     </div>
 
                     <Feedback state={portalFeedback} />

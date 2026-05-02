@@ -12,8 +12,8 @@ const PLANS = [
     description: 'Para experimentar sem compromisso.',
     highlight: false,
     features: [
-      '3 documentos por mês',
-      '30 perguntas por mês',
+      '3 documentos simultâneos na busca',
+      '50 perguntas por mês',
       '1 usuário',
       'Respostas com fonte citada',
       'Suporte via comunidade',
@@ -29,7 +29,7 @@ const PLANS = [
     description: 'Para profissionais que consultam documentos no dia a dia.',
     highlight: true,
     features: [
-      'Documentos ilimitados',
+      '10 documentos simultâneos na busca',
       '300 perguntas por mês',
       '1 usuário',
       'Histórico de conversas',
@@ -47,7 +47,7 @@ const PLANS = [
     description: 'Para quem precisa de mais volume e recursos avançados.',
     highlight: false,
     features: [
-      'Documentos ilimitados',
+      '20 documentos simultâneos na busca',
       '1.000 perguntas por mês',
       '1 usuário',
       'Histórico de conversas',
