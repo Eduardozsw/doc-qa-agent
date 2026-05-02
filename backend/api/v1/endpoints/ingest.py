@@ -5,7 +5,7 @@ from api.deps import get_current_user, UserContext
 from models.requests import DeleteRequest
 from models.responses import IngestResponse, ListFilesResponse, DeleteResponse
 from services import ingest as ingest_service
-from db.usage import get_usage, increment
+from db import supabase as supabase_db
 from db.redis import get_cached_namespace
 from core.limits import get_limit
 from core.limiter import limiter
@@ -37,7 +37,7 @@ async def ingest_files(
     skipped_names: list[str] = []
 
     if limit is not None:
-        current = get_usage(user.id, "documents")
+        current = supabase_db.count_namespaces(user.id)
         available = limit - current
 
         cached: list[tuple[UploadFile, bytes]] = []
@@ -59,16 +59,12 @@ async def ingest_files(
     allowed_files = [f for f, _ in file_bytes]
     added, total_chunks, new_namespaces = await ingest_service.ingest_files(user.id, allowed_files)
 
-    if limit is not None:
-        for _ in new_namespaces:
-            increment(user.id, "documents")
-
     if skipped_names:
         nomes = ", ".join(f'"{n}"' for n in skipped_names)
         verb = "foi" if len(skipped_names) == 1 else "foram"
         message = (
             f"O arquivo {nomes} não {verb} adicionado(s) pois você atingiu o limite de "
-            f"{limit} documentos do plano {user.plan}."
+            f"{limit} documentos simultâneos do plano {user.plan}."
         )
     else:
         message = f"{total_chunks} chunks indexados"
