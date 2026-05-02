@@ -66,3 +66,46 @@ def update_plan_and_status(
     except Exception as e:
         logger.error(f"Falha ao atualizar plano para {user_id}: {e}")
         raise
+
+
+def get_namespaces(user_id: str) -> list[str]:
+    try:
+        result = get_admin().table("namespaces").select("namespace").eq("user_id", user_id).execute()
+        return [r["namespace"] for r in result.data] if result.data else []
+    except Exception as e:
+        logger.error(f"Falha ao buscar namespaces para {user_id}: {e}")
+        return []
+
+
+def get_namespace_by_sha256(user_id: str, sha256: str) -> str | None:
+    try:
+        result = (
+            get_admin()
+            .table("namespaces")
+            .select("namespace")
+            .eq("user_id", user_id)
+            .eq("sha256", sha256)
+            .single()
+            .execute()
+        )
+        return result.data["namespace"] if result.data else None
+    except Exception:
+        return None
+
+
+def add_namespace(user_id: str, namespace: str, sha256: str, filename: str) -> None:
+    try:
+        get_admin().table("namespaces").upsert(
+            {"user_id": user_id, "namespace": namespace, "sha256": sha256, "filename": filename}
+        ).execute()
+    except Exception as e:
+        logger.error(f"Falha ao salvar namespace para {user_id}: {e}")
+        raise
+
+
+def remove_namespace(user_id: str, namespace: str) -> None:
+    try:
+        get_admin().table("namespaces").delete().eq("user_id", user_id).eq("namespace", namespace).execute()
+    except Exception as e:
+        logger.error(f"Falha ao remover namespace para {user_id}: {e}")
+        raise
