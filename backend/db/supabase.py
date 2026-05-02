@@ -120,6 +120,18 @@ def remove_namespace(user_id: str, namespace: str) -> None:
         raise
 
 
+def get_user_info(user_id: str) -> tuple[str, str]:
+    try:
+        response = get_admin().auth.admin.get_user_by_id(user_id)
+        user = response.user
+        email = user.email or ""
+        name = (user.user_metadata or {}).get("full_name", "")
+        return email, name
+    except Exception as e:
+        logger.warning(f"Falha ao buscar info do usuário {user_id}: {e}")
+        return "", ""
+
+
 def expire_pix_plans() -> None:
     try:
         now = datetime.utcnow().isoformat()
