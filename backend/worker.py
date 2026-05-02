@@ -14,6 +14,8 @@ QUEUE_KEY = "ingest_queue"
 def run_worker() -> None:
     logger.info("Worker iniciado, aguardando jobs...")
     r = get_client()
+    # timeout=0 bloqueia indefinidamente; em produção com Docker/supervisor
+    # considere timeout finito + flag de shutdown para SIGTERM gracioso
     while True:
         _, raw = r.blpop(QUEUE_KEY)
         job: dict = json.loads(raw)
