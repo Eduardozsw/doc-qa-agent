@@ -13,3 +13,4 @@ pydantic-settings
 tiktoken
 slowapi
 stripe
+apscheduler

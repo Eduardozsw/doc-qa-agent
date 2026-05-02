@@ -68,6 +68,15 @@ def update_plan_and_status(
         raise
 
 
+def count_namespaces(user_id: str) -> int:
+    try:
+        result = get_admin().table("namespaces").select("*", count="exact").eq("user_id", user_id).execute()
+        return result.count or 0
+    except Exception as e:
+        logger.error(f"Falha ao contar namespaces para {user_id}: {e}")
+        return 0
+
+
 def get_namespaces(user_id: str) -> list[str]:
     try:
         result = get_admin().table("namespaces").select("namespace").eq("user_id", user_id).execute()
@@ -109,3 +118,26 @@ def remove_namespace(user_id: str, namespace: str) -> None:
     except Exception as e:
         logger.error(f"Falha ao remover namespace para {user_id}: {e}")
         raise
+
+
+def expire_pix_plans() -> None:
+    try:
+        now = datetime.utcnow().isoformat()
+        result = (
+            get_admin()
+            .table("profiles")
+            .select("id")
+            .neq("plan", "free")
+            .is_("subscription_id", "null")
+            .lt("current_period_end", now)
+            .execute()
+        )
+        if not result.data:
+            return
+        ids = [r["id"] for r in result.data]
+        get_admin().table("profiles").update(
+            {"plan": "free", "subscription_status": "expired"}
+        ).in_("id", ids).execute()
+        logger.info(f"expire_pix_plans: {len(ids)} plano(s) expirado(s)")
+    except Exception as e:
+        logger.error(f"Falha ao expirar planos PIX: {e}")

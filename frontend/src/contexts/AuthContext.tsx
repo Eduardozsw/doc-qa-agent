@@ -6,6 +6,8 @@ export type Plan = 'free' | 'solo' | 'pro';
 
 interface Profile {
   plan: Plan;
+  subscription_id: string | null;
+  current_period_end: string | null;
 }
 
 interface AuthContextType {
@@ -36,7 +38,7 @@ function translateAuthError(message: string): string {
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('plan')
+    .select('plan, subscription_id, current_period_end')
     .eq('id', userId)
     .single();
 
