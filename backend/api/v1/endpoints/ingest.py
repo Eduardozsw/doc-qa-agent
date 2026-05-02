@@ -1,16 +1,23 @@
+import os
+import uuid
+import tempfile
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from typing import List
 
 from api.deps import get_current_user, UserContext
 from models.requests import DeleteRequest
-from models.responses import IngestResponse, ListFilesResponse, DeleteResponse
+from models.responses import AsyncIngestResponse, JobInfo, JobStatusResponse, JobStatus, ListFilesResponse, DeleteResponse
 from services import ingest as ingest_service
 from db import supabase as supabase_db
-from db.redis import get_cached_namespace
+from db import redis as redis_db
 from core.limits import get_limit
 from core.limiter import limiter
+from core.config import get_settings
 from utils.hashing import sha256_bytes
+from utils.sanitize import sanitize_namespace
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 
@@ -20,18 +27,25 @@ async def list_files(user: UserContext = Depends(get_current_user)):
     return ListFilesResponse(arquivos=files)
 
 
-@router.post("", response_model=IngestResponse)
+@router.post("", response_model=AsyncIngestResponse, status_code=202)
 @limiter.limit("10/minute")
 async def ingest_files(
     request: Request,
     files: List[UploadFile],
     user: UserContext = Depends(get_current_user),
 ):
+    settings = get_settings()
     limit = get_limit(user.plan, "documents")
 
     file_bytes: list[tuple[UploadFile, bytes]] = []
     for f in files:
+        if f.content_type != "application/pdf":
+            raise HTTPException(status_code=422, detail="Apenas arquivos PDF são aceitos.")
         contents = await f.read()
+        if len(contents) > settings.max_file_size_mb * 1024 * 1024:
+            raise HTTPException(status_code=422, detail=f"Arquivo maior que {settings.max_file_size_mb}MB.")
+        if not contents.startswith(b"%PDF-"):
+            raise HTTPException(status_code=422, detail="Arquivo PDF inválido.")
         file_bytes.append((f, contents))
 
     skipped_names: list[str] = []
@@ -40,36 +54,69 @@ async def ingest_files(
         current = supabase_db.count_namespaces(user.id)
         available = limit - current
 
-        cached: list[tuple[UploadFile, bytes]] = []
-        new: list[tuple[UploadFile, bytes]] = []
+        cached_files: list[tuple[UploadFile, bytes]] = []
+        new_files: list[tuple[UploadFile, bytes]] = []
         for f, contents in file_bytes:
-            if get_cached_namespace(sha256_bytes(contents), user.id):
-                cached.append((f, contents))
+            sha = sha256_bytes(contents)
+            if redis_db.get_cached_namespace(sha, user.id) or supabase_db.get_namespace_by_sha256(user.id, sha):
+                cached_files.append((f, contents))
             else:
-                new.append((f, contents))
+                new_files.append((f, contents))
 
-        allowed_new = new[:max(available, 0)]
-        skipped = new[max(available, 0):]
+        allowed_new = new_files[:max(available, 0)]
+        skipped = new_files[max(available, 0):]
         skipped_names = [f.filename or "arquivo" for f, _ in skipped]
-        file_bytes = cached + allowed_new
+        file_bytes = cached_files + allowed_new
 
-    for f, _ in file_bytes:
-        await f.seek(0)
+    jobs: list[JobInfo] = []
+    for f, contents in file_bytes:
+        sha = sha256_bytes(contents)
+        namespace = f"{user.id[:8]}_{sha[:8]}_{sanitize_namespace(f.filename or 'unknown')}"
 
-    allowed_files = [f for f, _ in file_bytes]
-    added, total_chunks, new_namespaces = await ingest_service.ingest_files(user.id, allowed_files)
+        cached_ns = redis_db.get_cached_namespace(sha, user.id) or supabase_db.get_namespace_by_sha256(user.id, sha)
+        if cached_ns:
+            # Already indexed — return immediately as done job
+            job_id = str(uuid.uuid4())
+            redis_db.set_job_status(job_id, "done", filename=f.filename or "unknown", namespace=cached_ns)
+            jobs.append(JobInfo(job_id=job_id, filename=f.filename or "unknown"))
+            continue
 
-    if skipped_names:
-        nomes = ", ".join(f'"{n}"' for n in skipped_names)
-        verb = "foi" if len(skipped_names) == 1 else "foram"
-        message = (
-            f"O arquivo {nomes} não {verb} adicionado(s) pois você atingiu o limite de "
-            f"{limit} documentos simultâneos do plano {user.plan}."
-        )
-    else:
-        message = f"{total_chunks} chunks indexados"
+        # Save to temp disk and enqueue
+        job_id = str(uuid.uuid4())
+        tmp_path = os.path.join(tempfile.gettempdir(), f"{job_id}.pdf")
+        with open(tmp_path, "wb") as tmp:
+            tmp.write(contents)
 
-    return IngestResponse(message=message, arquivos=added)
+        payload = {
+            "job_id": job_id,
+            "user_id": user.id,
+            "filename": f.filename or "unknown",
+            "tmp_path": tmp_path,
+            "namespace": namespace,
+            "sha256": sha,
+            "plan": user.plan,
+        }
+        redis_db.set_job_status(job_id, "pending", filename=f.filename or "unknown")
+        redis_db.enqueue_job(payload)
+        jobs.append(JobInfo(job_id=job_id, filename=f.filename or "unknown"))
+
+    return AsyncIngestResponse(jobs=jobs, skipped=skipped_names)
+
+
+@router.get("/status", response_model=JobStatusResponse)
+async def get_jobs_status(
+    jobs: str,
+    user: UserContext = Depends(get_current_user),
+):
+    job_ids = [j.strip() for j in jobs.split(",") if j.strip()]
+    if not job_ids:
+        return JobStatusResponse(jobs={})
+    raw = redis_db.get_jobs_status(job_ids)
+    result = {
+        jid: JobStatus(**data) if data else None
+        for jid, data in raw.items()
+    }
+    return JobStatusResponse(jobs=result)
 
 
 @router.delete("", response_model=DeleteResponse)
