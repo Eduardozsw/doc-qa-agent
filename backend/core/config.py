@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     stripe_price_solo_onetime: str = ""
     stripe_price_pro_onetime: str = ""
 
+    # Resend
+    resend_api_key: str = ""
+    resend_from_email: str = ""
+
     # Frontend
     frontend_url: str = "http://localhost"
 

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, Mail, Lock, Eye, EyeOff, Loader2, Check } from 'lucide-react';
+import { Sparkles, Mail, Lock, Eye, EyeOff, Loader2, Check, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { DARK } from '../constants/theme';
 
@@ -53,7 +53,7 @@ function PasswordRequirements({ password, visible }: { password: string; visible
   );
 }
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register' | 'otp' | 'forgot';
 
 function GoogleIcon() {
   return (
@@ -66,8 +66,63 @@ function GoogleIcon() {
   );
 }
 
+function OtpInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const handleChange = (index: number, char: string) => {
+    if (!/^\d*$/.test(char)) return;
+    const digits = value.padEnd(6, ' ').split('');
+    digits[index] = char ? char.slice(-1) : ' ';
+    const newVal = digits.join('').replace(/\s+$/, '');
+    onChange(newVal);
+    if (char && index < 5) inputRefs.current[index + 1]?.focus();
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !value[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    onChange(pasted);
+    inputRefs.current[Math.min(pasted.length, 5)]?.focus();
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <input
+          key={i}
+          ref={el => { inputRefs.current[i] = el; }}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          value={value[i] && value[i] !== ' ' ? value[i] : ''}
+          onChange={e => handleChange(i, e.target.value)}
+          onKeyDown={e => handleKeyDown(i, e)}
+          onPaste={handlePaste}
+          style={{
+            width: 44, height: 52, textAlign: 'center' as const,
+            fontSize: 20, fontWeight: 700,
+            background: 'rgba(255,255,255,0.05)',
+            border: `1px solid ${DARK.border}`,
+            borderRadius: 10, color: DARK.text,
+            outline: 'none', caretColor: DARK.accent,
+            transition: 'border 0.15s, box-shadow 0.15s',
+          }}
+          onFocus={e => { e.target.style.border = `1px solid ${DARK.accentBorder}`; e.target.style.boxShadow = `0 0 0 3px ${DARK.accentSubtle}`; }}
+          onBlur={e => { e.target.style.border = `1px solid ${DARK.border}`; e.target.style.boxShadow = 'none'; }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function LoginPage() {
-  const { signInWithGoogle, signInWithEmail, signUp } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUp, verifyOtp, requestPasswordReset } = useAuth();
 
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
@@ -79,7 +134,9 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [duplicateEmail, setDuplicateEmail] = useState(false);
-  const [signUpSuccess, setSignUpSuccess] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -88,7 +145,8 @@ export function LoginPage() {
     setConfirmPassword('');
     setConsent(false);
     setDuplicateEmail(false);
-    setSignUpSuccess(false);
+    setOtpCode('');
+    setForgotSent(false);
   };
 
   const validateEmail = (value: string) => {
@@ -121,13 +179,12 @@ export function LoginPage() {
 
     setLoading(true);
     setDuplicateEmail(false);
-    setSignUpSuccess(false);
     try {
       if (mode === 'login') {
         await signInWithEmail(email, password);
       } else {
         await signUp(email, password);
-        setSignUpSuccess(true);
+        setMode('otp');
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Ocorreu um erro.';
@@ -136,6 +193,36 @@ export function LoginPage() {
       } else {
         setError(message);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpCode.length < 6) { setError('Digite os 6 dígitos do código.'); return; }
+    setError('');
+    setLoading(true);
+    try {
+      await verifyOtp(email, otpCode);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Ocorreu um erro.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailErr = validateEmail(forgotEmail);
+    if (emailErr) { setError(emailErr); return; }
+    setError('');
+    setLoading(true);
+    try {
+      await requestPasswordReset(forgotEmail);
+      setForgotSent(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Ocorreu um erro.');
     } finally {
       setLoading(false);
     }
@@ -191,181 +278,287 @@ export function LoginPage() {
         {/* Card */}
         <div className="rounded-2xl p-6 space-y-5" style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}>
 
-          {/* Tabs */}
-          <div className="flex rounded-xl p-1 gap-1" style={{ background: 'rgba(255,255,255,0.04)' }}>
-            {(['login', 'register'] as Mode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => switchMode(m)}
-                className="flex-1 py-2 text-sm font-sans font-medium rounded-lg transition-all duration-200"
-                style={{
-                  background: mode === m ? DARK.accentSubtle : 'transparent',
-                  color: mode === m ? DARK.accent : DARK.textMuted,
-                  border: mode === m ? `1px solid ${DARK.accentBorder}` : '1px solid transparent',
-                }}
-              >
-                {m === 'login' ? 'Entrar' : 'Criar conta'}
-              </button>
-            ))}
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {/* Email */}
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: DARK.textFaint }} />
-              <input
-                type="email"
-                placeholder="Email"
-                maxLength={254}
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onFocus={focusStyle}
-                onBlur={blurStyle}
-                required
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
-                style={inputStyle}
-              />
-            </div>
-
-            {/* Password + requirements (agrupados para não criar gap extra no space-y-3) */}
-            <div className="space-y-0">
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: DARK.textFaint }} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Senha"
-                  maxLength={128}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  onFocus={e => { focusStyle(e); if (mode === 'register') setPasswordFocused(true); }}
-                  onBlur={e => { blurStyle(e); setPasswordFocused(false); }}
-                  required
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
-                  style={inputStyle}
-                />
-                <button type="button" onClick={() => setShowPassword(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: DARK.textFaint }}>
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {mode === 'register' && (
-                <PasswordRequirements password={password} visible={passwordFocused} />
-              )}
-            </div>
-
-            {/* Confirm password */}
-            {mode === 'register' && (
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: DARK.textFaint }} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Confirmar senha"
-                  maxLength={128}
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  onFocus={focusStyle}
-                  onBlur={blurStyle}
-                  required
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
-                  style={inputStyle}
-                />
-              </div>
-            )}
-
-            {/* Consent */}
-            {mode === 'register' && (
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={consent}
-                  onChange={e => setConsent(e.target.checked)}
-                  className="mt-0.5 accent-amber-500"
-                />
-                <span className="text-xs font-sans leading-relaxed" style={{ color: DARK.textMuted }}>
-                  Li e concordo com a{' '}
-                  <Link to="/privacidade" target="_blank"
-                    className="underline underline-offset-2 transition-colors hover:text-amber-400"
-                    style={{ color: DARK.accent }}>
-                    Política de Privacidade
-                  </Link>
-                </span>
-              </label>
-            )}
-
-            {/* Email duplicado */}
-            {duplicateEmail && (
-              <div className="rounded-lg px-3 py-3 space-y-2.5"
-                style={{ background: 'rgba(245,158,11,0.08)', border: `1px solid ${DARK.accentBorder}` }}>
-                <p className="text-xs font-sans font-medium" style={{ color: '#fbbf24' }}>
-                  Este email já está cadastrado.
+          {/* ── OTP ── */}
+          {mode === 'otp' && (
+            <div className="space-y-5">
+              <div className="text-center space-y-1">
+                <p className="text-sm font-sans font-semibold text-white">Confirme seu email</p>
+                <p className="text-xs font-sans" style={{ color: DARK.textMuted }}>
+                  Enviamos um código de 6 dígitos para <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{email}</strong>
                 </p>
-                <div className="flex gap-2">
+              </div>
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <OtpInput value={otpCode} onChange={setOtpCode} />
+                {error && (
+                  <p className="text-xs font-sans px-3 py-2 rounded-lg text-center"
+                    style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    {error}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading || otpCode.replace(/\s/g, '').length < 6}
+                  className="w-full py-2.5 rounded-xl text-sm font-sans font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, color: DARK.bg }}
+                >
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Confirmar
+                </button>
+              </form>
+              <button
+                onClick={() => switchMode('register')}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-sans transition-colors"
+                style={{ color: DARK.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <ArrowLeft className="w-3 h-3" /> Voltar
+              </button>
+            </div>
+          )}
+
+          {/* ── Esqueci a senha ── */}
+          {mode === 'forgot' && (
+            <div className="space-y-5">
+              <div className="space-y-1">
+                <p className="text-sm font-sans font-semibold text-white">Redefinir senha</p>
+                <p className="text-xs font-sans" style={{ color: DARK.textMuted }}>
+                  Digite seu email e enviaremos um link para criar uma nova senha.
+                </p>
+              </div>
+              {forgotSent ? (
+                <div className="space-y-4">
+                  <p className="text-xs font-sans px-3 py-3 rounded-lg text-center"
+                    style={{ background: 'rgba(52,211,153,0.08)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)', lineHeight: 1.6 }}>
+                    Link enviado para <strong>{forgotEmail}</strong>.<br />Verifique sua caixa de entrada.
+                  </p>
+                  <button
+                    onClick={() => switchMode('login')}
+                    className="w-full flex items-center justify-center gap-1.5 text-xs font-sans transition-colors"
+                    style={{ color: DARK.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    <ArrowLeft className="w-3 h-3" /> Voltar para o login
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgot} className="space-y-3">
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: DARK.textFaint }} />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      maxLength={254}
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      onFocus={focusStyle}
+                      onBlur={blurStyle}
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
+                      style={inputStyle}
+                    />
+                  </div>
+                  {error && (
+                    <p className="text-xs font-sans px-3 py-2 rounded-lg"
+                      style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+                      {error}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 rounded-xl text-sm font-sans font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, color: DARK.bg }}
+                  >
+                    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Enviar link
+                  </button>
                   <button
                     type="button"
                     onClick={() => switchMode('login')}
-                    className="flex-1 py-1.5 rounded-lg text-xs font-sans font-medium transition-all duration-200"
-                    style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, color: DARK.bg }}
+                    className="w-full flex items-center justify-center gap-1.5 text-xs font-sans transition-colors"
+                    style={{ color: DARK.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}
                   >
-                    Fazer login
+                    <ArrowLeft className="w-3 h-3" /> Voltar
                   </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* ── Login / Register ── */}
+          {(mode === 'login' || mode === 'register') && (
+            <>
+              {/* Tabs */}
+              <div className="flex rounded-xl p-1 gap-1" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                {(['login', 'register'] as Mode[]).map((m) => (
                   <button
-                    type="button"
-                    onClick={signInWithGoogle}
-                    className="flex-1 py-1.5 rounded-lg text-xs font-sans font-medium transition-all duration-200 hover:opacity-80"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${DARK.border}`, color: DARK.text }}
+                    key={m}
+                    onClick={() => switchMode(m)}
+                    className="flex-1 py-2 text-sm font-sans font-medium rounded-lg transition-all duration-200"
+                    style={{
+                      background: mode === m ? DARK.accentSubtle : 'transparent',
+                      color: mode === m ? DARK.accent : DARK.textMuted,
+                      border: mode === m ? `1px solid ${DARK.accentBorder}` : '1px solid transparent',
+                    }}
                   >
-                    Entrar com Google
+                    {m === 'login' ? 'Entrar' : 'Criar conta'}
                   </button>
-                </div>
+                ))}
               </div>
-            )}
 
-            {/* Sucesso no cadastro */}
-            {signUpSuccess && (
-              <p className="text-xs font-sans px-3 py-2 rounded-lg"
-                style={{ background: 'rgba(52,211,153,0.08)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
-                Verifique seu email para confirmar o cadastro.
-              </p>
-            )}
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: DARK.textFaint }} />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    maxLength={254}
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    onFocus={focusStyle}
+                    onBlur={blurStyle}
+                    required
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
+                    style={inputStyle}
+                  />
+                </div>
 
-            {/* Erro genérico */}
-            {error && (
-              <p className="text-xs font-sans px-3 py-2 rounded-lg"
-                style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
-                {error}
-              </p>
-            )}
+                <div className="space-y-0">
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: DARK.textFaint }} />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Senha"
+                      maxLength={128}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      onFocus={e => { focusStyle(e); if (mode === 'register') setPasswordFocused(true); }}
+                      onBlur={e => { blurStyle(e); setPasswordFocused(false); }}
+                      required
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
+                      style={inputStyle}
+                    />
+                    <button type="button" onClick={() => setShowPassword(p => !p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                      style={{ color: DARK.textFaint }}>
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {mode === 'register' && (
+                    <PasswordRequirements password={password} visible={passwordFocused} />
+                  )}
+                </div>
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-xl text-sm font-sans font-medium text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}
-            >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {mode === 'login' ? 'Entrar' : 'Criar conta'}
-            </button>
-          </form>
+                {mode === 'register' && (
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: DARK.textFaint }} />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Confirmar senha"
+                      maxLength={128}
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      onFocus={focusStyle}
+                      onBlur={blurStyle}
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-sans outline-none transition-all duration-200"
+                      style={inputStyle}
+                    />
+                  </div>
+                )}
 
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px" style={{ background: DARK.border }} />
-            <span className="text-xs font-sans" style={{ color: DARK.textFaint }}>ou</span>
-            <div className="flex-1 h-px" style={{ background: DARK.border }} />
-          </div>
+                {mode === 'register' && (
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consent}
+                      onChange={e => setConsent(e.target.checked)}
+                      className="mt-0.5 accent-amber-500"
+                    />
+                    <span className="text-xs font-sans leading-relaxed" style={{ color: DARK.textMuted }}>
+                      Li e concordo com a{' '}
+                      <Link to="/privacidade" target="_blank"
+                        className="underline underline-offset-2 transition-colors hover:text-amber-400"
+                        style={{ color: DARK.accent }}>
+                        Política de Privacidade
+                      </Link>
+                    </span>
+                  </label>
+                )}
 
-          {/* Google */}
-          <button
-            onClick={signInWithGoogle}
-            className="w-full flex items-center justify-center gap-3 py-2.5 rounded-xl text-sm font-sans font-medium transition-all duration-200 hover:opacity-80"
-            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${DARK.border}`, color: DARK.text }}
-          >
-            <GoogleIcon />
-            Continuar com Google
-          </button>
+                {duplicateEmail && (
+                  <div className="rounded-lg px-3 py-3 space-y-2.5"
+                    style={{ background: 'rgba(245,158,11,0.08)', border: `1px solid ${DARK.accentBorder}` }}>
+                    <p className="text-xs font-sans font-medium" style={{ color: '#fbbf24' }}>
+                      Este email já está cadastrado.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => switchMode('login')}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-sans font-medium transition-all duration-200"
+                        style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, color: DARK.bg }}
+                      >
+                        Fazer login
+                      </button>
+                      <button
+                        type="button"
+                        onClick={signInWithGoogle}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-sans font-medium transition-all duration-200 hover:opacity-80"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${DARK.border}`, color: DARK.text }}
+                      >
+                        Entrar com Google
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <p className="text-xs font-sans px-3 py-2 rounded-lg"
+                    style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    {error}
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 rounded-xl text-sm font-sans font-medium text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}
+                  >
+                    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {mode === 'login' ? 'Entrar' : 'Criar conta'}
+                  </button>
+                  {mode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => switchMode('forgot')}
+                      className="w-full text-xs font-sans text-center transition-colors"
+                      style={{ color: DARK.textFaint, background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      Esqueci minha senha
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px" style={{ background: DARK.border }} />
+                <span className="text-xs font-sans" style={{ color: DARK.textFaint }}>ou</span>
+                <div className="flex-1 h-px" style={{ background: DARK.border }} />
+              </div>
+
+              <button
+                onClick={signInWithGoogle}
+                className="w-full flex items-center justify-center gap-3 py-2.5 rounded-xl text-sm font-sans font-medium transition-all duration-200 hover:opacity-80"
+                style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${DARK.border}`, color: DARK.text }}
+              >
+                <GoogleIcon />
+                Continuar com Google
+              </button>
+            </>
+          )}
+
         </div>
 
         <p className="text-center text-xs font-sans mt-5" style={{ color: DARK.textFaint }}>

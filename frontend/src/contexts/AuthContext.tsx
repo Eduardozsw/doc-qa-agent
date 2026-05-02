@@ -19,6 +19,8 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  verifyOtp: (email: string, token: string) => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
   updateName: (name: string) => Promise<void>;
   updateEmail: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -32,6 +34,9 @@ function translateAuthError(message: string): string {
   if (message.includes('Password should be at least')) return 'A senha deve ter no mínimo 6 caracteres.';
   if (message.includes('Unable to validate email')) return 'Email inválido.';
   if (message.includes('Email not confirmed')) return 'Confirme seu email antes de entrar.';
+  if (message.includes('Token has expired') || message.includes('token is invalid') || message.includes('Invalid token')) return 'Código inválido ou expirado. Tente novamente.';
+  if (message.includes('same password')) return 'A nova senha deve ser diferente da atual.';
+  if (message.includes('For security purposes') || message.includes('email rate limit')) return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
   return 'Ocorreu um erro. Tente novamente.';
 }
 
@@ -103,6 +108,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
+  const verifyOtp = async (email: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+    if (error) throw new Error(translateAuthError(error.message));
+  };
+
+  const requestPasswordReset = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    });
+    if (error) throw new Error(translateAuthError(error.message));
+  };
+
   const updateName = async (name: string) => {
     const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
     if (error) throw new Error(translateAuthError(error.message));
@@ -119,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signInWithGoogle, signInWithEmail, signUp, signOut, updateName, updateEmail, updatePassword }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signInWithGoogle, signInWithEmail, signUp, signOut, verifyOtp, requestPasswordReset, updateName, updateEmail, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );
