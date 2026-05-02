@@ -3,7 +3,6 @@ import uuid
 import tempfile
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
-from typing import List
 
 from api.deps import get_current_user, UserContext
 from models.requests import DeleteRequest
@@ -31,7 +30,7 @@ async def list_files(user: UserContext = Depends(get_current_user)):
 @limiter.limit("10/minute")
 async def ingest_files(
     request: Request,
-    files: List[UploadFile],
+    files: list[UploadFile],
     user: UserContext = Depends(get_current_user),
 ):
     settings = get_settings()
@@ -48,36 +47,44 @@ async def ingest_files(
             raise HTTPException(status_code=422, detail="Arquivo PDF inválido.")
         file_bytes.append((f, contents))
 
+    # Build sha→cached_ns map in one pass (avoids double Supabase lookups)
+    file_bytes_with_sha: list[tuple[UploadFile, bytes, str]] = []
+    sha_to_cached_ns: dict[str, str | None] = {}
+    for f, contents in file_bytes:
+        sha = sha256_bytes(contents)
+        sha_to_cached_ns[sha] = (
+            redis_db.get_cached_namespace(sha, user.id)
+            or supabase_db.get_namespace_by_sha256(user.id, sha)
+        )
+        file_bytes_with_sha.append((f, contents, sha))
+
     skipped_names: list[str] = []
 
     if limit is not None:
         current = supabase_db.count_namespaces(user.id)
         available = limit - current
 
-        cached_files: list[tuple[UploadFile, bytes]] = []
-        new_files: list[tuple[UploadFile, bytes]] = []
-        for f, contents in file_bytes:
-            sha = sha256_bytes(contents)
-            if redis_db.get_cached_namespace(sha, user.id) or supabase_db.get_namespace_by_sha256(user.id, sha):
-                cached_files.append((f, contents))
+        cached_files: list[tuple[UploadFile, bytes, str]] = []
+        new_files: list[tuple[UploadFile, bytes, str]] = []
+        for f, contents, sha in file_bytes_with_sha:
+            if sha_to_cached_ns[sha]:
+                cached_files.append((f, contents, sha))
             else:
-                new_files.append((f, contents))
+                new_files.append((f, contents, sha))
 
         allowed_new = new_files[:max(available, 0)]
         skipped = new_files[max(available, 0):]
-        skipped_names = [f.filename or "arquivo" for f, _ in skipped]
-        file_bytes = cached_files + allowed_new
+        skipped_names = [f.filename or "arquivo" for f, _, _ in skipped]
+        file_bytes_with_sha = cached_files + allowed_new
 
     jobs: list[JobInfo] = []
-    for f, contents in file_bytes:
-        sha = sha256_bytes(contents)
+    for f, contents, sha in file_bytes_with_sha:
         namespace = f"{user.id[:8]}_{sha[:8]}_{sanitize_namespace(f.filename or 'unknown')}"
-
-        cached_ns = redis_db.get_cached_namespace(sha, user.id) or supabase_db.get_namespace_by_sha256(user.id, sha)
+        cached_ns = sha_to_cached_ns[sha]
         if cached_ns:
             # Already indexed — return immediately as done job
             job_id = str(uuid.uuid4())
-            redis_db.set_job_status(job_id, "done", filename=f.filename or "unknown", namespace=cached_ns)
+            redis_db.set_job_status(job_id, "done", filename=f.filename or "unknown", namespace=cached_ns, user_id=user.id)
             jobs.append(JobInfo(job_id=job_id, filename=f.filename or "unknown"))
             continue
 
@@ -96,8 +103,13 @@ async def ingest_files(
             "sha256": sha,
             "plan": user.plan,
         }
-        redis_db.set_job_status(job_id, "pending", filename=f.filename or "unknown")
-        redis_db.enqueue_job(payload)
+        try:
+            redis_db.set_job_status(job_id, "pending", filename=f.filename or "unknown", user_id=user.id)
+            redis_db.enqueue_job(payload)
+        except Exception:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            raise
         jobs.append(JobInfo(job_id=job_id, filename=f.filename or "unknown"))
 
     return AsyncIngestResponse(jobs=jobs, skipped=skipped_names)
@@ -111,11 +123,15 @@ async def get_jobs_status(
     job_ids = [j.strip() for j in jobs.split(",") if j.strip()]
     if not job_ids:
         return JobStatusResponse(jobs={})
+    if len(job_ids) > 100:
+        raise HTTPException(status_code=422, detail="Máximo de 100 job_ids por consulta.")
     raw = redis_db.get_jobs_status(job_ids)
-    result = {
-        jid: JobStatus(**data) if data else None
-        for jid, data in raw.items()
-    }
+    result: dict = {}
+    for jid, data in raw.items():
+        if data is None or data.get("user_id") != user.id:
+            result[jid] = None
+        else:
+            result[jid] = JobStatus(**{k: v for k, v in data.items() if k != "user_id"})
     return JobStatusResponse(jobs=result)
 
 

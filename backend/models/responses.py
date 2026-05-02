@@ -1,11 +1,6 @@
 from pydantic import BaseModel
 
 
-class IngestResponse(BaseModel):
-    message: str
-    arquivos: list[str]
-
-
 class QueryResponse(BaseModel):
     resposta: str
     fontes: list[str]
