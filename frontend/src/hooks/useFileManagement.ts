@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { JobState } from './useJobPolling';
 
 export type IngestStatus = 'idle' | 'loading' | 'ready' | 'error' | 'partial';
 
@@ -11,6 +12,7 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
   const [ingestStatus, setIngestStatus] = useState<IngestStatus>('idle');
   const [ingestError, setIngestError] = useState<string | null>(null);
   const [ingestWarning, setIngestWarning] = useState<string | null>(null);
+  const [activeJobs, setActiveJobs] = useState<JobState[]>([]);
 
   const slotsAvailable = maxFiles - indexedFiles.length - pendingFiles.length;
 
@@ -47,6 +49,26 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
   const handleRemovePending = (index: number) =>
     setPendingFiles(prev => prev.filter((_, i) => i !== index));
 
+  const handleJobDone = useCallback((job: JobState) => {
+    if (job.namespace) {
+      setIndexedFiles(prev => {
+        if (prev.includes(job.namespace!)) return prev;
+        return [...prev, job.namespace!];
+      });
+      addToSelected([job.namespace!]);
+    }
+    setActiveJobs(prev => {
+      const updated = prev.map(j => j.job_id === job.job_id ? job : j);
+      const stillActive = updated.filter(j => j.status === 'pending' || j.status === 'processing');
+      if (stillActive.length === 0) {
+        const hasError = updated.some(j => j.status === 'error');
+        setIngestStatus(hasError ? 'partial' : 'ready');
+        return [];
+      }
+      return updated;
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleIngest = async () => {
     if (!pendingFiles.length) return;
 
@@ -67,16 +89,24 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
         return;
       }
 
-      const added: string[] = data.arquivos ?? [];
-      const hadSkipped = added.length < pendingFiles.length;
-      setIndexedFiles(prev => [...prev, ...added]);
-      addToSelected(added);
+      const jobs: Array<{ job_id: string; filename: string }> = data.jobs ?? [];
+      const skipped: string[] = data.skipped ?? [];
+
+      const initialJobs: JobState[] = jobs.map(j => ({
+        job_id: j.job_id,
+        filename: j.filename,
+        status: 'pending',
+      }));
+
       setPendingFiles([]);
-      if (hadSkipped) {
-        setIngestWarning(data.message ?? null);
-        setIngestStatus('partial');
-      } else {
-        setIngestStatus('ready');
+      setActiveJobs(initialJobs);
+
+      if (skipped.length > 0) {
+        setIngestWarning(`Arquivos ignorados por limite do plano: ${skipped.join(', ')}`);
+      }
+
+      if (initialJobs.length === 0) {
+        setIngestStatus(skipped.length > 0 ? 'partial' : 'ready');
       }
     } catch {
       setIngestStatus('error');
@@ -134,6 +164,8 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
     ingestError,
     ingestWarning,
     slotsAvailable,
+    activeJobs,
+    handleJobDone,
     handleToggleSearch,
     handleAddFiles,
     handleRemovePending,

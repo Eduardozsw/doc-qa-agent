@@ -21,16 +21,17 @@ def run_worker() -> None:
         job: dict = json.loads(raw)
         job_id = job["job_id"]
         filename = job.get("filename", "")
+        user_id = job.get("user_id", "")
 
-        set_job_status(job_id, "processing", filename=filename)
+        set_job_status(job_id, "processing", filename=filename, user_id=user_id)
         logger.info(f"Processando job {job_id}: {filename}")
 
         try:
             process_file_job(job)
-            set_job_status(job_id, "done", filename=filename, namespace=job.get("namespace"))
+            set_job_status(job_id, "done", filename=filename, namespace=job.get("namespace"), user_id=user_id)
             logger.info(f"Job {job_id} concluído")
         except Exception as e:
-            set_job_status(job_id, "error", filename=filename, error=str(e))
+            set_job_status(job_id, "error", filename=filename, error=str(e), user_id=user_id)
             logger.error(f"Job {job_id} falhou: {e}")
 
 

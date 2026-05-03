@@ -126,7 +126,7 @@ async def get_jobs_status(
     if len(job_ids) > 100:
         raise HTTPException(status_code=422, detail="Máximo de 100 job_ids por consulta.")
     raw = redis_db.get_jobs_status(job_ids)
-    result: dict = {}
+    result: dict[str, JobStatus | None] = {}
     for jid, data in raw.items():
         if data is None or data.get("user_id") != user.id:
             result[jid] = None

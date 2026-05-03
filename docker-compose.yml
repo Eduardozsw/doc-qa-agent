@@ -17,5 +17,12 @@ services:
     ports:
       - "80:80"
 
+  worker:
+    build: ./backend
+    command: python worker.py
+    env_file: ./backend/.env
+    depends_on:
+      - redis
+
   redis:
     image: redis:alpine

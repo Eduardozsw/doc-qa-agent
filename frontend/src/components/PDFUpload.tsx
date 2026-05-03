@@ -1,6 +1,7 @@
 import { useRef, useState, DragEvent, ChangeEvent } from 'react';
 import { Plus, X, Loader2, Trash2, FileText } from 'lucide-react';
 import { IngestStatus } from '../hooks/useFileManagement';
+import { JobState } from '../hooks/useJobPolling';
 import { DARK } from '../constants/theme';
 
 function displayName(namespace: string): string {
@@ -21,12 +22,13 @@ interface PDFUploadProps {
   isLoading: boolean;
   ingestStatus: IngestStatus;
   ingestError: string | null;
+  jobStatuses: JobState[];
 }
 
 export function PDFUpload({
   indexedFiles, pendingFiles, searchSelected, onToggleSearch, onAddFiles,
   onRemovePending, onRemoveIndexed, onSubmit, slotsAvailable, isLoading,
-  ingestStatus, ingestError,
+  ingestStatus, ingestError, jobStatuses,
 }: PDFUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -168,8 +170,42 @@ export function PDFUpload({
           </div>
         ))}
 
+        {/* Jobs em andamento */}
+        {jobStatuses.map(job => {
+          const isProcessing = job.status === 'pending' || job.status === 'processing';
+          const isError = job.status === 'error';
+          const isDone = job.status === 'done';
+          if (isDone) return null;
+          return (
+            <div
+              key={job.job_id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '7px 10px', borderRadius: 8, marginBottom: 2,
+                background: isError ? 'rgba(239,68,68,0.06)' : 'rgba(14,165,233,0.06)',
+                border: `1px solid ${isError ? 'rgba(239,68,68,0.15)' : 'rgba(14,165,233,0.15)'}`,
+              }}
+            >
+              {isProcessing && (
+                <Loader2 style={{ width: 12, height: 12, color: '#38bdf8', flexShrink: 0 }} className="animate-spin" />
+              )}
+              {isError && <X style={{ width: 12, height: 12, color: '#f87171', flexShrink: 0 }} />}
+              <span style={{
+                fontSize: 12,
+                color: isError ? '#f87171' : 'rgba(255,255,255,0.65)',
+                flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+              }}>
+                {job.filename}
+                {isError && job.error && (
+                  <span style={{ fontSize: 10, marginLeft: 4 }}>— {job.error}</span>
+                )}
+              </span>
+            </div>
+          );
+        })}
+
         {/* Empty state */}
-        {totalFiles === 0 && pendingFiles.length === 0 && (
+        {totalFiles === 0 && pendingFiles.length === 0 && jobStatuses.length === 0 && (
           <div style={{ padding: '20px 8px', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>
             Nenhum documento ainda
           </div>
