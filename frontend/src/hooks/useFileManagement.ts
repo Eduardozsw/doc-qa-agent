@@ -119,6 +119,55 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
     setIngestStatus(prev => prev === 'partial' ? 'ready' : prev);
   };
 
+  const handleIngestFromDrive = async (
+    driveFiles: Array<{ id: string; name: string }>,
+    accessToken: string,
+  ) => {
+    setIngestStatus('loading');
+    setIngestError(null);
+    setIngestWarning(null);
+
+    try {
+      const res = await authFetch('/api/ingest/from-drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: driveFiles.map(f => ({ file_id: f.id, file_name: f.name })),
+          access_token: accessToken,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setIngestStatus('error');
+        setIngestError(data.detail ?? `Erro ${res.status}`);
+        return;
+      }
+
+      const jobs: Array<{ job_id: string; filename: string }> = data.jobs ?? [];
+      const skipped: string[] = data.skipped ?? [];
+
+      const initialJobs: JobState[] = jobs.map(j => ({
+        job_id: j.job_id,
+        filename: j.filename,
+        status: 'pending',
+      }));
+
+      setActiveJobs(initialJobs);
+
+      if (skipped.length > 0) {
+        setIngestWarning(`Arquivos ignorados por limite do plano: ${skipped.join(', ')}`);
+      }
+
+      if (initialJobs.length === 0) {
+        setIngestStatus(skipped.length > 0 ? 'partial' : 'ready');
+      }
+    } catch {
+      setIngestStatus('error');
+      setIngestError('Falha ao conectar com o servidor.');
+    }
+  };
+
   const handleRemoveIndexed = async (toRemove: string[]) => {
     setIndexedFiles(prev => prev.filter(f => !toRemove.includes(f)));
     removeFromSelected(toRemove);
@@ -173,6 +222,7 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
     handleAddFiles,
     handleRemovePending,
     handleIngest,
+    handleIngestFromDrive,
     handleRemoveIndexed,
     loadIndexedFiles,
     dismissWarning,

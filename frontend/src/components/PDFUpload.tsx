@@ -3,6 +3,7 @@ import { Plus, X, Loader2, Trash2, FileText } from 'lucide-react';
 import { IngestStatus } from '../hooks/useFileManagement';
 import { JobState } from '../hooks/useJobPolling';
 import { DARK } from '../constants/theme';
+import { DrivePickerButton } from './DrivePickerButton';
 
 function displayName(namespace: string): string {
   const parts = namespace.split('_');
@@ -17,6 +18,7 @@ interface PDFUploadProps {
   onAddFiles: (newFiles: File[]) => void;
   onRemovePending: (index: number) => void;
   onRemoveIndexed: (namespaces: string[]) => void;
+  onIngestFromDrive: (files: Array<{ id: string; name: string }>, accessToken: string) => void;
   onSubmit: () => void;
   slotsAvailable: number;
   isLoading: boolean;
@@ -27,7 +29,7 @@ interface PDFUploadProps {
 
 export function PDFUpload({
   indexedFiles, pendingFiles, searchSelected, onToggleSearch, onAddFiles,
-  onRemovePending, onRemoveIndexed, onSubmit, slotsAvailable, isLoading,
+  onRemovePending, onRemoveIndexed, onIngestFromDrive, onSubmit, slotsAvailable, isLoading,
   ingestStatus, ingestError, jobStatuses,
 }: PDFUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,18 +82,24 @@ export function PDFUpload({
           Documentos
         </span>
         {slotsAvailable > 0 && (
-          <button
-            onClick={() => inputRef.current?.click()}
-            title="Adicionar PDF"
-            style={{
-              width: 24, height: 24, borderRadius: 6,
-              background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: DARK.accent,
-            }}
-          >
-            <Plus style={{ width: 13, height: 13 }} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <DrivePickerButton
+              onFilesSelected={onIngestFromDrive}
+              disabled={isLoading}
+            />
+            <button
+              onClick={() => inputRef.current?.click()}
+              title="Adicionar PDF"
+              style={{
+                width: 24, height: 24, borderRadius: 6,
+                background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: DARK.accent,
+              }}
+            >
+              <Plus style={{ width: 13, height: 13 }} />
+            </button>
+          </div>
         )}
         <input ref={inputRef} type="file" accept="application/pdf" multiple style={{ display: 'none' }} onChange={handleChange} />
       </div>
