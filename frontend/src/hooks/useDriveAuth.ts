@@ -1,30 +1,7 @@
 import { useState, useCallback } from 'react';
+import { loadScript } from '../lib/loadScript';
 
-declare global {
-  interface Window {
-    google: {
-      accounts: {
-        oauth2: {
-          initTokenClient: (config: {
-            client_id: string;
-            scope: string;
-            callback: (response: { error?: string; access_token: string }) => void;
-          }) => { requestAccessToken: (opts: { prompt: string }) => void };
-        };
-      };
-    };
-  }
-}
-
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = () => resolve();
-    document.head.appendChild(s);
-  });
-}
+import '../types/google.d.ts';
 
 export function useDriveAuth() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -33,7 +10,7 @@ export function useDriveAuth() {
     await loadScript('https://accounts.google.com/gsi/client');
     return new Promise((resolve, reject) => {
       const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID as string,
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
         scope: 'https://www.googleapis.com/auth/drive.readonly',
         callback: (response) => {
           if (response.error) { reject(new Error(response.error)); return; }

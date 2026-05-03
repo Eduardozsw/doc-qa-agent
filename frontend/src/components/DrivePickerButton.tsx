@@ -1,46 +1,12 @@
 import { useRef } from 'react';
 import { useDriveAuth } from '../hooks/useDriveAuth';
+import { loadScript } from '../lib/loadScript';
 
-declare global {
-  interface Window {
-    gapi: { load: (lib: string, cb: () => void) => void };
-    google: {
-      picker: {
-        PickerBuilder: new () => {
-          addView: (v: unknown) => unknown;
-          setOAuthToken: (t: string) => unknown;
-          setDeveloperKey: (k: string) => unknown;
-          setCallback: (cb: (data: PickerData) => void) => unknown;
-          enableFeature: (f: string) => unknown;
-          build: () => { setVisible: (v: boolean) => void };
-        };
-        View: new (id: string) => { setMimeTypes: (m: string) => unknown };
-        ViewId: { DOCS: string };
-        Action: { PICKED: string };
-        Feature: { MULTISELECT_ENABLED: string };
-      };
-    };
-  }
-}
-
-interface PickerData {
-  action: string;
-  docs?: Array<{ id: string; name: string }>;
-}
+import '../types/google.d.ts';
 
 interface DrivePickerButtonProps {
   onFilesSelected: (files: Array<{ id: string; name: string }>, accessToken: string) => void;
   disabled?: boolean;
-}
-
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = () => resolve();
-    document.head.appendChild(s);
-  });
 }
 
 function loadPickerLib(): Promise<void> {
@@ -58,8 +24,8 @@ export function DrivePickerButton({ onFilesSelected, disabled }: DrivePickerButt
     const picker = new window.google.picker.PickerBuilder()
       .addView(view)
       .setOAuthToken(token)
-      .setDeveloperKey(import.meta.env.VITE_GOOGLE_API_KEY as string)
-      .setCallback((data: PickerData) => {
+      .setDeveloperKey(import.meta.env.VITE_GOOGLE_API_KEY)
+      .setCallback((data: GooglePickerData) => {
         if (data.action === window.google.picker.Action.PICKED && data.docs) {
           onFilesSelected(
             data.docs.map(d => ({ id: d.id, name: d.name })),
@@ -74,13 +40,17 @@ export function DrivePickerButton({ onFilesSelected, disabled }: DrivePickerButt
 
   const handleClick = async () => {
     if (disabled) return;
-    if (!pickerReady.current) {
-      await loadScript('https://apis.google.com/js/api.js');
-      await loadPickerLib();
-      pickerReady.current = true;
+    try {
+      if (!pickerReady.current) {
+        await loadScript('https://apis.google.com/js/api.js');
+        await loadPickerLib();
+        pickerReady.current = true;
+      }
+      const token = accessToken ?? await connectDrive();
+      openPicker(token);
+    } catch (err) {
+      console.error('[DrivePickerButton] failed to open picker:', err);
     }
-    const token = accessToken ?? await connectDrive();
-    openPicker(token);
   };
 
   return (
