@@ -16,6 +16,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { useAuth } from './contexts/AuthContext';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import { useFileManagement } from './hooks/useFileManagement';
+import { useJobPolling } from './hooks/useJobPolling';
 import { DARK } from './constants/theme';
 
 export type Message = { question: string; answer: string; sources: string[] };
@@ -54,9 +55,11 @@ function MainApp({ session }: { session: Session | null }) {
   const maxFiles = PLAN_MAX_FILES[profile?.plan ?? 'free'] ?? 3;
   const {
     indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError, ingestWarning,
-    slotsAvailable, handleToggleSearch, handleAddFiles, handleRemovePending,
+    slotsAvailable, activeJobs, handleJobDone, handleToggleSearch, handleAddFiles, handleRemovePending,
     handleIngest, handleRemoveIndexed, loadIndexedFiles, dismissWarning,
   } = useFileManagement(authFetch, maxFiles);
+
+  const { jobs: jobStatuses } = useJobPolling(authFetch, activeJobs, handleJobDone);
 
   const [question, setQuestion] = useState('');
   const [history, setHistory] = useState<Message[]>([]);
@@ -218,6 +221,7 @@ function MainApp({ session }: { session: Session | null }) {
             isLoading={ingestStatus === 'loading'}
             ingestStatus={ingestStatus}
             ingestError={ingestError}
+            jobStatuses={jobStatuses}
           />
         </aside>
 

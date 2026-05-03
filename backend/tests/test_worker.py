@@ -30,9 +30,9 @@ def test_worker_processes_job_and_sets_done():
                 except KeyboardInterrupt:
                     pass
 
-    assert mock_status.call_args_list[0] == call("j1", "processing", filename="a.pdf")
+    assert mock_status.call_args_list[0] == call("j1", "processing", filename="a.pdf", user_id="u1")
     mock_process.assert_called_once_with(job)
-    assert mock_status.call_args_list[1] == call("j1", "done", filename="a.pdf", namespace="ns1")
+    assert mock_status.call_args_list[1] == call("j1", "done", filename="a.pdf", namespace="ns1", user_id="u1")
 
 
 def test_worker_sets_error_on_failure():
