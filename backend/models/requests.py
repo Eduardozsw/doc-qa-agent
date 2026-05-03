@@ -85,6 +85,8 @@ class DriveIngestRequest(BaseModel):
     def validate_files(cls, v: list) -> list:
         if not v:
             raise ValueError("files não pode estar vazio")
+        if len(v) > 50:
+            raise ValueError("máximo de 50 arquivos por requisição")
         return v
 
     @field_validator("access_token")

@@ -19,130 +19,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 
-@router.get("", response_model=ListFilesResponse)
-async def list_files(user: UserContext = Depends(get_current_user)):
-    files = await ingest_service.list_files(user.id)
-    return ListFilesResponse(arquivos=files)
-
-
-@router.post("", response_model=AsyncIngestResponse, status_code=202)
-@limiter.limit("10/minute")
-async def ingest_files(
-    request: Request,
-    files: list[UploadFile],
-    user: UserContext = Depends(get_current_user),
-):
-    settings = get_settings()
-    limit = get_limit(user.plan, "documents")
-
-    file_bytes: list[tuple[UploadFile, bytes]] = []
-    for f in files:
-        if f.content_type != "application/pdf":
-            raise HTTPException(status_code=422, detail="Apenas arquivos PDF são aceitos.")
-        contents = await f.read()
-        if len(contents) > settings.max_file_size_mb * 1024 * 1024:
-            raise HTTPException(status_code=422, detail=f"Arquivo maior que {settings.max_file_size_mb}MB.")
-        if not contents.startswith(b"%PDF-"):
-            raise HTTPException(status_code=422, detail="Arquivo PDF inválido.")
-        file_bytes.append((f, contents))
-
+async def _build_and_enqueue_jobs(
+    file_entries: list[tuple[str, bytes]],
+    user: UserContext,
+    limit: int | None,
+) -> AsyncIngestResponse:
     # Build sha→cached_ns map in one pass (avoids double Supabase lookups)
-    file_bytes_with_sha: list[tuple[UploadFile, bytes, str]] = []
-    sha_to_cached_ns: dict[str, str | None] = {}
-    for f, contents in file_bytes:
-        sha = sha256_bytes(contents)
-        sha_to_cached_ns[sha] = (
-            redis_db.get_cached_namespace(sha, user.id)
-            or supabase_db.get_namespace_by_sha256(user.id, sha)
-        )
-        file_bytes_with_sha.append((f, contents, sha))
-
-    skipped_names: list[str] = []
-
-    if limit is not None:
-        current = supabase_db.count_namespaces(user.id)
-        available = limit - current
-
-        cached_files: list[tuple[UploadFile, bytes, str]] = []
-        new_files: list[tuple[UploadFile, bytes, str]] = []
-        for f, contents, sha in file_bytes_with_sha:
-            if sha_to_cached_ns[sha]:
-                cached_files.append((f, contents, sha))
-            else:
-                new_files.append((f, contents, sha))
-
-        allowed_new = new_files[:max(available, 0)]
-        skipped = new_files[max(available, 0):]
-        skipped_names = [f.filename or "arquivo" for f, _, _ in skipped]
-        file_bytes_with_sha = cached_files + allowed_new
-
-    jobs: list[JobInfo] = []
-    for f, contents, sha in file_bytes_with_sha:
-        namespace = f"{user.id[:8]}_{sha[:8]}_{sanitize_namespace(f.filename or 'unknown')}"
-        cached_ns = sha_to_cached_ns[sha]
-        if cached_ns:
-            # Already indexed — return immediately as done job
-            job_id = str(uuid.uuid4())
-            redis_db.set_job_status(job_id, "done", filename=f.filename or "unknown", namespace=cached_ns, user_id=user.id)
-            jobs.append(JobInfo(job_id=job_id, filename=f.filename or "unknown"))
-            continue
-
-        # Upload to Supabase Storage and enqueue
-        job_id = str(uuid.uuid4())
-        supabase_db.upload_temp_file(job_id, contents)
-
-        payload = {
-            "job_id": job_id,
-            "user_id": user.id,
-            "filename": f.filename or "unknown",
-            "namespace": namespace,
-            "sha256": sha,
-            "plan": user.plan,
-        }
-        try:
-            redis_db.set_job_status(job_id, "pending", filename=f.filename or "unknown", user_id=user.id)
-            redis_db.enqueue_job(payload)
-        except Exception:
-            supabase_db.delete_temp_file(job_id)
-            raise
-        jobs.append(JobInfo(job_id=job_id, filename=f.filename or "unknown"))
-
-    return AsyncIngestResponse(jobs=jobs, skipped=skipped_names)
-
-
-@router.post("/from-drive", response_model=AsyncIngestResponse, status_code=202)
-@limiter.limit("10/minute")
-async def ingest_from_drive(
-    request: Request,
-    body: DriveIngestRequest,
-    user: UserContext = Depends(get_current_user),
-):
-    settings = get_settings()
-    limit = get_limit(user.plan, "documents")
-
     file_data: list[tuple[str, bytes, str]] = []
     sha_to_cached_ns: dict[str, str | None] = {}
-    for file_ref in body.files:
-        contents = await download_drive_file(file_ref.file_id, body.access_token)
-        if len(contents) > settings.max_file_size_mb * 1024 * 1024:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Arquivo '{file_ref.file_name}' maior que {settings.max_file_size_mb}MB.",
-            )
-        if not contents.startswith(b"%PDF-"):
-            raise HTTPException(
-                status_code=422,
-                detail=f"Arquivo '{file_ref.file_name}' não é um PDF válido.",
-            )
+    for filename, contents in file_entries:
         sha = sha256_bytes(contents)
         sha_to_cached_ns[sha] = (
             redis_db.get_cached_namespace(sha, user.id)
             or supabase_db.get_namespace_by_sha256(user.id, sha)
         )
-        file_data.append((file_ref.file_name, contents, sha))
+        file_data.append((filename, contents, sha))
 
     skipped_names: list[str] = []
 
+    # All-or-nothing: if any file fails validation before this point, no jobs are created.
     if limit is not None:
         current = supabase_db.count_namespaces(user.id)
         available = limit - current
@@ -160,11 +55,13 @@ async def ingest_from_drive(
         namespace = f"{user.id[:8]}_{sha[:8]}_{sanitize_namespace(filename)}"
         cached_ns = sha_to_cached_ns[sha]
         if cached_ns:
+            # Already indexed — return immediately as done job
             job_id = str(uuid.uuid4())
             redis_db.set_job_status(job_id, "done", filename=filename, namespace=cached_ns, user_id=user.id)
             jobs.append(JobInfo(job_id=job_id, filename=filename))
             continue
 
+        # Upload to Supabase Storage and enqueue
         job_id = str(uuid.uuid4())
         supabase_db.upload_temp_file(job_id, contents)
 
@@ -185,6 +82,62 @@ async def ingest_from_drive(
         jobs.append(JobInfo(job_id=job_id, filename=filename))
 
     return AsyncIngestResponse(jobs=jobs, skipped=skipped_names)
+
+
+@router.get("", response_model=ListFilesResponse)
+async def list_files(user: UserContext = Depends(get_current_user)):
+    files = await ingest_service.list_files(user.id)
+    return ListFilesResponse(arquivos=files)
+
+
+@router.post("", response_model=AsyncIngestResponse, status_code=202)
+@limiter.limit("10/minute")
+async def ingest_files(
+    request: Request,
+    files: list[UploadFile],
+    user: UserContext = Depends(get_current_user),
+):
+    settings = get_settings()
+
+    file_entries: list[tuple[str, bytes]] = []
+    for f in files:
+        if f.content_type != "application/pdf":
+            raise HTTPException(status_code=422, detail="Apenas arquivos PDF são aceitos.")
+        contents = await f.read()
+        if len(contents) > settings.max_file_size_mb * 1024 * 1024:
+            raise HTTPException(status_code=422, detail=f"Arquivo maior que {settings.max_file_size_mb}MB.")
+        if not contents.startswith(b"%PDF-"):
+            raise HTTPException(status_code=422, detail="Arquivo PDF inválido.")
+        file_entries.append((f.filename or "unknown", contents))
+
+    return await _build_and_enqueue_jobs(file_entries, user, get_limit(user.plan, "documents"))
+
+
+@router.post("/from-drive", response_model=AsyncIngestResponse, status_code=202)
+@limiter.limit("10/minute")
+async def ingest_from_drive(
+    request: Request,
+    body: DriveIngestRequest,
+    user: UserContext = Depends(get_current_user),
+):
+    settings = get_settings()
+
+    file_entries: list[tuple[str, bytes]] = []
+    for file_ref in body.files:
+        contents = await download_drive_file(file_ref.file_id, body.access_token)
+        if len(contents) > settings.max_file_size_mb * 1024 * 1024:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Arquivo '{file_ref.file_name}' maior que {settings.max_file_size_mb}MB.",
+            )
+        if not contents.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Arquivo '{file_ref.file_name}' não é um PDF válido.",
+            )
+        file_entries.append((file_ref.file_name, contents))
+
+    return await _build_and_enqueue_jobs(file_entries, user, get_limit(user.plan, "documents"))
 
 
 @router.get("/status", response_model=JobStatusResponse)
