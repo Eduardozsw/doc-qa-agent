@@ -1,6 +1,5 @@
 import { useRef } from 'react';
 import { useDriveAuth } from '../hooks/useDriveAuth';
-import { DARK } from '../constants/theme';
 
 declare global {
   interface Window {
