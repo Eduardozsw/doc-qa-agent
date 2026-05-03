@@ -1,6 +1,4 @@
-import os
 import uuid
-import tempfile
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 
@@ -88,17 +86,14 @@ async def ingest_files(
             jobs.append(JobInfo(job_id=job_id, filename=f.filename or "unknown"))
             continue
 
-        # Save to temp disk and enqueue
+        # Upload to Supabase Storage and enqueue
         job_id = str(uuid.uuid4())
-        tmp_path = os.path.join(tempfile.gettempdir(), f"{job_id}.pdf")
-        with open(tmp_path, "wb") as tmp:
-            tmp.write(contents)
+        supabase_db.upload_temp_file(job_id, contents)
 
         payload = {
             "job_id": job_id,
             "user_id": user.id,
             "filename": f.filename or "unknown",
-            "tmp_path": tmp_path,
             "namespace": namespace,
             "sha256": sha,
             "plan": user.plan,
@@ -107,8 +102,7 @@ async def ingest_files(
             redis_db.set_job_status(job_id, "pending", filename=f.filename or "unknown", user_id=user.id)
             redis_db.enqueue_job(payload)
         except Exception:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            supabase_db.delete_temp_file(job_id)
             raise
         jobs.append(JobInfo(job_id=job_id, filename=f.filename or "unknown"))
 

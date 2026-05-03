@@ -180,26 +180,30 @@ export function PDFUpload({
             <div
               key={job.job_id}
               style={{
-                display: 'flex', alignItems: 'center', gap: 8,
+                display: 'flex', alignItems: 'flex-start', gap: 8,
                 padding: '7px 10px', borderRadius: 8, marginBottom: 2,
                 background: isError ? 'rgba(239,68,68,0.06)' : 'rgba(14,165,233,0.06)',
                 border: `1px solid ${isError ? 'rgba(239,68,68,0.15)' : 'rgba(14,165,233,0.15)'}`,
               }}
             >
               {isProcessing && (
-                <Loader2 style={{ width: 12, height: 12, color: '#38bdf8', flexShrink: 0 }} className="animate-spin" />
+                <Loader2 style={{ width: 12, height: 12, color: '#38bdf8', flexShrink: 0, marginTop: 2 }} className="animate-spin" />
               )}
-              {isError && <X style={{ width: 12, height: 12, color: '#f87171', flexShrink: 0 }} />}
-              <span style={{
-                fontSize: 12,
-                color: isError ? '#f87171' : 'rgba(255,255,255,0.65)',
-                flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-              }}>
-                {job.filename}
+              {isError && <X style={{ width: 12, height: 12, color: '#f87171', flexShrink: 0, marginTop: 2 }} />}
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{
+                  fontSize: 12,
+                  color: isError ? '#f87171' : 'rgba(255,255,255,0.65)',
+                  overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                }}>
+                  {job.filename}
+                </div>
                 {isError && job.error && (
-                  <span style={{ fontSize: 10, marginLeft: 4 }}>— {job.error}</span>
+                  <div style={{ fontSize: 10, color: '#f87171', marginTop: 1, lineHeight: '1.3' }}>
+                    {job.error}
+                  </div>
                 )}
-              </span>
+              </div>
             </div>
           );
         })}
