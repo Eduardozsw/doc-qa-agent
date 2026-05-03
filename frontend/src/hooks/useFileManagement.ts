@@ -120,6 +120,12 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
   };
 
   const handleRemoveIndexed = async (toRemove: string[]) => {
+    setIndexedFiles(prev => prev.filter(f => !toRemove.includes(f)));
+    removeFromSelected(toRemove);
+    if (indexedFiles.length - toRemove.length === 0 && pendingFiles.length === 0) {
+      setIngestStatus('idle');
+    }
+
     try {
       const res = await authFetch('/api/ingest', {
         method: 'DELETE',
@@ -129,16 +135,13 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
 
       if (!res.ok) {
         const data = await res.json();
+        setIndexedFiles(prev => [...prev, ...toRemove]);
+        addToSelected(toRemove);
         setIngestError(data.detail ?? 'Erro ao remover arquivos.');
-        return;
-      }
-
-      setIndexedFiles(prev => prev.filter(f => !toRemove.includes(f)));
-      removeFromSelected(toRemove);
-      if (indexedFiles.length - toRemove.length === 0 && pendingFiles.length === 0) {
-        setIngestStatus('idle');
       }
     } catch {
+      setIndexedFiles(prev => [...prev, ...toRemove]);
+      addToSelected(toRemove);
       setIngestError('Falha ao conectar com o servidor.');
     }
   };
