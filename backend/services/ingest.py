@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from fastapi import UploadFile
 
 from core.config import get_settings
@@ -101,26 +100,36 @@ async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tupl
 
 
 def process_file_job(job: dict) -> None:
-    """Processa um job de indexação de forma síncrona. Chamado pelo worker."""
-    tmp_path = job["tmp_path"]
+    job_id = job["job_id"]
     try:
-        with open(tmp_path, "rb") as f:
-            contents = f.read()
+        contents = supabase_db.download_temp_file(job_id)
 
-        pages = load_pages_from_bytes(contents)
+        try:
+            pages = load_pages_from_bytes(contents)
+        except Exception as e:
+            logger.error(f"Job {job_id} — falha ao ler PDF: {e}")
+            raise RuntimeError("Não foi possível ler o PDF. O arquivo pode estar corrompido.")
+
         if not pages or not any(t.strip() for _, t in pages):
-            raise ValueError("Arquivo não contém texto extraível")
+            raise ValueError("PDF não contém texto extraível. Pode ser um arquivo escaneado.")
 
         chunks = chunk_pages(pages)
         if not chunks:
-            raise ValueError("Arquivo resultou em 0 chunks")
+            raise ValueError("Não foi possível extrair conteúdo do documento.")
 
-        upsert_chunks(chunks, job["namespace"], job["namespace"])
+        try:
+            upsert_chunks(chunks, job["namespace"], job["namespace"])
+        except Exception as e:
+            logger.error(f"Job {job_id} — falha ao indexar chunks: {e}")
+            raise RuntimeError("Erro ao salvar o documento. Tente novamente em alguns instantes.")
+
         supabase_db.add_namespace(job["user_id"], job["namespace"], job["sha256"], job["filename"])
         redis_db.set_cached_namespace(job["sha256"], job["user_id"], job["namespace"])
-        logger.info(f"Job {job['job_id']} concluído: {len(chunks)} chunks")
-    except Exception:
+        logger.info(f"Job {job_id} concluído: {len(chunks)} chunks")
+    except (ValueError, RuntimeError):
         raise
+    except Exception as e:
+        logger.error(f"Job {job_id} — erro inesperado: {e}")
+        raise RuntimeError("Erro inesperado ao processar o arquivo.")
     finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+        supabase_db.delete_temp_file(job_id)
