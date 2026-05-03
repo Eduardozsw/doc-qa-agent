@@ -56,7 +56,7 @@ function MainApp({ session }: { session: Session | null }) {
   const {
     indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError, ingestWarning,
     slotsAvailable, activeJobs, handleJobDone, handleToggleSearch, handleAddFiles, handleRemovePending,
-    handleIngest, handleRemoveIndexed, loadIndexedFiles, dismissWarning,
+    handleIngest, handleIngestFromDrive, handleRemoveIndexed, loadIndexedFiles, dismissWarning,
   } = useFileManagement(authFetch, maxFiles);
 
   const { jobs: jobStatuses } = useJobPolling(authFetch, activeJobs, handleJobDone);
@@ -216,6 +216,7 @@ function MainApp({ session }: { session: Session | null }) {
             onAddFiles={handleAddFiles}
             onRemovePending={handleRemovePending}
             onRemoveIndexed={handleRemoveIndexed}
+            onIngestFromDrive={handleIngestFromDrive}
             onSubmit={handleIngest}
             slotsAvailable={slotsAvailable}
             isLoading={ingestStatus === 'loading'}
