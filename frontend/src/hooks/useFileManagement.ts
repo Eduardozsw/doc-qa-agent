@@ -5,6 +5,28 @@ export type IngestStatus = 'idle' | 'loading' | 'ready' | 'error' | 'partial';
 
 type AuthFetch = (url: string, options?: RequestInit) => Promise<Response>;
 
+function applyIngestResponse(
+  data: { jobs?: Array<{ job_id: string; filename: string }>; skipped?: string[] },
+  setActiveJobs: React.Dispatch<React.SetStateAction<JobState[]>>,
+  setIngestWarning: React.Dispatch<React.SetStateAction<string | null>>,
+  setIngestStatus: React.Dispatch<React.SetStateAction<IngestStatus>>,
+) {
+  const jobs = data.jobs ?? [];
+  const skipped = data.skipped ?? [];
+  const initialJobs: JobState[] = jobs.map(j => ({
+    job_id: j.job_id,
+    filename: j.filename,
+    status: 'pending',
+  }));
+  setActiveJobs(initialJobs);
+  if (skipped.length > 0) {
+    setIngestWarning(`Arquivos ignorados por limite do plano: ${skipped.join(', ')}`);
+  }
+  if (initialJobs.length === 0) {
+    setIngestStatus(skipped.length > 0 ? 'partial' : 'ready');
+  }
+}
+
 export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
   const [indexedFiles, setIndexedFiles] = useState<string[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -89,25 +111,8 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
         return;
       }
 
-      const jobs: Array<{ job_id: string; filename: string }> = data.jobs ?? [];
-      const skipped: string[] = data.skipped ?? [];
-
-      const initialJobs: JobState[] = jobs.map(j => ({
-        job_id: j.job_id,
-        filename: j.filename,
-        status: 'pending',
-      }));
-
       setPendingFiles([]);
-      setActiveJobs(initialJobs);
-
-      if (skipped.length > 0) {
-        setIngestWarning(`Arquivos ignorados por limite do plano: ${skipped.join(', ')}`);
-      }
-
-      if (initialJobs.length === 0) {
-        setIngestStatus(skipped.length > 0 ? 'partial' : 'ready');
-      }
+      applyIngestResponse(data, setActiveJobs, setIngestWarning, setIngestStatus);
     } catch {
       setIngestStatus('error');
       setIngestError('Falha ao conectar com o servidor.');
@@ -123,6 +128,8 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
     driveFiles: Array<{ id: string; name: string }>,
     accessToken: string,
   ) => {
+    if (!driveFiles.length) return;
+
     setIngestStatus('loading');
     setIngestError(null);
     setIngestWarning(null);
@@ -144,24 +151,7 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
         return;
       }
 
-      const jobs: Array<{ job_id: string; filename: string }> = data.jobs ?? [];
-      const skipped: string[] = data.skipped ?? [];
-
-      const initialJobs: JobState[] = jobs.map(j => ({
-        job_id: j.job_id,
-        filename: j.filename,
-        status: 'pending',
-      }));
-
-      setActiveJobs(initialJobs);
-
-      if (skipped.length > 0) {
-        setIngestWarning(`Arquivos ignorados por limite do plano: ${skipped.join(', ')}`);
-      }
-
-      if (initialJobs.length === 0) {
-        setIngestStatus(skipped.length > 0 ? 'partial' : 'ready');
-      }
+      applyIngestResponse(data, setActiveJobs, setIngestWarning, setIngestStatus);
     } catch {
       setIngestStatus('error');
       setIngestError('Falha ao conectar com o servidor.');
