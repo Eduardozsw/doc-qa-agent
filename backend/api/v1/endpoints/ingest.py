@@ -3,7 +3,8 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 
 from api.deps import get_current_user, UserContext
-from models.requests import DeleteRequest
+from models.requests import DeleteRequest, DriveIngestRequest
+from ingestion.drive_client import download_drive_file
 from models.responses import AsyncIngestResponse, JobInfo, JobStatusResponse, JobStatus, ListFilesResponse, DeleteResponse
 from services import ingest as ingest_service
 from db import supabase as supabase_db
@@ -105,6 +106,83 @@ async def ingest_files(
             supabase_db.delete_temp_file(job_id)
             raise
         jobs.append(JobInfo(job_id=job_id, filename=f.filename or "unknown"))
+
+    return AsyncIngestResponse(jobs=jobs, skipped=skipped_names)
+
+
+@router.post("/from-drive", response_model=AsyncIngestResponse, status_code=202)
+@limiter.limit("10/minute")
+async def ingest_from_drive(
+    request: Request,
+    body: DriveIngestRequest,
+    user: UserContext = Depends(get_current_user),
+):
+    settings = get_settings()
+    limit = get_limit(user.plan, "documents")
+
+    file_data: list[tuple[str, bytes, str]] = []
+    sha_to_cached_ns: dict[str, str | None] = {}
+    for file_ref in body.files:
+        contents = await download_drive_file(file_ref.file_id, body.access_token)
+        if len(contents) > settings.max_file_size_mb * 1024 * 1024:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Arquivo '{file_ref.file_name}' maior que {settings.max_file_size_mb}MB.",
+            )
+        if not contents.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Arquivo '{file_ref.file_name}' não é um PDF válido.",
+            )
+        sha = sha256_bytes(contents)
+        sha_to_cached_ns[sha] = (
+            redis_db.get_cached_namespace(sha, user.id)
+            or supabase_db.get_namespace_by_sha256(user.id, sha)
+        )
+        file_data.append((file_ref.file_name, contents, sha))
+
+    skipped_names: list[str] = []
+
+    if limit is not None:
+        current = supabase_db.count_namespaces(user.id)
+        available = limit - current
+
+        cached_files = [(n, c, s) for n, c, s in file_data if sha_to_cached_ns[s]]
+        new_files = [(n, c, s) for n, c, s in file_data if not sha_to_cached_ns[s]]
+
+        allowed_new = new_files[:max(available, 0)]
+        skipped = new_files[max(available, 0):]
+        skipped_names = [n for n, _, _ in skipped]
+        file_data = cached_files + allowed_new
+
+    jobs: list[JobInfo] = []
+    for filename, contents, sha in file_data:
+        namespace = f"{user.id[:8]}_{sha[:8]}_{sanitize_namespace(filename)}"
+        cached_ns = sha_to_cached_ns[sha]
+        if cached_ns:
+            job_id = str(uuid.uuid4())
+            redis_db.set_job_status(job_id, "done", filename=filename, namespace=cached_ns, user_id=user.id)
+            jobs.append(JobInfo(job_id=job_id, filename=filename))
+            continue
+
+        job_id = str(uuid.uuid4())
+        supabase_db.upload_temp_file(job_id, contents)
+
+        payload = {
+            "job_id": job_id,
+            "user_id": user.id,
+            "filename": filename,
+            "namespace": namespace,
+            "sha256": sha,
+            "plan": user.plan,
+        }
+        try:
+            redis_db.set_job_status(job_id, "pending", filename=filename, user_id=user.id)
+            redis_db.enqueue_job(payload)
+        except Exception:
+            supabase_db.delete_temp_file(job_id)
+            raise
+        jobs.append(JobInfo(job_id=job_id, filename=filename))
 
     return AsyncIngestResponse(jobs=jobs, skipped=skipped_names)
 
