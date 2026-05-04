@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Bot, MessageSquare, FileText, User } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bot, MessageSquare, FileText, User, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Message } from '../App';
 import { DARK } from '../constants/theme';
@@ -26,6 +26,34 @@ const markdownComponents = {
   em: ({ children }: { children?: React.ReactNode }) => <em className="italic">{children}</em>,
   hr: () => <hr className="my-2" style={{ borderColor: DARK.border }} />,
 };
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(`${text}\n\n— Gerado pelo MindDoc · minddoc.com.br`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copiar resposta"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+        background: 'transparent', border: `1px solid ${DARK.border}`,
+        color: copied ? DARK.emerald : 'rgba(255,255,255,0.3)',
+        cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
+      }}
+      onMouseEnter={e => { if (!copied) e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}
+      onMouseLeave={e => { if (!copied) e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; }}
+    >
+      {copied
+        ? <><Check style={{ width: 11, height: 11 }} />Copiado</>
+        : <><Copy style={{ width: 11, height: 11 }} />Copiar</>}
+    </button>
+  );
+}
 
 export function AnswerSection({ history, loading }: AnswerSectionProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -92,15 +120,18 @@ export function AnswerSection({ history, loading }: AnswerSectionProps) {
                     {msg.answer}
                   </ReactMarkdown>
                 </div>
-                {msg.sources.length > 0 && (
-                  <div
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-fit text-xs font-sans"
-                    style={{ background: DARK.emeraldSubtle, color: DARK.emerald, border: `1px solid ${DARK.emeraldBorder}` }}
-                  >
-                    <FileText className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate max-w-[200px]">{displayName(msg.sources[0])}</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {msg.sources.length > 0 && (
+                    <div
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-fit text-xs font-sans"
+                      style={{ background: DARK.emeraldSubtle, color: DARK.emerald, border: `1px solid ${DARK.emeraldBorder}` }}
+                    >
+                      <FileText className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate max-w-[200px]">{displayName(msg.sources[0])}</span>
+                    </div>
+                  )}
+                  <CopyButton text={msg.answer} />
+                </div>
               </div>
             </div>
           )}
