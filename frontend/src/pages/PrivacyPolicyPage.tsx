@@ -71,7 +71,7 @@ export function PrivacyPolicyPage() {
             <p>Coletamos apenas os dados estritamente necessários para o funcionamento do serviço:</p>
             <ul className="list-disc list-inside space-y-1 pl-2">
               <li><strong className="text-white">Email</strong> — usado exclusivamente para autenticação e identificação da conta</li>
-              <li><strong className="text-white">Documentos PDF</strong> — enviados pelo próprio usuário para consulta</li>
+              <li><strong className="text-white">Documentos PDF</strong> — enviados pelo próprio usuário para consulta, seja por upload direto ou importação do Google Drive</li>
               <li><strong className="text-white">Histórico de perguntas</strong> — mantido temporariamente na sessão ativa, não armazenado permanentemente</li>
             </ul>
             <p className="mt-2">
@@ -81,11 +81,32 @@ export function PrivacyPolicyPage() {
 
           <div style={{ borderTop: `1px solid ${DARK.border}` }} />
 
-          <Section title="3. Finalidade do tratamento">
+          <Section title="3. Integração com Google Drive (opcional)">
+            <p>
+              O MindDoc oferece a opção de importar arquivos PDF diretamente do Google Drive do usuário.
+              Esta funcionalidade é <strong className="text-white">estritamente opcional</strong> e requer consentimento explícito a cada uso.
+            </p>
+            <ul className="list-disc list-inside space-y-1 pl-2 mt-2">
+              <li>O acesso é concedido com escopo <strong className="text-white">somente leitura</strong> (<code>drive.readonly</code>), limitado aos arquivos selecionados pelo próprio usuário</li>
+              <li>O token de acesso OAuth é utilizado <strong className="text-white">apenas para baixar o arquivo selecionado</strong> e descartado imediatamente após o download</li>
+              <li>O token <strong className="text-white">não é armazenado</strong> em nenhum banco de dados ou sistema de cache</li>
+              <li>Nenhum outro arquivo do Drive é acessado além dos explicitamente selecionados pelo usuário</li>
+              <li>O MindDoc não acessa, indexa nem monitora o Google Drive do usuário de forma contínua ou automática</li>
+            </ul>
+            <p className="mt-2">
+              O uso dos dados obtidos via Google Drive segue as mesmas regras aplicadas aos documentos enviados diretamente:
+              não são lidos por humanos, não são compartilhados e não são usados para treinar modelos de IA.
+            </p>
+          </Section>
+
+          <div style={{ borderTop: `1px solid ${DARK.border}` }} />
+
+          <Section title="4. Finalidade do tratamento">
             <p>Os dados são tratados com as seguintes finalidades:</p>
             <ul className="list-disc list-inside space-y-1 pl-2">
               <li><strong className="text-white">Email</strong> — autenticar o usuário e associar documentos à conta correta</li>
               <li><strong className="text-white">Documentos PDF</strong> — extrair texto e gerar representações vetoriais para viabilizar as respostas da IA</li>
+              <li><strong className="text-white">Token Google Drive</strong> — baixar o arquivo selecionado pelo usuário; descartado imediatamente após o uso</li>
             </ul>
             <p className="mt-2">
               Os documentos enviados <strong className="text-white">não são lidos por humanos</strong>,
@@ -95,7 +116,7 @@ export function PrivacyPolicyPage() {
 
           <div style={{ borderTop: `1px solid ${DARK.border}` }} />
 
-          <Section title="4. Armazenamento e localização dos dados">
+          <Section title="5. Armazenamento e localização dos dados">
             <ul className="list-disc list-inside space-y-2 pl-2">
               <li>
                 <strong className="text-white">Autenticação e perfil</strong> — armazenados no Supabase,
@@ -116,7 +137,7 @@ export function PrivacyPolicyPage() {
 
           <div style={{ borderTop: `1px solid ${DARK.border}` }} />
 
-          <Section title="5. Retenção dos dados">
+          <Section title="6. Retenção dos dados">
             <ul className="list-disc list-inside space-y-1 pl-2">
               <li>Dados de autenticação (email) — mantidos enquanto a conta estiver ativa</li>
               <li>Vetores de documentos — mantidos enquanto o documento estiver indexado na conta. Após remoção pelo usuário, o cache é invalidado em até 30 dias</li>
@@ -126,7 +147,7 @@ export function PrivacyPolicyPage() {
 
           <div style={{ borderTop: `1px solid ${DARK.border}` }} />
 
-          <Section title="6. Segurança">
+          <Section title="7. Segurança">
             <ul className="list-disc list-inside space-y-1 pl-2">
               <li>Senhas nunca armazenadas em texto puro — protegidas com hash bcrypt pelo Supabase</li>
               <li>Todo o tráfego entre o navegador e os servidores é cifrado via HTTPS</li>
@@ -136,7 +157,7 @@ export function PrivacyPolicyPage() {
 
           <div style={{ borderTop: `1px solid ${DARK.border}` }} />
 
-          <Section title="7. Seus direitos (Art. 18 da LGPD)">
+          <Section title="8. Seus direitos (Art. 18 da LGPD)">
             <p>Você tem direito a:</p>
             <ul className="list-disc list-inside space-y-1 pl-2">
               <li>Confirmar a existência de tratamento dos seus dados</li>
@@ -156,7 +177,7 @@ export function PrivacyPolicyPage() {
 
           <div style={{ borderTop: `1px solid ${DARK.border}` }} />
 
-          <Section title="8. Cookies e rastreamento">
+          <Section title="9. Cookies e rastreamento">
             <p>
               O MindDoc utiliza apenas cookies de sessão estritamente necessários para manter o usuário autenticado.
               Não utilizamos cookies de rastreamento, publicidade ou analytics de terceiros.
@@ -165,7 +186,7 @@ export function PrivacyPolicyPage() {
 
           <div style={{ borderTop: `1px solid ${DARK.border}` }} />
 
-          <Section title="9. Alterações nesta política">
+          <Section title="10. Alterações nesta política">
             <p>
               Eventuais alterações nesta política serão comunicadas através da interface do serviço.
               O uso continuado após as alterações implica na aceitação dos novos termos.
