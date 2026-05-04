@@ -26,10 +26,16 @@ async def remove_files(user_id: str, namespaces: list[str]) -> None:
     user_namespaces = supabase_db.get_namespaces(user_id)
     not_owned = [n for n in namespaces if n not in user_namespaces]
     if not_owned:
+        logger.warning(
+            f"403 delete user={user_id} requested={namespaces} owned={user_namespaces} not_owned={not_owned}"
+        )
         raise ForbiddenError("Arquivo não encontrado")
 
     for ns in namespaces:
+        sha256 = supabase_db.get_sha256_for_namespace(user_id, ns)
         supabase_db.remove_namespace(user_id, ns)
+        if sha256:
+            redis_db.delete_cached_namespace(sha256, user_id)
 
 
 async def ingest_files(user_id: str, files: list[UploadFile]) -> tuple[list[str], int, list[str]]:

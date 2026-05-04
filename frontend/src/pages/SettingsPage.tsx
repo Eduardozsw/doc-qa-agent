@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Sparkles, ArrowLeft, User, Mail, Lock, Check, Eye, EyeOff,
-  Loader2, AlertCircle, CheckCircle2, Link2, CreditCard, Zap, Menu, X,
+  Sparkles, ArrowLeft, User, Mail, Lock,
+  Loader2, AlertCircle, CheckCircle2, Link2, CreditCard, Zap, Menu, X, Send,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -30,18 +30,13 @@ function GoogleIcon() {
   );
 }
 
-const PASSWORD_RULES = [
-  { label: 'Mínimo 8 caracteres',        test: (p: string) => p.length >= 8 },
-  { label: 'Ao menos uma maiúscula',      test: (p: string) => /[A-Z]/.test(p) },
-  { label: 'Ao menos um caractere especial', test: (p: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
-];
 
 type FeedbackState = { type: 'success' | 'error'; message: string } | null;
 
 const PLAN_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
   free:  { label: 'Grátis', color: 'rgba(255,255,255,0.5)',  bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' },
-  solo:  { label: 'Solo',   color: DARK.accent,              bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.25)' },
-  pro:   { label: 'Pro',    color: DARK.emerald,             bg: DARK.emeraldSubtle,       border: DARK.emeraldBorder },
+  solo:  { label: 'Solo',   color: '#38bdf8',                bg: DARK.skySubtle,           border: DARK.skyBorder },
+  pro:   { label: 'Pro',    color: '#fbbf24',                bg: DARK.accentSubtle,        border: DARK.accentBorder },
 };
 
 function Feedback({ state }: { state: FeedbackState }) {
@@ -187,33 +182,10 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle: string })
   );
 }
 
-function PasswordStrength({ password }: { password: string }) {
-  const score = PASSWORD_RULES.filter(r => r.test(password)).length;
-  const colors = ['transparent', '#f87171', DARK.accent, DARK.emerald];
-  const labels = ['', 'Fraca', 'Média', 'Forte'];
-  return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
-        {[0, 1, 2].map(i => (
-          <div key={i} style={{
-            flex: 1, height: 3, borderRadius: 99,
-            background: i < score ? colors[score] : 'rgba(255,255,255,0.08)',
-            transition: 'background 0.3s',
-          }} />
-        ))}
-      </div>
-      {password && (
-        <span style={{ fontSize: 10, color: colors[score], fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
-          {labels[score]}
-        </span>
-      )}
-    </div>
-  );
-}
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { user, session, profile, updateName, updateEmail, updatePassword } = useAuth();
+  const { user, session, profile, updateName, updateEmail, requestPasswordReset } = useAuth();
   const plan = profile?.plan ?? 'free';
   const planMeta = PLAN_META[plan] ?? PLAN_META.free;
   const isPix = plan !== 'free' && !profile?.subscription_id;
@@ -299,31 +271,18 @@ export function SettingsPage() {
 
   const isOAuthOnly = !user?.identities?.some(i => i.provider === 'email');
 
-  // Senha
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordFeedback, setPasswordFeedback] = useState<FeedbackState>(null);
-  const validatePassword = (p: string) => {
-    if (p.length < 8) return 'A senha deve ter no mínimo 8 caracteres.';
-    if (!/[A-Z]/.test(p)) return 'A senha deve conter ao menos uma letra maiúscula.';
-    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p)) return 'A senha deve conter ao menos um caractere especial.';
-    return '';
-  };
-  const handleSavePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const err = validatePassword(newPassword);
-    if (err) { setPasswordFeedback({ type: 'error', message: err }); return; }
-    if (newPassword !== confirmPassword) { setPasswordFeedback({ type: 'error', message: 'As senhas não coincidem.' }); return; }
-    setPasswordLoading(true); setPasswordFeedback(null);
+  // Redefinição de senha por link
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetFeedback, setResetFeedback] = useState<FeedbackState>(null);
+  const handleSendResetLink = async () => {
+    if (!user?.email) return;
+    setResetLoading(true); setResetFeedback(null);
     try {
-      await updatePassword(newPassword);
-      setPasswordFeedback({ type: 'success', message: 'Senha atualizada com sucesso.' });
-      setNewPassword(''); setConfirmPassword('');
-    } catch (err) { setPasswordFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar senha.' }); }
-    finally { setPasswordLoading(false); }
+      await requestPasswordReset(user.email);
+      setResetFeedback({ type: 'success', message: 'Link enviado! Verifique seu email.' });
+    } catch (err) {
+      setResetFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao enviar link.' });
+    } finally { setResetLoading(false); }
   };
 
   const displayName = user?.user_metadata?.full_name || user?.email || 'Usuário';
@@ -652,96 +611,24 @@ export function SettingsPage() {
               {activeSection === 'senha' && (
                 <div>
                   <SectionHeader
-                    title={isOAuthOnly ? 'Definir senha' : 'Alterar senha'}
-                    subtitle={isOAuthOnly ? 'Defina uma senha para entrar com email e senha.' : 'Atualize sua senha de acesso.'}
+                    title="Redefinir senha"
+                    subtitle="Enviaremos um link para o seu email com instruções para criar uma nova senha."
                   />
                   <Card style={{ maxWidth: 500 }}>
-                    <form onSubmit={handleSavePassword} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-                        <div>
-                          <FieldLabel>Nova senha</FieldLabel>
-                          <div style={{ position: 'relative' }}>
-                            <Input
-                              type={showPassword ? 'text' : 'password'}
-                              value={newPassword}
-                              onChange={e => setNewPassword(e.target.value)}
-                              onFocus={() => setPasswordFocused(true)}
-                              onBlur={() => setPasswordFocused(false)}
-                              placeholder="••••••••"
-                              maxLength={128}
-                              style={{ paddingRight: 40 }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(p => !p)}
-                              style={{
-                                position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)',
-                                background: 'none', border: 'none', cursor: 'pointer',
-                                color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center',
-                              }}
-                            >
-                              {showPassword ? <EyeOff style={{ width: 14, height: 14 }} /> : <Eye style={{ width: 14, height: 14 }} />}
-                            </button>
-                          </div>
-
-                          {/* Strength bar */}
-                          {newPassword.length > 0 && <PasswordStrength password={newPassword} />}
-
-                          {/* Rules */}
-                          <div style={{
-                            overflow: 'hidden',
-                            maxHeight: passwordFocused && newPassword ? 90 : 0,
-                            transition: 'max-height 0.3s ease',
-                            marginTop: newPassword ? 10 : 0,
-                          }}>
-                            {PASSWORD_RULES.map(rule => {
-                              const met = rule.test(newPassword);
-                              return (
-                                <div key={rule.label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                                  <div style={{
-                                    width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
-                                    background: met ? DARK.accent : 'rgba(255,255,255,0.05)',
-                                    border: met ? 'none' : `1px solid ${DARK.border}`,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    transition: 'background 0.2s',
-                                  }}>
-                                    <Check style={{ width: 7, height: 7, color: met ? DARK.bg : 'transparent', strokeWidth: 3.5 }} />
-                                  </div>
-                                  <span style={{ fontSize: 11, color: met ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)', transition: 'color 0.2s' }}>
-                                    {rule.label}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div>
-                          <FieldLabel>Confirmar senha</FieldLabel>
-                          <Input
-                            type={showPassword ? 'text' : 'password'}
-                            value={confirmPassword}
-                            onChange={e => setConfirmPassword(e.target.value)}
-                            placeholder="••••••••"
-                            maxLength={128}
-                          />
-                          {confirmPassword && newPassword && (
-                            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              {confirmPassword === newPassword
-                                ? <><CheckCircle2 style={{ width: 12, height: 12, color: DARK.emerald }} /><span style={{ fontSize: 11, color: DARK.emerald }}>Senhas coincidem</span></>
-                                : <><AlertCircle  style={{ width: 12, height: 12, color: '#f87171' }} /><span style={{ fontSize: 11, color: '#f87171' }}>Senhas não coincidem</span></>
-                              }
-                            </div>
-                          )}
-                        </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: `1px solid ${DARK.border}` }}>
+                        <Mail style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>{user?.email}</span>
                       </div>
-
-                      <Feedback state={passwordFeedback} />
-                      <BtnPrimary type="submit" loading={passwordLoading} disabled={!newPassword || !confirmPassword}>
-                        Atualizar senha
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: 0, lineHeight: 1.6 }}>
+                        O link expira em 1 hora. Após clicar, você será direcionado a uma página segura para definir sua nova senha.
+                      </p>
+                      <Feedback state={resetFeedback} />
+                      <BtnPrimary loading={resetLoading} onClick={handleSendResetLink} disabled={resetFeedback?.type === 'success'}>
+                        <Send style={{ width: 12, height: 12 }} />
+                        Enviar link de redefinição
                       </BtnPrimary>
-                    </form>
+                    </div>
                   </Card>
                 </div>
               )}

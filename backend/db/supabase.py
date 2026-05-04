@@ -112,6 +112,22 @@ def add_namespace(user_id: str, namespace: str, sha256: str, filename: str) -> N
         raise
 
 
+def get_sha256_for_namespace(user_id: str, namespace: str) -> str | None:
+    try:
+        result = (
+            get_admin()
+            .table("namespaces")
+            .select("sha256")
+            .eq("user_id", user_id)
+            .eq("namespace", namespace)
+            .single()
+            .execute()
+        )
+        return result.data["sha256"] if result.data else None
+    except Exception:
+        return None
+
+
 def remove_namespace(user_id: str, namespace: str) -> None:
     try:
         get_admin().table("namespaces").delete().eq("user_id", user_id).eq("namespace", namespace).execute()

@@ -24,6 +24,9 @@ async def handle_query(user_id: str, plan: str, body: QueryRequest) -> dict:
         user_namespaces = set(supabase_db.get_namespaces(user_id))
         unauthorized = [n for n in body.namespaces if n not in user_namespaces]
         if unauthorized:
+            logger.warning(
+                f"403 query user={user_id} requested={body.namespaces} owned={list(user_namespaces)} unauthorized={unauthorized}"
+            )
             raise ForbiddenError("Namespaces não pertencem ao usuário")
 
     namespaces = body.namespaces if body.namespaces else None
