@@ -1,8 +1,31 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { JobState } from './useJobPolling';
 
 export type IngestStatus = 'idle' | 'loading' | 'ready' | 'error' | 'partial';
 
 type AuthFetch = (url: string, options?: RequestInit) => Promise<Response>;
+
+function applyIngestResponse(
+  data: { jobs?: Array<{ job_id: string; filename: string }>; skipped?: string[] },
+  setActiveJobs: React.Dispatch<React.SetStateAction<JobState[]>>,
+  setIngestWarning: React.Dispatch<React.SetStateAction<string | null>>,
+  setIngestStatus: React.Dispatch<React.SetStateAction<IngestStatus>>,
+) {
+  const jobs = data.jobs ?? [];
+  const skipped = data.skipped ?? [];
+  const initialJobs: JobState[] = jobs.map(j => ({
+    job_id: j.job_id,
+    filename: j.filename,
+    status: 'pending',
+  }));
+  setActiveJobs(initialJobs);
+  if (skipped.length > 0) {
+    setIngestWarning(`Arquivos ignorados por limite do plano: ${skipped.join(', ')}`);
+  }
+  if (initialJobs.length === 0) {
+    setIngestStatus(skipped.length > 0 ? 'partial' : 'ready');
+  }
+}
 
 export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
   const [indexedFiles, setIndexedFiles] = useState<string[]>([]);
@@ -11,6 +34,7 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
   const [ingestStatus, setIngestStatus] = useState<IngestStatus>('idle');
   const [ingestError, setIngestError] = useState<string | null>(null);
   const [ingestWarning, setIngestWarning] = useState<string | null>(null);
+  const [activeJobs, setActiveJobs] = useState<JobState[]>([]);
 
   const slotsAvailable = maxFiles - indexedFiles.length - pendingFiles.length;
 
@@ -47,6 +71,26 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
   const handleRemovePending = (index: number) =>
     setPendingFiles(prev => prev.filter((_, i) => i !== index));
 
+  const handleJobDone = useCallback((job: JobState) => {
+    if (job.namespace) {
+      setIndexedFiles(prev => {
+        if (prev.includes(job.namespace!)) return prev;
+        return [...prev, job.namespace!];
+      });
+      addToSelected([job.namespace!]);
+    }
+    setActiveJobs(prev => {
+      const updated = prev.map(j => j.job_id === job.job_id ? job : j);
+      const stillActive = updated.filter(j => j.status === 'pending' || j.status === 'processing');
+      if (stillActive.length === 0) {
+        const hasError = updated.some(j => j.status === 'error');
+        setIngestStatus(hasError ? 'partial' : 'ready');
+        return [];
+      }
+      return updated;
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleIngest = async () => {
     if (!pendingFiles.length) return;
 
@@ -67,17 +111,8 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
         return;
       }
 
-      const added: string[] = data.arquivos ?? [];
-      const hadSkipped = added.length < pendingFiles.length;
-      setIndexedFiles(prev => [...prev, ...added]);
-      addToSelected(added);
       setPendingFiles([]);
-      if (hadSkipped) {
-        setIngestWarning(data.message ?? null);
-        setIngestStatus('partial');
-      } else {
-        setIngestStatus('ready');
-      }
+      applyIngestResponse(data, setActiveJobs, setIngestWarning, setIngestStatus);
     } catch {
       setIngestStatus('error');
       setIngestError('Falha ao conectar com o servidor.');
@@ -89,7 +124,47 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
     setIngestStatus(prev => prev === 'partial' ? 'ready' : prev);
   };
 
+  const handleIngestFromDrive = async (
+    driveFiles: Array<{ id: string; name: string }>,
+    accessToken: string,
+  ) => {
+    if (!driveFiles.length) return;
+
+    setIngestStatus('loading');
+    setIngestError(null);
+    setIngestWarning(null);
+
+    try {
+      const res = await authFetch('/api/ingest/from-drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: driveFiles.map(f => ({ file_id: f.id, file_name: f.name })),
+          access_token: accessToken,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setIngestStatus('error');
+        setIngestError(data.detail ?? `Erro ${res.status}`);
+        return;
+      }
+
+      applyIngestResponse(data, setActiveJobs, setIngestWarning, setIngestStatus);
+    } catch {
+      setIngestStatus('error');
+      setIngestError('Falha ao conectar com o servidor.');
+    }
+  };
+
   const handleRemoveIndexed = async (toRemove: string[]) => {
+    setIndexedFiles(prev => prev.filter(f => !toRemove.includes(f)));
+    removeFromSelected(toRemove);
+    if (indexedFiles.length - toRemove.length === 0 && pendingFiles.length === 0) {
+      setIngestStatus('idle');
+    }
+
     try {
       const res = await authFetch('/api/ingest', {
         method: 'DELETE',
@@ -99,16 +174,13 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
 
       if (!res.ok) {
         const data = await res.json();
+        setIndexedFiles(prev => [...prev, ...toRemove]);
+        addToSelected(toRemove);
         setIngestError(data.detail ?? 'Erro ao remover arquivos.');
-        return;
-      }
-
-      setIndexedFiles(prev => prev.filter(f => !toRemove.includes(f)));
-      removeFromSelected(toRemove);
-      if (indexedFiles.length - toRemove.length === 0 && pendingFiles.length === 0) {
-        setIngestStatus('idle');
       }
     } catch {
+      setIndexedFiles(prev => [...prev, ...toRemove]);
+      addToSelected(toRemove);
       setIngestError('Falha ao conectar com o servidor.');
     }
   };
@@ -134,10 +206,13 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
     ingestError,
     ingestWarning,
     slotsAvailable,
+    activeJobs,
+    handleJobDone,
     handleToggleSearch,
     handleAddFiles,
     handleRemovePending,
     handleIngest,
+    handleIngestFromDrive,
     handleRemoveIndexed,
     loadIndexedFiles,
     dismissWarning,

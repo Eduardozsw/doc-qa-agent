@@ -132,6 +132,25 @@ def get_user_info(user_id: str) -> tuple[str, str]:
         return "", ""
 
 
+def upload_temp_file(job_id: str, contents: bytes) -> None:
+    path = f"{job_id}.pdf"
+    get_admin().storage.from_("temp-uploads").upload(
+        path, contents, {"content-type": "application/pdf", "upsert": "true"}
+    )
+
+
+def download_temp_file(job_id: str) -> bytes:
+    path = f"{job_id}.pdf"
+    return bytes(get_admin().storage.from_("temp-uploads").download(path))
+
+
+def delete_temp_file(job_id: str) -> None:
+    try:
+        get_admin().storage.from_("temp-uploads").remove([f"{job_id}.pdf"])
+    except Exception as e:
+        logger.warning(f"Falha ao deletar temp file {job_id}: {e}")
+
+
 def expire_pix_plans() -> None:
     try:
         now = datetime.utcnow().isoformat()

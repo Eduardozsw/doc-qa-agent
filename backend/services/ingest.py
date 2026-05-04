@@ -97,3 +97,39 @@ async def _process_file(user_id: str, file: UploadFile, contents: bytes) -> tupl
         redis_db.set_cached_namespace(sha256, user_id, namespace)
         logger.info(f"Arquivo indexado: {len(chunks)} chunks — user {user_id}")
         return namespace, len(chunks), True
+
+
+def process_file_job(job: dict) -> None:
+    job_id = job["job_id"]
+    try:
+        contents = supabase_db.download_temp_file(job_id)
+
+        try:
+            pages = load_pages_from_bytes(contents)
+        except Exception as e:
+            logger.error(f"Job {job_id} — falha ao ler PDF: {e}")
+            raise RuntimeError("Não foi possível ler o PDF. O arquivo pode estar corrompido.")
+
+        if not pages or not any(t.strip() for _, t in pages):
+            raise ValueError("PDF não contém texto extraível. Pode ser um arquivo escaneado.")
+
+        chunks = chunk_pages(pages)
+        if not chunks:
+            raise ValueError("Não foi possível extrair conteúdo do documento.")
+
+        try:
+            upsert_chunks(chunks, job["namespace"], job["namespace"])
+        except Exception as e:
+            logger.error(f"Job {job_id} — falha ao indexar chunks: {e}")
+            raise RuntimeError("Erro ao salvar o documento. Tente novamente em alguns instantes.")
+
+        supabase_db.add_namespace(job["user_id"], job["namespace"], job["sha256"], job["filename"])
+        redis_db.set_cached_namespace(job["sha256"], job["user_id"], job["namespace"])
+        logger.info(f"Job {job_id} concluído: {len(chunks)} chunks")
+    except (ValueError, RuntimeError):
+        raise
+    except Exception as e:
+        logger.error(f"Job {job_id} — erro inesperado: {e}")
+        raise RuntimeError("Erro inesperado ao processar o arquivo.")
+    finally:
+        supabase_db.delete_temp_file(job_id)
