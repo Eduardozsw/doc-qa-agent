@@ -1,6 +1,12 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+)
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -45,3 +51,13 @@ app.include_router(router)
 @app.get("/health")
 async def health():
     return JSONResponse({"status": "ok"})
+
+
+@app.get("/health/db")
+async def health_db():
+    from db.supabase import get_admin
+    try:
+        result = get_admin().table("namespaces").select("namespace", count="exact").limit(1).execute()
+        return JSONResponse({"status": "ok", "namespaces_total": result.count})
+    except Exception as e:
+        return JSONResponse({"status": "error", "detail": str(e)}, status_code=500)
