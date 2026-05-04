@@ -12,12 +12,11 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 type Section = 'perfil' | 'assinatura' | 'senha' | 'vinculadas';
 
-const SECTION_ANIM = `
-  @keyframes _sec-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0);    }
-  }
-`;
+const PLAN_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  free: { label: 'Grátis', color: 'rgba(255,255,255,0.5)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' },
+  solo: { label: 'Solo',   color: '#38bdf8',               bg: DARK.skySubtle,           border: DARK.skyBorder },
+  pro:  { label: 'Pro',    color: '#fbbf24',               bg: DARK.accentSubtle,        border: DARK.accentBorder },
+};
 
 function GoogleIcon() {
   return (
@@ -30,14 +29,7 @@ function GoogleIcon() {
   );
 }
 
-
 type FeedbackState = { type: 'success' | 'error'; message: string } | null;
-
-const PLAN_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  free:  { label: 'Grátis', color: 'rgba(255,255,255,0.5)',  bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' },
-  solo:  { label: 'Solo',   color: '#38bdf8',                bg: DARK.skySubtle,           border: DARK.skyBorder },
-  pro:   { label: 'Pro',    color: '#fbbf24',                bg: DARK.accentSubtle,        border: DARK.accentBorder },
-};
 
 function Feedback({ state }: { state: FeedbackState }) {
   if (!state) return null;
@@ -54,18 +46,6 @@ function Feedback({ state }: { state: FeedbackState }) {
         ? <CheckCircle2 style={{ width: 13, height: 13, flexShrink: 0 }} />
         : <AlertCircle  style={{ width: 13, height: 13, flexShrink: 0 }} />}
       {state.message}
-    </div>
-  );
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-      textTransform: 'uppercase' as const,
-      color: 'rgba(255,255,255,0.3)', marginBottom: 7,
-    }}>
-      {children}
     </div>
   );
 }
@@ -102,9 +82,9 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-function BtnPrimary({ children, disabled, loading, onClick, type = 'button', fullWidth }: {
+function BtnPrimary({ children, disabled, loading, onClick, type = 'button' }: {
   children: React.ReactNode; disabled?: boolean; loading?: boolean;
-  onClick?: () => void; type?: 'button' | 'submit'; fullWidth?: boolean;
+  onClick?: () => void; type?: 'button' | 'submit';
 }) {
   return (
     <button
@@ -119,8 +99,7 @@ function BtnPrimary({ children, disabled, loading, onClick, type = 'button', ful
         cursor: disabled || loading ? 'default' : 'pointer',
         opacity: disabled || loading ? 0.4 : 1,
         whiteSpace: 'nowrap' as const,
-        width: fullWidth ? '100%' : undefined,
-        transition: 'filter 0.15s, transform 0.1s',
+        transition: 'filter 0.15s',
         fontFamily: 'inherit',
       }}
       onMouseEnter={e => { if (!disabled && !loading) e.currentTarget.style.filter = 'brightness(1.1)'; }}
@@ -132,20 +111,6 @@ function BtnPrimary({ children, disabled, loading, onClick, type = 'button', ful
   );
 }
 
-function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return (
-    <div style={{
-      background: 'rgba(255,255,255,0.025)',
-      border: `1px solid ${DARK.border}`,
-      borderRadius: 14,
-      padding: '22px 24px',
-      ...style,
-    }}>
-      {children}
-    </div>
-  );
-}
-
 function NavItem({ icon, label, active, onClick }: {
   icon: React.ReactNode; label: string; active: boolean; onClick: () => void;
 }) {
@@ -154,10 +119,10 @@ function NavItem({ icon, label, active, onClick }: {
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', gap: 9,
-        padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+        padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
         fontSize: 13, fontWeight: active ? 600 : 400,
         color: active ? 'white' : 'rgba(255,255,255,0.4)',
-        background: active ? 'rgba(245,158,11,0.08)' : 'transparent',
+        background: active ? 'rgba(255,255,255,0.06)' : 'transparent',
         border: 'none',
         borderLeft: `2px solid ${active ? DARK.accent : 'transparent'}`,
         marginLeft: -2, width: '100%', textAlign: 'left' as const,
@@ -173,15 +138,24 @@ function NavItem({ icon, label, active, onClick }: {
   );
 }
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function SettingRow({ title, description, children, last }: {
+  title: string; description?: string; children: React.ReactNode; last?: boolean;
+}) {
   return (
-    <div style={{ marginBottom: 28 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', margin: '0 0 4px', letterSpacing: '-0.3px' }}>{title}</h2>
-      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: 0 }}>{subtitle}</p>
+    <div style={{
+      display: 'flex', gap: 40, padding: '28px 0', alignItems: 'flex-start',
+      borderBottom: last ? 'none' : '1px dashed rgba(255,255,255,0.07)',
+    }}>
+      <div style={{ width: 200, flexShrink: 0 }}>
+        <p style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.82)', margin: '0 0 4px' }}>{title}</p>
+        {description && (
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: 0, lineHeight: 1.55 }}>{description}</p>
+        )}
+      </div>
+      <div style={{ flex: 1 }}>{children}</div>
     </div>
   );
 }
-
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -194,6 +168,7 @@ export function SettingsPage() {
     const diff = new Date(profile.current_period_end).getTime() - Date.now();
     return Math.max(0, Math.ceil(diff / 86_400_000));
   })();
+
   const [activeSection, setActiveSection] = useState<Section>('perfil');
   const [navOpen, setNavOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -269,8 +244,6 @@ export function SettingsPage() {
     }
   };
 
-  const isOAuthOnly = !user?.identities?.some(i => i.provider === 'email');
-
   // Redefinição de senha por link
   const [resetLoading, setResetLoading] = useState(false);
   const [resetFeedback, setResetFeedback] = useState<FeedbackState>(null);
@@ -287,6 +260,7 @@ export function SettingsPage() {
 
   const displayName = user?.user_metadata?.full_name || user?.email || 'Usuário';
   const avatarInitial = displayName[0].toUpperCase();
+  const avatarUrl: string | undefined = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
   const iconStyle = { width: 14, height: 14, strokeWidth: 1.7 };
 
   const navGroups = [
@@ -306,145 +280,113 @@ export function SettingsPage() {
     },
   ];
 
+  const sectionMeta: Record<Section, { title: string; subtitle: string }> = {
+    perfil:     { title: 'Perfil',            subtitle: 'Gerencie seu nome, email e foto de perfil' },
+    assinatura: { title: 'Assinatura',        subtitle: 'Plano atual e faturamento' },
+    senha:      { title: 'Redefinir senha',   subtitle: 'Enviaremos um link por email para você criar uma nova senha com segurança' },
+    vinculadas: { title: 'Contas vinculadas', subtitle: 'Métodos de login associados à sua conta' },
+  };
+
+  const { title: sectionTitle, subtitle: sectionSubtitle } = sectionMeta[activeSection];
+
+  const sidebarStyle: React.CSSProperties = isMobile ? {
+    position: 'fixed', left: 0, top: 54, bottom: 0,
+    width: 240, zIndex: 50,
+    borderRight: `1px solid ${DARK.border}`,
+    background: '#0b0b18',
+    padding: '24px 14px',
+    display: 'flex', flexDirection: 'column',
+    overflowY: 'auto',
+    transform: navOpen ? 'translateX(0)' : 'translateX(-100%)',
+    transition: 'transform 0.25s ease',
+  } : {
+    width: 240, flexShrink: 0,
+    borderRight: `1px solid ${DARK.border}`,
+    background: '#0b0b18',
+    padding: '24px 14px',
+    display: 'flex', flexDirection: 'column',
+    overflowY: 'auto',
+  };
+
   return (
-    <>
-      <style>{SECTION_ANIM}</style>
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
 
-        {/* Header */}
-        <header style={{
-          height: 54, display: 'flex', alignItems: 'center', padding: '0 20px',
-          borderBottom: `1px solid ${DARK.borderLight}`,
-          background: 'rgba(8,8,15,0.96)', backdropFilter: 'blur(16px)',
-          flexShrink: 0, zIndex: 10, gap: 14,
-        }}>
-          <button
-            onClick={() => navigate('/app')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              color: 'rgba(255,255,255,0.35)', fontSize: 13,
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'inherit', transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
-          >
-            <ArrowLeft style={{ width: 15, height: 15 }} />
-            Voltar
-          </button>
-          <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 26, height: 26, borderRadius: 7,
-                background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Sparkles style={{ width: 13, height: 13, color: 'white' }} />
-              </div>
-              <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>
-                Configurações
-              </span>
-            </div>
-            {isMobile && (
-              <button
-                onClick={() => setNavOpen(v => !v)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: navOpen ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.06)',
-                  border: `1px solid ${navOpen ? DARK.accentBorder : DARK.border}`,
-                  borderRadius: 8, padding: '5px 10px', cursor: 'pointer',
-                  color: navOpen ? DARK.accent : DARK.textMuted,
-                  fontSize: 12, fontWeight: 500, transition: 'all 0.2s',
-                }}
-              >
-                {navOpen ? <X style={{ width: 14, height: 14 }} /> : <Menu style={{ width: 14, height: 14 }} />}
-                {navOpen ? 'Fechar' : 'Menu'}
-              </button>
-            )}
-          </div>
-        </header>
-
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-
-          {/* Overlay mobile */}
-          {isMobile && navOpen && (
-            <div
-              onClick={() => setNavOpen(false)}
-              style={{
-                position: 'fixed', inset: 0, top: 54,
-                background: 'rgba(0,0,0,0.55)', zIndex: 40,
-                backdropFilter: 'blur(2px)',
-              }}
-            />
-          )}
-
-          {/* Sidebar / Drawer */}
-          <nav style={isMobile ? {
-            position: 'fixed', left: 0, top: 54, bottom: 0,
-            width: 260, zIndex: 50,
-            borderRight: `1px solid ${DARK.border}`,
-            background: '#0b0b18',
-            padding: '20px 14px',
-            display: 'flex', flexDirection: 'column', gap: 0,
-            overflowY: 'auto',
-            transform: navOpen ? 'translateX(0)' : 'translateX(-100%)',
-            transition: 'transform 0.25s ease',
-          } : {
-            width: 220, flexShrink: 0,
-            borderRight: `1px solid ${DARK.border}`,
-            background: '#0b0b18',
-            padding: '20px 14px',
-            display: 'flex', flexDirection: 'column', gap: 0,
-            overflowY: 'auto',
-          }}>
-            {/* User card */}
+      {/* Header */}
+      <header style={{
+        height: 54, display: 'flex', alignItems: 'center', padding: '0 20px',
+        borderBottom: `1px solid ${DARK.borderLight}`,
+        background: 'rgba(8,8,15,0.96)', backdropFilter: 'blur(16px)',
+        flexShrink: 0, zIndex: 10, gap: 14,
+      }}>
+        <button
+          onClick={() => navigate('/app')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            color: 'rgba(255,255,255,0.35)', fontSize: 13,
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontFamily: 'inherit', transition: 'color 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
+        >
+          <ArrowLeft style={{ width: 15, height: 15 }} />
+          Voltar
+        </button>
+        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: `1px solid ${DARK.border}`,
-              borderRadius: 12,
-              padding: '14px 14px',
-              marginBottom: 20,
-              display: 'flex', alignItems: 'center', gap: 11,
+              width: 26, height: 26, borderRadius: 7,
+              background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              {/* Avatar */}
-              <div style={{
-                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                background: `linear-gradient(135deg, ${DARK.accent} 0%, #d97706 100%)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, fontWeight: 700, color: '#08080f',
-                boxShadow: '0 4px 12px rgba(245,158,11,0.25)',
-              }}>
-                {avatarInitial}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <p style={{
-                  fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.88)',
-                  margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {user?.user_metadata?.full_name || 'Usuário'}
-                </p>
-                {/* Plan chip */}
-                <span style={{
-                  display: 'inline-block', marginTop: 5,
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
-                  textTransform: 'uppercase' as const,
-                  padding: '2px 7px', borderRadius: 99,
-                  background: planMeta.bg, color: planMeta.color,
-                  border: `1px solid ${planMeta.border}`,
-                }}>
-                  {planMeta.label}
-                </span>
-              </div>
+              <Sparkles style={{ width: 13, height: 13, color: 'white' }} />
             </div>
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>
+              Configurações
+            </span>
+          </div>
+          {isMobile && (
+            <button
+              onClick={() => setNavOpen(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: navOpen ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${navOpen ? DARK.accentBorder : DARK.border}`,
+                borderRadius: 8, padding: '5px 10px', cursor: 'pointer',
+                color: navOpen ? DARK.accent : DARK.textMuted,
+                fontSize: 12, fontWeight: 500, transition: 'all 0.2s',
+              }}
+            >
+              {navOpen ? <X style={{ width: 14, height: 14 }} /> : <Menu style={{ width: 14, height: 14 }} />}
+              {navOpen ? 'Fechar' : 'Menu'}
+            </button>
+          )}
+        </div>
+      </header>
 
-            {/* Nav groups */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+
+        {isMobile && navOpen && (
+          <div
+            onClick={() => setNavOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, top: 54,
+              background: 'rgba(0,0,0,0.55)', zIndex: 40,
+              backdropFilter: 'blur(2px)',
+            }}
+          />
+        )}
+
+        {/* Sidebar */}
+        <nav style={sidebarStyle}>
+          <div style={{ flex: 1 }}>
             {navGroups.map(group => (
               <div key={group.label} style={{ marginBottom: 20 }}>
                 <div style={{
                   fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
                   textTransform: 'uppercase' as const,
-                  color: 'rgba(255,255,255,0.18)', padding: '0 10px', marginBottom: 6,
+                  color: 'rgba(255,255,255,0.18)', padding: '0 12px', marginBottom: 4,
                 }}>
                   {group.label}
                 </div>
@@ -461,224 +403,246 @@ export function SettingsPage() {
                 </div>
               </div>
             ))}
-          </nav>
+          </div>
 
-          {/* Content */}
-          <div style={{ flex: 1, overflowY: 'auto', background: '#09091566' }}>
-            <div
-              key={activeSection}
-              style={{
-                padding: '40px 48px', maxWidth: 680,
-                animation: '_sec-in 0.22s ease both',
-              }}
-            >
-
-              {/* ─── Perfil ─── */}
-              {activeSection === 'perfil' && (
-                <div>
-                  <SectionHeader title="Perfil" subtitle="Seu nome e email de acesso" />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                    <Card>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-                        <User style={{ width: 13, height: 13, color: 'rgba(255,255,255,0.3)' }} />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Nome de exibição</span>
-                      </div>
-                      <form onSubmit={handleSaveName} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <div style={{ flex: 1 }}>
-                            <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" maxLength={100} />
-                          </div>
-                          <BtnPrimary type="submit" loading={nameLoading} disabled={!name.trim()}>Salvar</BtnPrimary>
-                        </div>
-                        <Feedback state={nameFeedback} />
-                      </form>
-                    </Card>
-
-                    <Card>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-                        <Mail style={{ width: 13, height: 13, color: 'rgba(255,255,255,0.3)' }} />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Email</span>
-                      </div>
-                      <form onSubmit={handleSaveEmail} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <div style={{ flex: 1 }}>
-                            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" maxLength={254} />
-                          </div>
-                          <BtnPrimary type="submit" loading={emailLoading} disabled={email === user?.email || !email.trim()}>Salvar</BtnPrimary>
-                        </div>
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.22)', lineHeight: 1.5, margin: 0 }}>
-                          Um email de confirmação será enviado antes da troca ser efetivada.
-                        </p>
-                        <Feedback state={emailFeedback} />
-                      </form>
-                    </Card>
-
-                  </div>
-                </div>
-              )}
-
-              {/* ─── Assinatura ─── */}
-              {activeSection === 'assinatura' && (
-                <div>
-                  <SectionHeader title="Assinatura" subtitle="Plano atual e faturamento" />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                    {/* Plan card */}
-                    <div style={{
-                      position: 'relative', overflow: 'hidden',
-                      background: 'rgba(245,158,11,0.04)',
-                      border: '1px solid rgba(245,158,11,0.14)',
-                      borderRadius: 16, padding: '22px 24px',
-                    }}>
-                      {/* Glow top */}
-                      <div style={{
-                        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-                        background: 'linear-gradient(90deg, transparent 10%, rgba(245,158,11,0.4) 50%, transparent 90%)',
-                      }} />
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div style={{
-                            width: 40, height: 40, borderRadius: 10,
-                            background: 'rgba(245,158,11,0.1)',
-                            border: '1px solid rgba(245,158,11,0.2)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}>
-                            <Zap style={{ width: 18, height: 18, color: DARK.accent }} />
-                          </div>
-                          <div>
-                            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'white' }}>
-                              Plano {PLAN_META[plan]?.label}
-                            </p>
-                            <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
-                              Gerencie sua assinatura
-                            </p>
-                          </div>
-                        </div>
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 99,
-                          background: 'rgba(52,211,153,0.1)', color: '#34d399',
-                          border: '1px solid rgba(52,211,153,0.2)', letterSpacing: '0.06em',
-                          textTransform: 'uppercase' as const,
-                        }}>
-                          Ativo
-                        </span>
-                      </div>
-                      {isPix ? (
-                        <div style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 8,
-                          padding: '9px 14px', borderRadius: 8, fontSize: 12,
-                          background: 'rgba(245,158,11,0.06)',
-                          border: '1px solid rgba(245,158,11,0.18)',
-                          color: 'rgba(255,255,255,0.55)',
-                        }}>
-                          <span style={{ fontWeight: 700, color: DARK.accent, fontSize: 14 }}>
-                            {daysRemaining !== null ? daysRemaining : '—'}
-                          </span>
-                          {daysRemaining === 1 ? 'dia restante' : 'dias restantes'}
-                        </div>
-                      ) : (
-                        <button
-                          onClick={handleManageSubscription}
-                          disabled={portalLoading}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            padding: '9px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-                            background: 'rgba(255,255,255,0.05)',
-                            color: 'rgba(255,255,255,0.55)',
-                            border: `1px solid ${DARK.border}`,
-                            cursor: portalLoading ? 'default' : 'pointer',
-                            opacity: portalLoading ? 0.5 : 1,
-                            whiteSpace: 'nowrap' as const,
-                            fontFamily: 'inherit',
-                            transition: 'background 0.15s, color 0.15s',
-                          }}
-                          onMouseEnter={e => { if (!portalLoading) { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; } }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
-                        >
-                          {portalLoading && <Loader2 style={{ width: 12, height: 12 }} />}
-                          Gerenciar assinatura →
-                        </button>
-                      )}
-                    </div>
-
-                    <Feedback state={portalFeedback} />
-                  </div>
-                </div>
-              )}
-
-              {/* ─── Senha ─── */}
-              {activeSection === 'senha' && (
-                <div>
-                  <SectionHeader
-                    title="Redefinir senha"
-                    subtitle="Enviaremos um link para o seu email com instruções para criar uma nova senha."
-                  />
-                  <Card style={{ maxWidth: 500 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: `1px solid ${DARK.border}` }}>
-                        <Mail style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>{user?.email}</span>
-                      </div>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: 0, lineHeight: 1.6 }}>
-                        O link expira em 1 hora. Após clicar, você será direcionado a uma página segura para definir sua nova senha.
-                      </p>
-                      <Feedback state={resetFeedback} />
-                      <BtnPrimary loading={resetLoading} onClick={handleSendResetLink} disabled={resetFeedback?.type === 'success'}>
-                        <Send style={{ width: 12, height: 12 }} />
-                        Enviar link de redefinição
-                      </BtnPrimary>
-                    </div>
-                  </Card>
-                </div>
-              )}
-
-              {/* ─── Contas vinculadas ─── */}
-              {activeSection === 'vinculadas' && (
-                <div>
-                  <SectionHeader title="Contas vinculadas" subtitle="Métodos de login associados à sua conta" />
-                  <Card>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{
-                          width: 38, height: 38, borderRadius: 9,
-                          background: 'rgba(255,255,255,0.04)',
-                          border: `1px solid ${DARK.border}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <GoogleIcon />
-                        </div>
-                        <div>
-                          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600, margin: 0 }}>Google</p>
-                          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)', marginTop: 2, marginBottom: 0 }}>
-                            {hasGoogle ? 'Conta vinculada' : 'Não vinculado'}
-                          </p>
-                        </div>
-                      </div>
-                      {hasGoogle ? (
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99,
-                          background: 'rgba(52,211,153,0.08)',
-                          border: '1px solid rgba(52,211,153,0.15)',
-                          color: '#34d399',
-                        }}>
-                          <CheckCircle2 style={{ width: 12, height: 12 }} />
-                          Vinculado
-                        </span>
-                      ) : (
-                        <BtnPrimary loading={linkLoading} onClick={handleLinkGoogle}>Vincular</BtnPrimary>
-                      )}
-                    </div>
-                    <Feedback state={linkFeedback} />
-                  </Card>
-                </div>
-              )}
-
+          {/* User info */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            paddingTop: 16, marginTop: 8,
+            borderTop: `1px solid ${DARK.border}`,
+          }}>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: `1px solid ${DARK.border}` }}
+              />
+            ) : (
+              <div style={{
+                width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, fontWeight: 700, color: '#08080f',
+              }}>
+                {avatarInitial}
+              </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <p style={{
+                fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.82)',
+                margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {user?.user_metadata?.full_name || 'Usuário'}
+              </p>
+              <span style={{
+                display: 'inline-block', marginTop: 3,
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                textTransform: 'uppercase' as const,
+                padding: '1px 6px', borderRadius: 99,
+                background: planMeta.bg, color: planMeta.color,
+                border: `1px solid ${planMeta.border}`,
+              }}>
+                {planMeta.label}
+              </span>
             </div>
+          </div>
+        </nav>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', background: 'rgba(9,9,21,0.4)' }}>
+          <div style={{ padding: '40px 56px', maxWidth: 760 }}>
+
+            {/* Section header */}
+            <div style={{ marginBottom: 8, paddingBottom: 24, borderBottom: `1px solid ${DARK.border}` }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', margin: '0 0 5px', letterSpacing: '-0.4px' }}>
+                {sectionTitle}
+              </h2>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: 0 }}>
+                {sectionSubtitle}
+              </p>
+            </div>
+
+            {/* ─── Perfil ─── */}
+            {activeSection === 'perfil' && (
+              <>
+                <SettingRow title="Foto de perfil" description="Foto vinculada à sua conta">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover', border: `1px solid ${DARK.border}`, display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 60, height: 60, borderRadius: 12,
+                      background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 24, fontWeight: 700, color: '#08080f',
+                    }}>
+                      {avatarInitial}
+                    </div>
+                  )}
+                </SettingRow>
+
+                <SettingRow title="Nome de exibição" description="Seu nome visível no app">
+                  <form onSubmit={handleSaveName} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" maxLength={100} />
+                      <BtnPrimary type="submit" loading={nameLoading} disabled={!name.trim()}>Salvar</BtnPrimary>
+                    </div>
+                    <Feedback state={nameFeedback} />
+                  </form>
+                </SettingRow>
+
+                <SettingRow title="Email" description="Email de acesso à conta" last>
+                  <form onSubmit={handleSaveEmail} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" maxLength={254} />
+                      <BtnPrimary type="submit" loading={emailLoading} disabled={email === user?.email || !email.trim()}>Salvar</BtnPrimary>
+                    </div>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.22)', margin: 0, lineHeight: 1.5 }}>
+                      Um email de confirmação será enviado antes da troca ser efetivada.
+                    </p>
+                    <Feedback state={emailFeedback} />
+                  </form>
+                </SettingRow>
+              </>
+            )}
+
+            {/* ─── Assinatura ─── */}
+            {activeSection === 'assinatura' && (
+              <>
+                <SettingRow title="Plano atual" description="Seu plano ativo" last={isPix}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                      background: 'rgba(245,158,11,0.1)',
+                      border: '1px solid rgba(245,158,11,0.2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Zap style={{ width: 18, height: 18, color: DARK.accent }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'white' }}>
+                        Plano {PLAN_META[plan]?.label}
+                      </p>
+                      {isPix && daysRemaining !== null && (
+                        <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                          {daysRemaining} {daysRemaining === 1 ? 'dia restante' : 'dias restantes'}
+                        </p>
+                      )}
+                    </div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 99,
+                      background: 'rgba(52,211,153,0.1)', color: '#34d399',
+                      border: '1px solid rgba(52,211,153,0.2)', letterSpacing: '0.06em',
+                      textTransform: 'uppercase' as const,
+                    }}>
+                      Ativo
+                    </span>
+                  </div>
+                </SettingRow>
+
+                {!isPix && (
+                  <SettingRow title="Faturamento" description="Gerencie ou cancele sua assinatura" last>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
+                      <button
+                        onClick={handleManageSubscription}
+                        disabled={portalLoading}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          padding: '9px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+                          background: 'rgba(255,255,255,0.05)',
+                          color: 'rgba(255,255,255,0.55)',
+                          border: `1px solid ${DARK.border}`,
+                          cursor: portalLoading ? 'default' : 'pointer',
+                          opacity: portalLoading ? 0.5 : 1,
+                          fontFamily: 'inherit',
+                          transition: 'background 0.15s, color 0.15s',
+                        }}
+                        onMouseEnter={e => { if (!portalLoading) { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; } }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
+                      >
+                        {portalLoading && <Loader2 style={{ width: 12, height: 12 }} />}
+                        Gerenciar assinatura →
+                      </button>
+                      <Feedback state={portalFeedback} />
+                    </div>
+                  </SettingRow>
+                )}
+              </>
+            )}
+
+            {/* ─── Senha ─── */}
+            {activeSection === 'senha' && (
+              <SettingRow title="Link de redefinição" description="Enviado para o email da sua conta" last>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 14px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.03)', border: `1px solid ${DARK.border}`,
+                  }}>
+                    <Mail style={{ width: 13, height: 13, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{user?.email}</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.28)', margin: 0, lineHeight: 1.6 }}>
+                    O link expira em 1 hora. Após clicar, você será direcionado a uma página segura para definir sua nova senha.
+                  </p>
+                  <Feedback state={resetFeedback} />
+                  <BtnPrimary loading={resetLoading} onClick={handleSendResetLink} disabled={resetFeedback?.type === 'success'}>
+                    <Send style={{ width: 12, height: 12 }} />
+                    Enviar link de redefinição
+                  </BtnPrimary>
+                </div>
+              </SettingRow>
+            )}
+
+            {/* ─── Contas vinculadas ─── */}
+            {activeSection === 'vinculadas' && (
+              <SettingRow
+                title="Google"
+                description={hasGoogle ? 'Login com Google ativo' : 'Vincule para entrar com sua conta Google'}
+                last
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                      width: 38, height: 38, borderRadius: 9,
+                      background: 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${DARK.border}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <GoogleIcon />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600, margin: 0 }}>Google</p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)', marginTop: 2, marginBottom: 0 }}>
+                        {hasGoogle ? 'Conta vinculada' : 'Não vinculado'}
+                      </p>
+                    </div>
+                    {hasGoogle ? (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99,
+                        background: 'rgba(52,211,153,0.08)',
+                        border: '1px solid rgba(52,211,153,0.15)',
+                        color: '#34d399',
+                      }}>
+                        <CheckCircle2 style={{ width: 12, height: 12 }} />
+                        Vinculado
+                      </span>
+                    ) : (
+                      <BtnPrimary loading={linkLoading} onClick={handleLinkGoogle}>Vincular</BtnPrimary>
+                    )}
+                  </div>
+                  <Feedback state={linkFeedback} />
+                </div>
+              </SettingRow>
+            )}
+
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
