@@ -1,5 +1,5 @@
 import { Sparkles, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { DARK } from '../constants/theme';
 import { HeroSection } from './landing/HeroSection';
@@ -148,9 +148,14 @@ export function LandingPage() {
             </div>
             <span className="font-display text-sm text-white">MindDoc</span>
           </div>
-          <p className="text-xs font-sans" style={{ color: 'rgba(255,255,255,0.25)' }}>
-            © {new Date().getFullYear()} MindDoc.
-          </p>
+          <div className="flex items-center gap-4">
+            <Link to="/privacidade" className="text-xs font-sans transition-colors hover:text-white/50" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              Política de Privacidade
+            </Link>
+            <p className="text-xs font-sans" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              © {new Date().getFullYear()} MindDoc.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
