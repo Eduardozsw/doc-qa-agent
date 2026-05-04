@@ -43,6 +43,14 @@ def get_cached_namespace(sha256: str, user_id: str) -> str | None:
         return None
 
 
+def delete_cached_namespace(sha256: str, user_id: str) -> None:
+    try:
+        cache_key = _sha256(f"{user_id}:{sha256}")
+        get_client().delete(f"pdf_hash:{cache_key}")
+    except Exception as e:
+        logger.error(f"Redis delete_cached_namespace falhou: {e}")
+
+
 def set_cached_namespace(sha256: str, user_id: str, namespace: str, ttl_days: int = 30) -> None:
     try:
         cache_key = _sha256(f"{user_id}:{sha256}")
