@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /configuracoes
+
+Sitemap: https://minddoc.com.br/sitemap.xml
