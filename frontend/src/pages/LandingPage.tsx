@@ -152,6 +152,9 @@ export function LandingPage() {
             <Link to="/privacidade" className="text-xs font-sans transition-colors hover:text-white/50" style={{ color: 'rgba(255,255,255,0.25)' }}>
               Política de Privacidade
             </Link>
+            <Link to="/termos" className="text-xs font-sans transition-colors hover:text-white/50" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              Termos de Serviço
+            </Link>
             <p className="text-xs font-sans" style={{ color: 'rgba(255,255,255,0.25)' }}>
               © {new Date().getFullYear()} MindDoc.
             </p>
