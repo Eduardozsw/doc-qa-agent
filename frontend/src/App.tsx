@@ -10,6 +10,7 @@ import { UserMenu } from './components/UserMenu';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
+import { TermsOfServicePage } from './pages/TermsOfServicePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -39,6 +40,7 @@ function App() {
       <Route path="/app" element={user ? <MainApp session={session} /> : <Navigate to="/login" replace />} />
       <Route path="/configuracoes" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
       <Route path="/privacidade" element={<PrivacyPolicyPage />} />
+      <Route path="/termos" element={<TermsOfServicePage />} />
       <Route path="/sucesso" element={<SuccessPage />} />
       <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
