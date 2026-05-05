@@ -81,6 +81,7 @@ export function LandingPage() {
           <div className="flex items-center gap-4">
             <a href="#precos" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>Preços</a>
             <a href="#faq" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>FAQ</a>
+            <Link to="/resumir-pdf" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>Resumir PDF</Link>
             <button
               onClick={handleCTA}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-semibold transition-all duration-200 hover:opacity-90 active:scale-95"

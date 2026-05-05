@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Sparkles, FileText, X } from 'lucide-react';
 import { Session, User } from '@supabase/supabase-js';
 import { PDFUpload } from './components/PDFUpload';
@@ -160,6 +160,30 @@ function MainApp({ session }: { session: Session | null }) {
           <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>MindDoc</span>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link
+            to="/resumir-pdf"
+            style={{
+              fontSize: 12, fontWeight: 500,
+              color: DARK.textMuted,
+              textDecoration: 'none',
+              padding: '5px 10px',
+              borderRadius: 8,
+              border: `1px solid ${DARK.border}`,
+              background: 'rgba(255,255,255,0.04)',
+              transition: 'all 0.2s',
+              whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLAnchorElement).style.color = 'white';
+              (e.currentTarget as HTMLAnchorElement).style.borderColor = DARK.borderLight;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLAnchorElement).style.color = DARK.textMuted;
+              (e.currentTarget as HTMLAnchorElement).style.borderColor = DARK.border;
+            }}
+          >
+            Resumir PDF
+          </Link>
           {isMobile && (
             <button
               onClick={() => setSidebarOpen(v => !v)}
