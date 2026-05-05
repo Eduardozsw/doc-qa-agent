@@ -140,8 +140,8 @@ function MainApp({ session }: { session: Session | null }) {
 
       {/* Header */}
       <header style={{
-        height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', flexShrink: 0, zIndex: 10,
+        height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 24px', flexShrink: 0, zIndex: 10,
         borderBottom: `1px solid ${DARK.borderLight}`,
         background: 'rgba(8,8,15,0.95)',
         backdropFilter: 'blur(16px)',
