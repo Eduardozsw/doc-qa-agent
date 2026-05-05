@@ -160,6 +160,17 @@ function MainApp({ session }: { session: Session | null }) {
           <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>MindDoc</span>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontSize: 12, fontWeight: 500,
+            color: DARK.accent,
+            padding: '5px 10px',
+            borderRadius: 20,
+            border: `1px solid ${DARK.accentBorder}`,
+            background: DARK.accentSubtle,
+            whiteSpace: 'nowrap',
+          }}>
+            Chat
+          </span>
           <Link
             to="/resumir-pdf"
             style={{
