@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Sparkles, FileText, X } from 'lucide-react';
-import { Session } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 import { PDFUpload } from './components/PDFUpload';
 import { PlanLimitModal } from './components/PlanLimitModal';
 import { QuestionInput } from './components/QuestionInput';
@@ -14,6 +14,7 @@ import { TermsOfServicePage } from './pages/TermsOfServicePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { ResumirPdfPage } from './pages/ResumirPdfPage';
 import { useAuth } from './contexts/AuthContext';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import { useFileManagement } from './hooks/useFileManagement';
@@ -36,13 +37,14 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <LoginPage />} />
+      <Route path="/login" element={<LoginRoute user={user} />} />
       <Route path="/app" element={user ? <MainApp session={session} /> : <Navigate to="/login" replace />} />
       <Route path="/configuracoes" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
       <Route path="/privacidade" element={<PrivacyPolicyPage />} />
       <Route path="/termos" element={<TermsOfServicePage />} />
       <Route path="/sucesso" element={<SuccessPage />} />
       <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
+      <Route path="/resumir-pdf" element={<ResumirPdfPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -138,12 +140,15 @@ function MainApp({ session }: { session: Session | null }) {
 
       {/* Header */}
       <header style={{
-        height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', flexShrink: 0, zIndex: 10,
+        height: 64, flexShrink: 0, zIndex: 10,
         borderBottom: `1px solid ${DARK.borderLight}`,
         background: 'rgba(8,8,15,0.95)',
         backdropFilter: 'blur(16px)',
       }}>
+        <div style={{
+          maxWidth: '72rem', margin: '0 auto', padding: '0 24px', height: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
         <button
           onClick={() => navigate('/')}
           style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer' }}
@@ -155,9 +160,35 @@ function MainApp({ session }: { session: Session | null }) {
           }}>
             <Sparkles style={{ width: 14, height: 14, color: 'white' }} />
           </div>
-          <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>MindDoc</span>
+          <span className="font-display text-lg text-white tracking-tight">MindDoc</span>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontSize: 12, fontWeight: 500,
+            color: DARK.accent,
+            padding: '5px 10px',
+            borderRadius: 20,
+            border: `1px solid ${DARK.accentBorder}`,
+            background: DARK.accentSubtle,
+            whiteSpace: 'nowrap',
+          }}>
+            Chat
+          </span>
+          <Link
+            to="/resumir-pdf"
+            style={{
+              fontSize: 12, fontWeight: 500,
+              color: DARK.textMuted,
+              textDecoration: 'none',
+              padding: '5px 10px',
+              transition: 'color 0.2s',
+              whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'white'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = DARK.textMuted; }}
+          >
+            Resumir PDF
+          </Link>
           {isMobile && (
             <button
               onClick={() => setSidebarOpen(v => !v)}
@@ -177,6 +208,7 @@ function MainApp({ session }: { session: Session | null }) {
             </button>
           )}
           <UserMenu />
+        </div>
         </div>
       </header>
 
@@ -279,6 +311,14 @@ function MainApp({ session }: { session: Session | null }) {
       )}
     </div>
   );
+}
+
+function LoginRoute({ user }: { user: User | null }) {
+  const [searchParams] = useSearchParams();
+  const raw = searchParams.get('redirect') ?? '';
+  const redirectTo = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/app';
+  if (user) return <Navigate to={redirectTo} replace />;
+  return <LoginPage redirectTo={redirectTo} />;
 }
 
 export default App;

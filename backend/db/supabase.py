@@ -1,7 +1,7 @@
 import os
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)
@@ -165,6 +165,67 @@ def delete_temp_file(job_id: str) -> None:
         get_admin().storage.from_("temp-uploads").remove([f"{job_id}.pdf"])
     except Exception as e:
         logger.warning(f"Falha ao deletar temp file {job_id}: {e}")
+
+
+def get_summary(user_id: str, namespace: str) -> dict | None:
+    try:
+        result = (
+            get_admin()
+            .table("namespaces")
+            .select("summary")
+            .eq("user_id", user_id)
+            .eq("namespace", namespace)
+            .single()
+            .execute()
+        )
+        return result.data.get("summary") if result.data else None
+    except Exception:
+        return None
+
+
+def save_summary(user_id: str, namespace: str, summary: dict) -> None:
+    try:
+        get_admin().table("namespaces").update({
+            "summary": summary,
+            "summarized_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("user_id", user_id).eq("namespace", namespace).execute()
+    except Exception as e:
+        logger.error(f"Falha ao salvar summary para {user_id}/{namespace}: {e}")
+        raise
+
+
+def count_summaries_this_month(user_id: str) -> int:
+    try:
+        now = datetime.now(timezone.utc)
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+        result = (
+            get_admin()
+            .table("namespaces")
+            .select("namespace", count="exact")
+            .eq("user_id", user_id)
+            .gte("summarized_at", start_of_month)
+            .execute()
+        )
+        return result.count or 0
+    except Exception as e:
+        logger.warning(f"Falha ao contar summaries para {user_id}: {e}")
+        return 0
+
+
+def get_namespaces_with_summaries(user_id: str) -> list[dict]:
+    try:
+        result = (
+            get_admin()
+            .table("namespaces")
+            .select("namespace, filename, summary")
+            .eq("user_id", user_id)
+            .not_.is_("summary", "null")
+            .execute()
+        )
+        return result.data or []
+    except Exception as e:
+        logger.error(f"Falha ao buscar summaries para {user_id}: {e}")
+        return []
 
 
 def expire_pix_plans() -> None:
