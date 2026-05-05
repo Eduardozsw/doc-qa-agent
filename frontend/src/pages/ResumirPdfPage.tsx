@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Sparkles, FileText, ArrowRight, Loader2, AlertCircle, Check, MessageSquare, RotateCcw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSummarize } from '../hooks/useSummarize';
+import { UserMenu } from '../components/UserMenu';
 import { DARK } from '../constants/theme';
 
 export function ResumirPdfPage() {
@@ -88,7 +89,9 @@ export function ResumirPdfPage() {
             >
               Resumir PDF
             </span>
-            {!user ? (
+            {user ? (
+              <UserMenu />
+            ) : (
               <Link
                 to="/login?redirect=/resumir-pdf"
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-sans font-semibold transition-all duration-200 hover:opacity-90 active:scale-95"
@@ -97,7 +100,7 @@ export function ResumirPdfPage() {
                 Entrar
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
-            ) : null}
+            )}
           </div>
         </div>
       </nav>
