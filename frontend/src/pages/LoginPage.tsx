@@ -121,7 +121,7 @@ function OtpInput({ value, onChange }: { value: string; onChange: (v: string) =>
   );
 }
 
-export function LoginPage() {
+export function LoginPage({ redirectTo = '/app' }: { redirectTo?: string }) {
   const { signInWithGoogle, signInWithEmail, signUp, verifyOtp, requestPasswordReset } = useAuth();
 
   const [mode, setMode] = useState<Mode>('login');
@@ -502,7 +502,7 @@ export function LoginPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={signInWithGoogle}
+                        onClick={() => signInWithGoogle(redirectTo)}
                         className="flex-1 py-1.5 rounded-lg text-xs font-sans font-medium transition-all duration-200 hover:opacity-80"
                         style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${DARK.border}`, color: DARK.text }}
                       >
@@ -549,7 +549,7 @@ export function LoginPage() {
               </div>
 
               <button
-                onClick={signInWithGoogle}
+                onClick={() => signInWithGoogle(redirectTo)}
                 className="w-full flex items-center justify-center gap-3 py-2.5 rounded-xl text-sm font-sans font-medium transition-all duration-200 hover:opacity-80"
                 style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${DARK.border}`, color: DARK.text }}
               >
