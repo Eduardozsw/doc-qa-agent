@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Sparkles, Mail, Lock, Eye, EyeOff, Loader2, Check, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { DARK } from '../constants/theme';
@@ -122,7 +122,14 @@ function OtpInput({ value, onChange }: { value: string; onChange: (v: string) =>
 }
 
 export function LoginPage({ redirectTo = '/app' }: { redirectTo?: string }) {
-  const { signInWithGoogle, signInWithEmail, signUp, verifyOtp, requestPasswordReset } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUp, verifyOtp, requestPasswordReset, user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [user, navigate, redirectTo]);
 
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');

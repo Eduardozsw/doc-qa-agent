@@ -283,7 +283,8 @@ function MainApp({ session }: { session: Session | null }) {
 
 function LoginRoute({ user }: { user: User | null }) {
   const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get('redirect') ?? '/app';
+  const raw = searchParams.get('redirect') ?? '';
+  const redirectTo = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/app';
   if (user) return <Navigate to={redirectTo} replace />;
   return <LoginPage redirectTo={redirectTo} />;
 }
