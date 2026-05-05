@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import MagicMock, patch
 
 from core.limits import get_limit
@@ -107,3 +108,63 @@ def test_generate_summary_raises_on_invalid_structure(mock_client, mock_retrieve
     from agent.pdf_summarizer import generate_summary
     with pytest.raises(ValueError, match="Estrutura de resposta inválida"):
         generate_summary("ns1")
+
+
+# --- Service-level tests ---
+
+@pytest.mark.asyncio
+@patch("services.summarize.supabase_db.get_namespaces")
+@patch("services.summarize.supabase_db.get_summary")
+async def test_summarize_returns_cached(mock_get_summary, mock_get_namespaces):
+    mock_get_namespaces.return_value = ["ns1"]
+    mock_get_summary.return_value = {"topicos_abordados": ["a"], "resumo": "b"}
+    from services.summarize import summarize_document
+    result = await summarize_document("user1", "free", "ns1")
+    assert result["cached"] is True
+    assert result["resumo"] == "b"
+
+
+@pytest.mark.asyncio
+@patch("services.summarize.supabase_db.get_namespaces")
+async def test_summarize_raises_forbidden_when_not_owned(mock_get_namespaces):
+    mock_get_namespaces.return_value = ["ns2"]
+    from services.summarize import summarize_document
+    from core.exceptions import ForbiddenError
+    with pytest.raises(ForbiddenError):
+        await summarize_document("user1", "free", "ns1")
+
+
+@pytest.mark.asyncio
+@patch("services.summarize.supabase_db.get_namespaces")
+@patch("services.summarize.supabase_db.get_summary")
+@patch("services.summarize.supabase_db.count_summaries_this_month")
+async def test_summarize_raises_forbidden_when_limit_reached(
+    mock_count, mock_get_summary, mock_get_namespaces
+):
+    mock_get_namespaces.return_value = ["ns1"]
+    mock_get_summary.return_value = None
+    mock_count.return_value = 3  # free limit is 3
+    from services.summarize import summarize_document
+    from core.exceptions import ForbiddenError
+    with pytest.raises(ForbiddenError, match="Limite de 3 resumos"):
+        await summarize_document("user1", "free", "ns1")
+
+
+@pytest.mark.asyncio
+@patch("services.summarize.supabase_db.get_namespaces")
+@patch("services.summarize.supabase_db.get_summary")
+@patch("services.summarize.supabase_db.count_summaries_this_month")
+@patch("services.summarize.generate_summary")
+@patch("services.summarize.supabase_db.save_summary")
+async def test_summarize_generates_and_saves(
+    mock_save, mock_generate, mock_count, mock_get_summary, mock_get_namespaces
+):
+    mock_get_namespaces.return_value = ["ns1"]
+    mock_get_summary.return_value = None
+    mock_count.return_value = 1
+    mock_generate.return_value = {"topicos_abordados": ["X"], "resumo": "Y"}
+    from services.summarize import summarize_document
+    result = await summarize_document("user1", "free", "ns1")
+    mock_save.assert_called_once_with("user1", "ns1", {"topicos_abordados": ["X"], "resumo": "Y"})
+    assert result["cached"] is False
+    assert result["resumo"] == "Y"
