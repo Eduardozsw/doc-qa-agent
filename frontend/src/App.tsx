@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, FileText, X } from 'lucide-react';
-import { Session } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 import { PDFUpload } from './components/PDFUpload';
 import { PlanLimitModal } from './components/PlanLimitModal';
 import { QuestionInput } from './components/QuestionInput';
@@ -36,7 +36,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <LoginPage />} />
+      <Route path="/login" element={<LoginRoute user={user} />} />
       <Route path="/app" element={user ? <MainApp session={session} /> : <Navigate to="/login" replace />} />
       <Route path="/configuracoes" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
       <Route path="/privacidade" element={<PrivacyPolicyPage />} />
@@ -279,6 +279,13 @@ function MainApp({ session }: { session: Session | null }) {
       )}
     </div>
   );
+}
+
+function LoginRoute({ user }: { user: User | null }) {
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') ?? '/app';
+  if (user) return <Navigate to={redirectTo} replace />;
+  return <LoginPage redirectTo={redirectTo} />;
 }
 
 export default App;
