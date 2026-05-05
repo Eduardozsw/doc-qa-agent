@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSummarize } from '../hooks/useSummarize';
 
@@ -10,6 +10,7 @@ export function ResumirPdfPage() {
     useSummarize(session);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) loadUsage();
@@ -19,14 +20,19 @@ export function ResumirPdfPage() {
     if (!files || !files[0]) return;
     const file = files[0];
     if (file.type !== 'application/pdf') {
-      alert('Apenas arquivos PDF são aceitos.');
+      setFileError('Apenas arquivos PDF são aceitos.');
       return;
     }
+    setFileError(null);
     generate(file);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    if (!user) {
+      navigate('/login?redirect=/resumir-pdf');
+      return;
+    }
     handleFiles(e.dataTransfer.files);
   };
 
@@ -56,23 +62,23 @@ export function ResumirPdfPage() {
         padding: '0 24px', height: '56px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <a href="/" style={{ color: '#38bdf8', fontWeight: 700, fontSize: 16, textDecoration: 'none' }}>
+        <Link to="/" style={{ color: '#38bdf8', fontWeight: 700, fontSize: 16, textDecoration: 'none' }}>
           MindDoc
-        </a>
+        </Link>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <a href="/app" style={{
+          <Link to="/app" style={{
             padding: '5px 12px', borderRadius: 6, fontSize: 13, color: '#64748b',
             textDecoration: 'none', background: '#1e293b',
-          }}>Chat</a>
+          }}>Chat</Link>
           <span style={{
             padding: '5px 12px', borderRadius: 6, fontSize: 13, color: 'white',
             background: '#1d4ed8', fontWeight: 600,
           }}>Resumir PDF</span>
           {!user && (
-            <a href="/login" style={{
+            <Link to="/login" style={{
               padding: '5px 12px', borderRadius: 6, fontSize: 13, color: '#64748b',
               textDecoration: 'none', background: '#1e293b',
-            }}>Entrar</a>
+            }}>Entrar</Link>
           )}
         </div>
       </header>
@@ -139,15 +145,17 @@ export function ResumirPdfPage() {
         ) : isLoading ? (
           /* Estado 2 — Loading */
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{
-              width: 40, height: 40, border: '3px solid #1e293b',
-              borderTop: '3px solid #38bdf8', borderRadius: '50%',
-              margin: '0 auto 20px', animation: 'spin 1s linear infinite',
-            }} />
+            <div
+              className="animate-spin"
+              style={{
+                width: 40, height: 40, border: '3px solid #1e293b',
+                borderTop: '3px solid #38bdf8', borderRadius: '50%',
+                margin: '0 auto 20px',
+              }}
+            />
             <p style={{ color: '#64748b', fontSize: 14 }}>
               {status === 'ingesting' ? 'Indexando documento...' : 'Gerando resumo...'}
             </p>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         ) : (
           /* Estado 1 — Upload */
@@ -161,12 +169,12 @@ export function ResumirPdfPage() {
               </p>
             </div>
 
-            {status === 'error' && error && (
+            {((status === 'error' && error) || fileError) && (
               <div style={{
                 background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
                 borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#fca5a5', fontSize: 13,
               }}>
-                {error}
+                {fileError ?? error}
               </div>
             )}
 
