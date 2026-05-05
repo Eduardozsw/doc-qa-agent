@@ -1,141 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Sparkles, FileText, ArrowRight, Loader2, AlertCircle, Check, MessageSquare, RotateCcw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSummarize } from '../hooks/useSummarize';
-
-const C = {
-  bg: '#08070b',
-  surface: '#100e14',
-  surfaceHigh: '#18151e',
-  border: 'rgba(201,169,110,0.10)',
-  borderBright: 'rgba(201,169,110,0.22)',
-  gold: '#c9a96e',
-  goldDim: 'rgba(201,169,110,0.12)',
-  goldGlow: 'rgba(201,169,110,0.06)',
-  text: '#ede8e0',
-  muted: '#7a7280',
-  dim: '#3d3843',
-  red: '#e87070',
-  redDim: 'rgba(232,112,112,0.10)',
-};
-
-const fonts = `
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap');
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(18px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes scanline {
-    0%   { top: 0%; opacity: 1; }
-    90%  { opacity: 1; }
-    100% { top: 100%; opacity: 0; }
-  }
-  @keyframes pulse-gold {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(201,169,110,0.0); }
-    50%       { box-shadow: 0 0 24px 4px rgba(201,169,110,0.12); }
-  }
-  @keyframes shimmer {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(200%); }
-  }
-  @keyframes spin-slow {
-    to { transform: rotate(360deg); }
-  }
-  @keyframes reveal {
-    from { opacity: 0; clip-path: inset(0 100% 0 0); }
-    to   { opacity: 1; clip-path: inset(0 0% 0 0); }
-  }
-
-  .fade-up { animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) both; }
-  .fade-up-1 { animation-delay: 0.05s; }
-  .fade-up-2 { animation-delay: 0.12s; }
-  .fade-up-3 { animation-delay: 0.20s; }
-  .fade-up-4 { animation-delay: 0.28s; }
-  .fade-up-5 { animation-delay: 0.36s; }
-
-  .drop-zone:hover { border-color: rgba(201,169,110,0.35) !important; }
-  .drop-zone.active { border-color: ${C.gold} !important; animation: pulse-gold 2s infinite; }
-
-  .cta-btn:hover { background: #d4b47a !important; transform: translateY(-1px); box-shadow: 0 8px 32px rgba(201,169,110,0.25); }
-  .cta-btn:active { transform: translateY(0); }
-  .secondary-btn:hover { border-color: rgba(201,169,110,0.3) !important; color: ${C.text} !important; }
-
-  .summary-card { transition: border-color 0.2s; }
-  .summary-card:hover { border-color: rgba(201,169,110,0.25) !important; }
-
-  .prev-item:hover { background: ${C.surfaceHigh} !important; }
-  .prev-item:hover .arrow { color: ${C.gold} !important; }
-`;
-
-function ScanAnimation() {
-  return (
-    <div style={{ position: 'relative', width: 72, height: 88, margin: '0 auto 32px', flexShrink: 0 }}>
-      {/* Document layers */}
-      {[2, 1, 0].map(i => (
-        <div key={i} style={{
-          position: 'absolute',
-          width: 54 + i * 6,
-          height: 68 + i * 6,
-          top: i * 5,
-          left: (2 - i) * 3,
-          background: i === 0 ? C.surfaceHigh : C.surface,
-          border: `1px solid ${i === 0 ? C.borderBright : C.border}`,
-          borderRadius: 4,
-        }} />
-      ))}
-      {/* Scanline */}
-      <div style={{
-        position: 'absolute', left: 3, right: 3, height: 2,
-        background: `linear-gradient(90deg, transparent, ${C.gold}, transparent)`,
-        animation: 'scanline 1.8s cubic-bezier(0.4,0,0.2,1) infinite',
-        opacity: 0.8,
-      }} />
-    </div>
-  );
-}
-
-function LoadingState({ status }: { status: string }) {
-  const steps = [
-    { key: 'ingesting', label: 'Indexando documento' },
-    { key: 'summarizing', label: 'Gerando análise' },
-  ];
-  return (
-    <div style={{ textAlign: 'center', padding: '60px 0' }} className="fade-up">
-      <ScanAnimation />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-        {steps.map((step, i) => {
-          const active = step.key === status;
-          const done = steps.indexOf(steps.find(s => s.key === status)!) > i;
-          return (
-            <div key={step.key} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              opacity: active ? 1 : done ? 0.5 : 0.25,
-              transition: 'opacity 0.4s',
-            }}>
-              <div style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: active ? C.gold : done ? C.muted : C.dim,
-                transition: 'background 0.4s',
-                ...(active ? { boxShadow: `0 0 8px ${C.gold}` } : {}),
-              }} />
-              <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: 12,
-                color: active ? C.gold : C.muted,
-                letterSpacing: '0.04em',
-              }}>
-                {step.label}{active ? '...' : done ? ' ✓' : ''}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+import { DARK } from '../constants/theme';
 
 export function ResumirPdfPage() {
   const { user, session } = useAuth();
@@ -174,362 +42,381 @@ export function ResumirPdfPage() {
   };
 
   const isLoading = status === 'ingesting' || status === 'summarizing';
+  const usedRatio = usage ? usage.used_this_month / usage.limit : 0;
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Cormorant Garamond', Georgia, serif", color: C.text }}>
-      <style>{fonts}</style>
+    <div className="min-h-screen font-sans antialiased" style={{ background: DARK.bg, color: DARK.text }}>
 
-      {/* Grain overlay */}
-      <div style={{
-        position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
-        backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.035\'/%3E%3C/svg%3E")',
-        opacity: 0.6,
-      }} />
+      {/* Ambient blobs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden>
+        <div
+          className="absolute rounded-full blur-3xl opacity-20"
+          style={{ width: 600, height: 600, top: -200, left: -200, background: `radial-gradient(circle, ${DARK.accent}, transparent 70%)` }}
+        />
+        <div
+          className="absolute rounded-full blur-3xl opacity-10"
+          style={{ width: 500, height: 500, bottom: -150, right: -100, background: `radial-gradient(circle, ${DARK.sky}, transparent 70%)` }}
+        />
+      </div>
 
-      {/* Ambient light */}
-      <div style={{
-        position: 'fixed', top: '-30%', right: '-10%', width: '600px', height: '600px',
-        borderRadius: '50%', background: 'radial-gradient(circle, rgba(201,169,110,0.04) 0%, transparent 70%)',
-        pointerEvents: 'none', zIndex: 0,
-      }} />
-
-      {/* Header */}
-      <header style={{
-        position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(8,7,11,0.88)', backdropFilter: 'blur(16px)',
-        borderBottom: `1px solid ${C.border}`,
-        padding: '0 32px', height: 52,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <Link to="/" style={{
-          fontFamily: "'Cormorant Garamond', serif",
-          fontSize: 18, fontWeight: 600, color: C.gold,
-          textDecoration: 'none', letterSpacing: '0.02em',
-        }}>
-          MindDoc
-        </Link>
-        <nav style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <Link to="/app" style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            padding: '4px 12px', borderRadius: 4, fontSize: 11,
-            color: C.muted, textDecoration: 'none',
-            border: `1px solid ${C.border}`,
-            letterSpacing: '0.05em', textTransform: 'uppercase',
-          }}>Chat</Link>
-          <span style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            padding: '4px 12px', borderRadius: 4, fontSize: 11,
-            color: C.gold, border: `1px solid ${C.borderBright}`,
-            background: C.goldDim,
-            letterSpacing: '0.05em', textTransform: 'uppercase',
-          }}>Resumir PDF</span>
-          {!user && (
-            <Link to="/login" style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              padding: '4px 12px', borderRadius: 4, fontSize: 11,
-              color: C.muted, textDecoration: 'none',
-              border: `1px solid ${C.border}`,
-              letterSpacing: '0.05em', textTransform: 'uppercase',
-            }}>Entrar</Link>
-          )}
-        </nav>
-      </header>
-
-      <main style={{ maxWidth: 680, margin: '0 auto', padding: '64px 24px 80px', position: 'relative', zIndex: 1 }}>
-
-        {status === 'done' && summary ? (
-          /* ── Estado 3: Resultado ── */
-          <div>
-            {/* Filename */}
-            <div className="fade-up fade-up-1" style={{
-              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 40,
-            }}>
-              <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: 11, color: C.muted, letterSpacing: '0.05em',
-              }}>DOCUMENTO ANALISADO</span>
-              <div style={{ flex: 1, height: 1, background: C.border }} />
-              <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: 11, color: C.gold,
-              }}>{filename}</span>
-            </div>
-
-            {/* Topics */}
-            <div className="fade-up fade-up-2 summary-card" style={{
-              border: `1px solid ${C.border}`,
-              borderRadius: 8, padding: '28px 32px', marginBottom: 16,
-              background: C.surface,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <span style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: 10, color: C.gold, letterSpacing: '0.12em', textTransform: 'uppercase',
-                }}>Tópicos Abordados</span>
-                <div style={{ flex: 1, height: 1, background: C.goldDim }} />
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {summary.topicos_abordados.map((t, i) => (
-                  <span key={i} style={{
-                    fontFamily: "'Cormorant Garamond', serif",
-                    fontSize: 15, fontStyle: 'italic',
-                    color: C.text, background: C.goldGlow,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 4, padding: '4px 12px',
-                    lineHeight: 1.4,
-                  }}>{t}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div className="fade-up fade-up-3 summary-card" style={{
-              border: `1px solid ${C.border}`,
-              borderRadius: 8, padding: '28px 32px', marginBottom: 32,
-              background: C.surface,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <span style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: 10, color: C.gold, letterSpacing: '0.12em', textTransform: 'uppercase',
-                }}>Análise do Documento</span>
-                <div style={{ flex: 1, height: 1, background: C.goldDim }} />
-              </div>
-              <p style={{
-                fontFamily: "'Cormorant Garamond', serif",
-                fontSize: 18, lineHeight: 1.85, color: C.text,
-                whiteSpace: 'pre-wrap', fontWeight: 400,
-              }}>{summary.resumo}</p>
-            </div>
-
-            {/* CTAs */}
-            <div className="fade-up fade-up-4" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button
-                className="cta-btn"
-                onClick={() => navigate(`/app?namespace=${namespace}`)}
-                style={{
-                  width: '100%', background: C.gold, color: '#0a0800',
-                  border: 'none', borderRadius: 6, padding: '14px 24px',
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase',
-                  cursor: 'pointer', fontWeight: 500, transition: 'all 0.18s',
-                }}
-              >
-                Fazer perguntas sobre este documento →
-              </button>
-              <button
-                className="secondary-btn"
-                onClick={reset}
-                style={{
-                  width: '100%', background: 'transparent', color: C.muted,
-                  border: `1px solid ${C.border}`, borderRadius: 6, padding: '12px 24px',
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase',
-                  cursor: 'pointer', transition: 'all 0.18s',
-                }}
-              >
-                Analisar outro documento
-              </button>
-            </div>
-          </div>
-
-        ) : isLoading ? (
-          /* ── Estado 2: Loading ── */
-          <LoadingState status={status} />
-
-        ) : (
-          /* ── Estado 1: Upload ── */
-          <div>
-            {/* Hero */}
-            <div className="fade-up fade-up-1" style={{ marginBottom: 56, textAlign: 'center' }}>
-              <p style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: 10, color: C.gold, letterSpacing: '0.16em',
-                textTransform: 'uppercase', marginBottom: 16,
-              }}>Inteligência Documental</p>
-              <h1 style={{
-                fontSize: 48, fontWeight: 500, lineHeight: 1.15,
-                color: C.text, marginBottom: 16, fontStyle: 'italic',
-              }}>
-                Entenda qualquer<br />
-                <span style={{ color: C.gold }}>documento</span> em segundos
-              </h1>
-              <p style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: 13, color: C.muted, lineHeight: 1.7,
-                maxWidth: 440, margin: '0 auto',
-              }}>
-                Faça upload de um PDF e receba uma análise estruturada baseada exclusivamente no conteúdo do documento — sem invenções.
-              </p>
-            </div>
-
-            {/* Error */}
-            {((status === 'error' && error) || fileError) && (
-              <div className="fade-up" style={{
-                background: C.redDim, border: `1px solid rgba(232,112,112,0.2)`,
-                borderRadius: 6, padding: '12px 16px', marginBottom: 20,
-                display: 'flex', alignItems: 'center', gap: 10,
-              }}>
-                <span style={{ color: C.red, fontSize: 14 }}>⚠</span>
-                <span style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: 12, color: C.red,
-                }}>{fileError ?? error}</span>
-              </div>
-            )}
-
-            {/* Drop Zone */}
-            <div className={`fade-up fade-up-2 drop-zone${dragging ? ' active' : ''}`}
-              onDrop={handleDrop}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onClick={user ? () => fileInputRef.current?.click() : undefined}
-              style={{
-                position: 'relative', overflow: 'hidden',
-                border: `1.5px dashed ${dragging ? C.gold : C.borderBright}`,
-                borderRadius: 10, padding: '56px 32px',
-                textAlign: 'center', background: C.surface,
-                marginBottom: 20, cursor: user ? 'pointer' : 'default',
-                transition: 'border-color 0.2s, background 0.2s',
-              }}
+      {/* Navbar */}
+      <nav
+        className="fixed top-0 inset-x-0 z-50"
+        style={{ backdropFilter: 'blur(16px)', background: 'rgba(8,8,15,0.85)', borderBottom: `1px solid ${DARK.borderLight}` }}
+      >
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2" style={{ textDecoration: 'none' }}>
+            <div
+              className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)` }}
             >
-              {/* Shimmer on drag */}
-              {dragging && (
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  background: `linear-gradient(105deg, transparent 40%, ${C.goldGlow} 50%, transparent 60%)`,
-                  animation: 'shimmer 1.2s infinite',
-                }} />
-              )}
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-display text-lg text-white tracking-tight">MindDoc</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/app"
+              className="text-sm font-sans transition-colors hover:text-white/90"
+              style={{ color: DARK.textMuted, textDecoration: 'none' }}
+            >
+              Chat
+            </Link>
+            <span
+              className="text-sm font-sans px-3 py-1 rounded-full"
+              style={{ color: DARK.accent, background: DARK.accentSubtle, border: `1px solid ${DARK.accentBorder}` }}
+            >
+              Resumir PDF
+            </span>
+            {!user ? (
+              <Link
+                to="/login?redirect=/resumir-pdf"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-sans font-semibold transition-all duration-200 hover:opacity-90 active:scale-95"
+                style={{ background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`, color: DARK.bg, textDecoration: 'none' }}
+              >
+                Entrar
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </nav>
 
-              {/* Document stack icon */}
-              <div style={{ position: 'relative', width: 56, height: 68, margin: '0 auto 24px' }}>
-                {[2, 1].map(i => (
-                  <div key={i} style={{
-                    position: 'absolute',
-                    width: 42 + i * 4, height: 52 + i * 4,
-                    top: (2 - i) * 5, left: i * 3,
-                    background: C.surfaceHigh,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 3,
-                  }} />
-                ))}
-                <div style={{
-                  position: 'absolute', width: 42, height: 52,
-                  top: 10, left: 7,
-                  background: C.surfaceHigh,
-                  border: `1px solid ${C.borderBright}`,
-                  borderRadius: 3,
-                  display: 'flex', flexDirection: 'column',
-                  padding: '8px 6px', gap: 4,
-                }}>
-                  {[80, 60, 70, 40].map((w, i) => (
-                    <div key={i} style={{
-                      height: 2, width: `${w}%`,
-                      background: C.dim, borderRadius: 1,
-                    }} />
+      {/* Main */}
+      <main className="pt-32 pb-24 px-6 relative z-10">
+        <div className="max-w-2xl mx-auto">
+
+          {/* ── Estado 2: Loading ── */}
+          {isLoading && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+                style={{ background: DARK.accentSubtle, border: `1px solid ${DARK.accentBorder}` }}
+              >
+                <FileText className="w-7 h-7" style={{ color: DARK.accent }} />
+              </div>
+              <h2 className="font-display text-2xl text-white mb-2">
+                {status === 'ingesting' ? 'Indexando documento...' : 'Gerando resumo...'}
+              </h2>
+              <p className="text-sm font-sans mb-8" style={{ color: DARK.textMuted }}>
+                {status === 'ingesting'
+                  ? 'Processando o conteúdo do PDF para análise.'
+                  : 'A IA está lendo e sintetizando o documento.'}
+              </p>
+
+              {/* Step indicator */}
+              <div className="flex flex-col gap-3 items-start w-48">
+                {[
+                  { key: 'ingesting', label: 'Indexando documento' },
+                  { key: 'summarizing', label: 'Gerando resumo' },
+                ].map((step, i) => {
+                  const isActive = step.key === status;
+                  const isDone = (step.key === 'ingesting' && status === 'summarizing');
+                  return (
+                    <div key={step.key} className="flex items-center gap-3">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300"
+                        style={{
+                          background: isDone ? DARK.emeraldSubtle : isActive ? DARK.accentSubtle : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${isDone ? DARK.emeraldBorder : isActive ? DARK.accentBorder : DARK.border}`,
+                        }}
+                      >
+                        {isDone ? (
+                          <Check className="w-3 h-3" style={{ color: DARK.emerald }} />
+                        ) : isActive ? (
+                          <Loader2 className="w-3 h-3 animate-spin" style={{ color: DARK.accent }} />
+                        ) : (
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: DARK.borderLight }} />
+                        )}
+                      </div>
+                      <span
+                        className="text-sm font-sans transition-colors duration-300"
+                        style={{ color: isDone ? DARK.emerald : isActive ? DARK.text : DARK.textFaint }}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {filename && (
+                <div
+                  className="mt-8 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-sans"
+                  style={{ background: DARK.skySubtle, color: '#38bdf8', border: `1px solid ${DARK.skyBorder}` }}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  {filename}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Estado 3: Resultado ── */}
+          {status === 'done' && summary && (
+            <div>
+              {/* File header */}
+              <div className="flex items-center gap-3 mb-8">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: DARK.accentSubtle, border: `1px solid ${DARK.accentBorder}` }}
+                >
+                  <FileText className="w-4 h-4" style={{ color: DARK.accent }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-sans mb-0.5" style={{ color: DARK.textFaint }}>Documento analisado</p>
+                  <p className="text-sm font-sans text-white truncate">{filename}</p>
+                </div>
+                {summary.cached && (
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-sans"
+                    style={{ background: DARK.emeraldSubtle, color: DARK.emerald, border: `1px solid ${DARK.emeraldBorder}` }}
+                  >
+                    <Check className="w-3 h-3" />
+                    Cached
+                  </div>
+                )}
+              </div>
+
+              {/* Topics card */}
+              <div
+                className="rounded-2xl p-6 mb-4"
+                style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}
+              >
+                <p
+                  className="text-xs font-sans font-semibold uppercase tracking-widest mb-4"
+                  style={{ color: DARK.accent }}
+                >
+                  Tópicos Abordados
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {summary.topicos_abordados.map((topic, i) => (
+                    <span
+                      key={i}
+                      className="text-sm font-sans px-3 py-1.5 rounded-lg"
+                      style={{
+                        background: DARK.accentSubtle,
+                        color: DARK.text,
+                        border: `1px solid ${DARK.accentBorder}`,
+                      }}
+                    >
+                      {topic}
+                    </span>
                   ))}
                 </div>
               </div>
 
-              <p style={{
-                fontFamily: "'Cormorant Garamond', serif",
-                fontSize: 20, color: C.text, marginBottom: 6, fontStyle: 'italic',
-              }}>
-                {user ? 'Arraste seu PDF aqui' : 'Faça login para começar'}
-              </p>
-              <p style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: 11, color: C.dim, letterSpacing: '0.04em',
-              }}>
-                {user ? 'ou clique para selecionar — somente PDF' : 'A análise é gratuita para usuários cadastrados'}
-              </p>
+              {/* Summary card */}
+              <div
+                className="rounded-2xl p-6 mb-6"
+                style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}
+              >
+                <p
+                  className="text-xs font-sans font-semibold uppercase tracking-widest mb-4"
+                  style={{ color: DARK.accent }}
+                >
+                  Resumo do Documento
+                </p>
+                <p
+                  className="text-sm font-sans leading-relaxed whitespace-pre-wrap"
+                  style={{ color: DARK.text }}
+                >
+                  {summary.resumo}
+                </p>
+              </div>
+
+              {/* CTAs */}
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => navigate(`/app?namespace=${namespace}`)}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-sans font-semibold transition-all duration-200 hover:opacity-90 active:scale-95"
+                  style={{
+                    background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+                    color: DARK.bg,
+                    boxShadow: `0 0 40px ${DARK.accentGlow}`,
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Fazer perguntas sobre este documento
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={reset}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-sans font-semibold transition-all duration-200 hover:bg-white/5 active:scale-95"
+                  style={{ color: DARK.textMuted, border: `1px solid ${DARK.border}` }}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Resumir outro PDF
+                </button>
+              </div>
             </div>
+          )}
 
-            <input
-              ref={fileInputRef}
-              type="file" accept="application/pdf"
-              style={{ display: 'none' }}
-              onChange={(e) => handleFiles(e.target.files)}
-              aria-label="Selecionar arquivo PDF"
-            />
+          {/* ── Estado 1: Upload ── */}
+          {!isLoading && status !== 'done' && (
+            <div>
+              {/* Hero */}
+              <div className="text-center mb-10">
+                <div
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-sans font-medium mb-6"
+                  style={{ background: DARK.accentSubtle, color: '#fbbf24', border: `1px solid ${DARK.accentBorder}` }}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Análise gratuita com IA
+                </div>
+                <h1
+                  className="font-display leading-tight text-white mb-4"
+                  style={{ fontSize: 'clamp(2rem, 5vw, 3rem)' }}
+                >
+                  Resumo estruturado<br />
+                  <span style={{ color: DARK.accent }}>do seu PDF.</span>
+                </h1>
+                <p className="text-sm font-sans leading-relaxed max-w-md mx-auto" style={{ color: DARK.textMuted }}>
+                  Faça upload de um PDF e receba tópicos abordados e um resumo organizado — gerado exclusivamente a partir do conteúdo do documento, sem invenções.
+                </p>
+              </div>
 
-            {/* CTA Button */}
-            <div className="fade-up fade-up-3">
-              <button
-                className="cta-btn"
-                onClick={handleGenerateClick}
+              {/* Error */}
+              {((status === 'error' && error) || fileError) && (
+                <div
+                  className="flex items-start gap-3 px-4 py-3 rounded-xl mb-4 text-sm font-sans"
+                  style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}
+                >
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  {fileError ?? error}
+                </div>
+              )}
+
+              {/* Drop zone */}
+              <div
+                onDrop={handleDrop}
+                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onClick={user ? () => fileInputRef.current?.click() : undefined}
+                className="rounded-2xl p-10 text-center mb-4 transition-all duration-200"
                 style={{
-                  width: '100%', background: C.gold, color: '#0a0800',
-                  border: 'none', borderRadius: 6, padding: '15px 24px',
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: 12, letterSpacing: '0.07em', textTransform: 'uppercase',
-                  cursor: 'pointer', fontWeight: 500, transition: 'all 0.18s',
-                  marginBottom: 12,
+                  border: `1.5px dashed ${dragging ? DARK.accent : DARK.border}`,
+                  background: dragging ? DARK.accentSubtle : DARK.card,
+                  cursor: user ? 'pointer' : 'default',
                 }}
               >
-                {user ? 'Gerar análise gratuita →' : 'Entrar para gerar análise →'}
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  style={{
+                    background: dragging ? DARK.accentSubtle : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${dragging ? DARK.accentBorder : DARK.border}`,
+                  }}
+                >
+                  <FileText className="w-6 h-6 transition-colors duration-200" style={{ color: dragging ? DARK.accent : DARK.textFaint }} />
+                </div>
+                <p className="text-sm font-sans font-medium text-white mb-1">
+                  {user ? 'Arraste seu PDF aqui' : 'Faça login para começar'}
+                </p>
+                <p className="text-xs font-sans" style={{ color: DARK.textFaint }}>
+                  {user ? 'ou clique para selecionar — somente PDF' : 'A análise é gratuita para todos os planos'}
+                </p>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => handleFiles(e.target.files)}
+                aria-label="Selecionar arquivo PDF"
+              />
+
+              {/* CTA */}
+              <button
+                onClick={handleGenerateClick}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-sans font-semibold transition-all duration-200 hover:opacity-90 active:scale-95 mb-4"
+                style={{
+                  background: `linear-gradient(135deg, ${DARK.accent}, #d97706)`,
+                  color: DARK.bg,
+                  boxShadow: `0 0 40px ${DARK.accentGlow}`,
+                }}
+              >
+                {user ? 'Selecionar PDF e gerar resumo' : 'Entrar para gerar resumo'}
+                <ArrowRight className="w-4 h-4" />
               </button>
 
               {/* Usage counter */}
               {user && usage && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                  marginBottom: usage.summaries.length > 0 ? 40 : 0,
-                }}>
-                  <div style={{ height: 1, flex: 1, background: C.border }} />
-                  <span style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 10, color: C.dim, letterSpacing: '0.06em',
-                  }}>
-                    {usage.used_this_month}/{usage.limit} análises este mês
-                  </span>
-                  <div style={{ height: 1, flex: 1, background: C.border }} />
+                <div className="mb-8">
+                  <div className="flex items-center justify-between text-xs font-sans mb-2" style={{ color: DARK.textFaint }}>
+                    <span>{usage.used_this_month} de {usage.limit} resumos usados este mês</span>
+                    <span>{Math.round(usedRatio * 100)}%</span>
+                  </div>
+                  <div className="h-1 rounded-full overflow-hidden" style={{ background: DARK.border }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(usedRatio * 100, 100)}%`,
+                        background: usedRatio >= 0.9
+                          ? `linear-gradient(90deg, #f59e0b, #ef4444)`
+                          : `linear-gradient(90deg, ${DARK.accent}, #d97706)`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Previous summaries */}
+              {user && usage && usage.summaries.length > 0 && (
+                <div>
+                  <p
+                    className="text-xs font-sans font-semibold uppercase tracking-widest mb-3"
+                    style={{ color: DARK.textFaint }}
+                  >
+                    Resumos anteriores
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {usage.summaries.map((item) => (
+                      <button
+                        key={item.namespace}
+                        onClick={() => navigate(`/app?namespace=${item.namespace}`)}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-150 hover:bg-white/5 active:scale-95"
+                        style={{ background: DARK.card, border: `1px solid ${DARK.border}` }}
+                      >
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${DARK.border}` }}
+                        >
+                          <FileText className="w-3.5 h-3.5" style={{ color: DARK.textFaint }} />
+                        </div>
+                        <span className="text-sm font-sans text-white flex-1 truncate">
+                          {item.filename ?? 'Documento'}
+                        </span>
+                        <ArrowRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: DARK.textFaint }} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
+          )}
 
-            {/* Previous summaries */}
-            {user && usage && usage.summaries.length > 0 && (
-              <div className="fade-up fade-up-4">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                  <span style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 10, color: C.dim, letterSpacing: '0.10em', textTransform: 'uppercase',
-                  }}>Análises anteriores</span>
-                  <div style={{ flex: 1, height: 1, background: C.border }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {usage.summaries.map((item) => (
-                    <div
-                      key={item.namespace}
-                      className="prev-item"
-                      onClick={() => navigate(`/app?namespace=${item.namespace}`)}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '12px 16px', borderRadius: 6,
-                        border: `1px solid ${C.border}`,
-                        background: C.surface, cursor: 'pointer',
-                        transition: 'background 0.15s',
-                      }}
-                    >
-                      <span style={{
-                        fontFamily: "'Cormorant Garamond', serif",
-                        fontSize: 15, fontStyle: 'italic', color: C.text,
-                      }}>
-                        {item.filename ?? 'Documento'}
-                      </span>
-                      <span className="arrow" style={{
-                        fontFamily: "'IBM Plex Mono', monospace",
-                        fontSize: 11, color: C.dim, transition: 'color 0.15s',
-                      }}>→</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        </div>
       </main>
     </div>
   );
