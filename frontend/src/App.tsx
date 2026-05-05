@@ -160,7 +160,7 @@ function MainApp({ session }: { session: Session | null }) {
           }}>
             <Sparkles style={{ width: 14, height: 14, color: 'white' }} />
           </div>
-          <span style={{ fontWeight: 600, fontSize: 14, color: 'white', letterSpacing: '-0.3px' }}>MindDoc</span>
+          <span className="font-display text-lg text-white tracking-tight">MindDoc</span>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
