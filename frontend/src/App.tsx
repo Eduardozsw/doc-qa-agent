@@ -140,12 +140,15 @@ function MainApp({ session }: { session: Session | null }) {
 
       {/* Header */}
       <header style={{
-        height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 24px', flexShrink: 0, zIndex: 10,
+        height: 64, flexShrink: 0, zIndex: 10,
         borderBottom: `1px solid ${DARK.borderLight}`,
         background: 'rgba(8,8,15,0.95)',
         backdropFilter: 'blur(16px)',
       }}>
+        <div style={{
+          maxWidth: '72rem', margin: '0 auto', padding: '0 24px', height: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
         <button
           onClick={() => navigate('/')}
           style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer' }}
@@ -205,6 +208,7 @@ function MainApp({ session }: { session: Session | null }) {
             </button>
           )}
           <UserMenu />
+        </div>
         </div>
       </header>
 
