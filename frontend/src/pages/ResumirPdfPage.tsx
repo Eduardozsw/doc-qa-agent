@@ -75,18 +75,31 @@ export function ResumirPdfPage() {
             </div>
             <span className="font-display text-lg text-white tracking-tight">MindDoc</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Link
               to="/app"
-              className="text-sm font-sans transition-colors hover:text-white/90"
-              style={{ color: DARK.textMuted, textDecoration: 'none' }}
+              style={{
+                fontSize: 12, fontWeight: 500,
+                color: DARK.textMuted,
+                textDecoration: 'none',
+                padding: '5px 10px',
+                transition: 'color 0.2s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'white'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = DARK.textMuted; }}
             >
               Chat
             </Link>
-            <span
-              className="text-sm font-sans px-3 py-1 rounded-full"
-              style={{ color: DARK.accent, background: DARK.accentSubtle, border: `1px solid ${DARK.accentBorder}` }}
-            >
+            <span style={{
+              fontSize: 12, fontWeight: 500,
+              color: DARK.accent,
+              padding: '5px 10px',
+              borderRadius: 20,
+              border: `1px solid ${DARK.accentBorder}`,
+              background: DARK.accentSubtle,
+              whiteSpace: 'nowrap',
+            }}>
               Resumir PDF
             </span>
             {user ? (

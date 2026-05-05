@@ -178,20 +178,11 @@ function MainApp({ session }: { session: Session | null }) {
               color: DARK.textMuted,
               textDecoration: 'none',
               padding: '5px 10px',
-              borderRadius: 8,
-              border: `1px solid ${DARK.border}`,
-              background: 'rgba(255,255,255,0.04)',
-              transition: 'all 0.2s',
+              transition: 'color 0.2s',
               whiteSpace: 'nowrap',
             }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLAnchorElement).style.color = 'white';
-              (e.currentTarget as HTMLAnchorElement).style.borderColor = DARK.borderLight;
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLAnchorElement).style.color = DARK.textMuted;
-              (e.currentTarget as HTMLAnchorElement).style.borderColor = DARK.border;
-            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'white'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = DARK.textMuted; }}
           >
             Resumir PDF
           </Link>
