@@ -68,3 +68,42 @@ def test_save_summary_calls_update(mock_get_admin):
     save_summary("user1", "ns1", {"topicos_abordados": ["a"], "resumo": "b"})
     admin.table.assert_called_once_with("namespaces")
     admin.table.return_value.update.assert_called_once()
+
+
+@patch("agent.pdf_summarizer.retrieve")
+@patch("agent.pdf_summarizer.client")
+def test_generate_summary_returns_structured_data(mock_client, mock_retrieve):
+    mock_retrieve.return_value = [
+        (0.9, "ns1", "O relatório apresenta crescimento de 18%.", 1),
+        (0.8, "ns1", "Expansão para o Sul do Brasil foi planejada.", 2),
+    ]
+    mock_client.chat.completions.create.return_value.choices[0].message.content = (
+        '{"topicos_abordados": ["Crescimento financeiro"], "resumo": "O documento aborda..."}'
+    )
+    from agent.pdf_summarizer import generate_summary
+    result = generate_summary("ns1")
+    assert "topicos_abordados" in result
+    assert "resumo" in result
+    assert isinstance(result["topicos_abordados"], list)
+
+
+@patch("agent.pdf_summarizer.retrieve")
+def test_generate_summary_raises_when_no_chunks(mock_retrieve):
+    import pytest
+    mock_retrieve.return_value = []
+    from agent.pdf_summarizer import generate_summary
+    with pytest.raises(ValueError, match="Nenhum chunk encontrado"):
+        generate_summary("ns1")
+
+
+@patch("agent.pdf_summarizer.retrieve")
+@patch("agent.pdf_summarizer.client")
+def test_generate_summary_raises_on_invalid_structure(mock_client, mock_retrieve):
+    import pytest
+    mock_retrieve.return_value = [(0.9, "ns1", "texto qualquer", 1)]
+    mock_client.chat.completions.create.return_value.choices[0].message.content = (
+        '{"other_key": "unexpected"}'
+    )
+    from agent.pdf_summarizer import generate_summary
+    with pytest.raises(ValueError, match="Estrutura de resposta inválida"):
+        generate_summary("ns1")
