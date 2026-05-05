@@ -14,6 +14,7 @@ import { TermsOfServicePage } from './pages/TermsOfServicePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { ResumirPdfPage } from './pages/ResumirPdfPage';
 import { useAuth } from './contexts/AuthContext';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import { useFileManagement } from './hooks/useFileManagement';
@@ -43,6 +44,7 @@ function App() {
       <Route path="/termos" element={<TermsOfServicePage />} />
       <Route path="/sucesso" element={<SuccessPage />} />
       <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
+      <Route path="/resumir-pdf" element={<ResumirPdfPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
