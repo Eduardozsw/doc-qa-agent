@@ -1,7 +1,7 @@
 import os
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)
@@ -184,7 +184,6 @@ def get_summary(user_id: str, namespace: str) -> dict | None:
 
 
 def save_summary(user_id: str, namespace: str, summary: dict) -> None:
-    from datetime import datetime, timezone
     try:
         get_admin().table("namespaces").update({
             "summary": summary,
@@ -196,7 +195,6 @@ def save_summary(user_id: str, namespace: str, summary: dict) -> None:
 
 
 def count_summaries_this_month(user_id: str) -> int:
-    from datetime import datetime, timezone
     try:
         now = datetime.now(timezone.utc)
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
@@ -209,7 +207,8 @@ def count_summaries_this_month(user_id: str) -> int:
             .execute()
         )
         return result.count or 0
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Falha ao contar summaries para {user_id}: {e}")
         return 0
 
 

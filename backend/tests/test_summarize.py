@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 from core.limits import get_limit
 
 
@@ -9,9 +11,6 @@ def test_summary_limits_by_plan():
 
 def test_unknown_plan_falls_back_to_free():
     assert get_limit("unknown", "summaries") == 3
-
-
-from unittest.mock import MagicMock, patch
 
 
 def _mock_admin(return_data=None, count=None):
@@ -59,3 +58,13 @@ def test_get_namespaces_with_summaries(mock_get_admin):
     result = get_namespaces_with_summaries("user1")
     assert len(result) == 1
     assert result[0]["namespace"] == "ns1"
+
+
+@patch("db.supabase.get_admin")
+def test_save_summary_calls_update(mock_get_admin):
+    admin = MagicMock()
+    mock_get_admin.return_value = admin
+    from db.supabase import save_summary
+    save_summary("user1", "ns1", {"topicos_abordados": ["a"], "resumo": "b"})
+    admin.table.assert_called_once_with("namespaces")
+    admin.table.return_value.update.assert_called_once()
