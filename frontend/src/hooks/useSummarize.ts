@@ -71,7 +71,14 @@ export function useSummarize(session: Session | null) {
       const jobId = jobs[0].job_id;
 
       const ns = await new Promise<string>((resolve, reject) => {
+        let elapsed = 0;
         pollingRef.current = setInterval(async () => {
+          elapsed += 2000;
+          if (elapsed > 120_000) {
+            stopPolling();
+            reject(new Error('Tempo limite de processamento atingido'));
+            return;
+          }
           try {
             const statusRes = await authFetch(`/api/ingest/status?jobs=${jobId}`);
             const statusData = await statusRes.json();
