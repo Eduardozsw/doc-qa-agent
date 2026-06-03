@@ -19,7 +19,14 @@ def get_client() -> redis.Redis:
     global _client
     if _client is None:
         settings = get_settings()
-        r = redis.from_url(settings.redis_url, decode_responses=True)
+        r = redis.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            socket_timeout=None,
+            socket_connect_timeout=10,
+            retry_on_timeout=True,
+            health_check_interval=10,
+        )
         for attempt in range(5):
             try:
                 r.ping()
