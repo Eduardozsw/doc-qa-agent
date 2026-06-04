@@ -124,40 +124,6 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
     setIngestStatus(prev => prev === 'partial' ? 'ready' : prev);
   };
 
-  const handleIngestFromDrive = async (
-    driveFiles: Array<{ id: string; name: string }>,
-    accessToken: string,
-  ) => {
-    if (!driveFiles.length) return;
-
-    setIngestStatus('loading');
-    setIngestError(null);
-    setIngestWarning(null);
-
-    try {
-      const res = await authFetch('/api/ingest/from-drive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          files: driveFiles.map(f => ({ file_id: f.id, file_name: f.name })),
-          access_token: accessToken,
-        }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setIngestStatus('error');
-        setIngestError(data.detail ?? `Erro ${res.status}`);
-        return;
-      }
-
-      applyIngestResponse(data, setActiveJobs, setIngestWarning, setIngestStatus);
-    } catch {
-      setIngestStatus('error');
-      setIngestError('Falha ao conectar com o servidor.');
-    }
-  };
-
   const handleRemoveIndexed = async (toRemove: string[]) => {
     setIndexedFiles(prev => prev.filter(f => !toRemove.includes(f)));
     removeFromSelected(toRemove);
@@ -212,7 +178,6 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
     handleAddFiles,
     handleRemovePending,
     handleIngest,
-    handleIngestFromDrive,
     handleRemoveIndexed,
     loadIndexedFiles,
     dismissWarning,

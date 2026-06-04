@@ -61,37 +61,3 @@ class DeleteRequest(BaseModel):
         if not v:
             raise ValueError("namespaces não pode estar vazio")
         return v
-
-
-class DriveFileRef(BaseModel):
-    file_id: str
-    file_name: str
-
-    @model_validator(mode="after")
-    def validate_fields(self):
-        if not self.file_id.strip():
-            raise ValueError("file_id não pode estar vazio")
-        if not self.file_name.strip():
-            raise ValueError("file_name não pode estar vazio")
-        return self
-
-
-class DriveIngestRequest(BaseModel):
-    files: list[DriveFileRef]
-    access_token: str
-
-    @field_validator("files")
-    @classmethod
-    def validate_files(cls, v: list) -> list:
-        if not v:
-            raise ValueError("files não pode estar vazio")
-        if len(v) > 50:
-            raise ValueError("máximo de 50 arquivos por requisição")
-        return v
-
-    @field_validator("access_token")
-    @classmethod
-    def validate_access_token(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("access_token não pode estar vazio")
-        return v

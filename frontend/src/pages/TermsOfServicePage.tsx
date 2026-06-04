@@ -69,7 +69,7 @@ export function TermsOfServicePage() {
           <Section title="2. Descrição do serviço">
             <p>
               O MindDoc é um assistente de perguntas e respostas sobre documentos. O serviço permite que usuários
-              cadastrados enviem arquivos PDF — por upload direto ou importação do Google Drive — e façam perguntas
+              cadastrados enviem arquivos PDF por upload direto e façam perguntas
               sobre o conteúdo, recebendo respostas geradas por inteligência artificial baseadas exclusivamente nos
               documentos enviados.
             </p>
