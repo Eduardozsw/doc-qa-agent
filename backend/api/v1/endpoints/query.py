@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from api.deps import get_current_user, UserContext
 from models.requests import QueryRequest
@@ -25,6 +26,24 @@ async def query(
 
     result = await query_service.handle_query(user.id, user.plan, body)
     return QueryResponse(resposta=result["resposta"], fontes=result.get("fontes", []))
+
+
+@router.post("/stream")
+@limiter.limit("5/minute")
+async def query_stream(
+    request: Request,
+    body: QueryRequest,
+    user: UserContext = Depends(get_current_user),
+):
+    if atomic_increment_and_check(user.id, user.plan, "queries"):
+        limit = get_limit(user.plan, "queries")
+        raise HTTPException(status_code=429, detail=f"Limite de {limit} perguntas mensais atingido")
+
+    return StreamingResponse(
+        query_service.handle_query_stream(user.id, user.plan, body),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.delete("/history", status_code=204)
