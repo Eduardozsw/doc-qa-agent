@@ -18,7 +18,7 @@ export function useDriveAuth() {
           resolve(response.access_token);
         },
       });
-      client.requestAccessToken({ prompt: '' });
+      client.requestAccessToken({ prompt: 'consent' });
     });
   }, []);
 
