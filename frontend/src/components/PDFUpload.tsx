@@ -3,7 +3,6 @@ import { Plus, X, Loader2, Trash2, FileText } from 'lucide-react';
 import { IngestStatus } from '../hooks/useFileManagement';
 import { JobState } from '../hooks/useJobPolling';
 import { DARK } from '../constants/theme';
-import { DrivePickerButton } from './DrivePickerButton';
 
 function displayName(namespace: string): string {
   const parts = namespace.split('_');
@@ -18,7 +17,6 @@ interface PDFUploadProps {
   onAddFiles: (newFiles: File[]) => void;
   onRemovePending: (index: number) => void;
   onRemoveIndexed: (namespaces: string[]) => void;
-  onIngestFromDrive: (files: Array<{ id: string; name: string }>, accessToken: string) => void;
   onSubmit: () => void;
   slotsAvailable: number;
   isLoading: boolean;
@@ -29,7 +27,7 @@ interface PDFUploadProps {
 
 export function PDFUpload({
   indexedFiles, pendingFiles, searchSelected, onToggleSearch, onAddFiles,
-  onRemovePending, onRemoveIndexed, onIngestFromDrive, onSubmit, slotsAvailable, isLoading,
+  onRemovePending, onRemoveIndexed, onSubmit, slotsAvailable, isLoading,
   ingestStatus, ingestError, jobStatuses,
 }: PDFUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -83,10 +81,6 @@ export function PDFUpload({
         </span>
         {slotsAvailable > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <DrivePickerButton
-              onFilesSelected={onIngestFromDrive}
-              disabled={isLoading}
-            />
             <button
               onClick={() => inputRef.current?.click()}
               title="Adicionar PDF"
