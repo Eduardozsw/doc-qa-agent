@@ -87,7 +87,7 @@ export function PrivacyPolicyPage() {
               Esta funcionalidade é <strong className="text-white">estritamente opcional</strong> e requer consentimento explícito a cada uso.
             </p>
             <ul className="list-disc list-inside space-y-1 pl-2 mt-2">
-              <li>O acesso é concedido com escopo <strong className="text-white">somente leitura</strong> (<code>drive.readonly</code>), limitado aos arquivos selecionados pelo próprio usuário</li>
+              <li>O acesso é concedido com o escopo <strong className="text-white">por arquivo</strong> (<code>drive.file</code>), limitado exclusivamente aos arquivos que o próprio usuário seleciona no seletor do Google</li>
               <li>O token de acesso OAuth é utilizado <strong className="text-white">apenas para baixar o arquivo selecionado</strong> e descartado imediatamente após o download</li>
               <li>O token <strong className="text-white">não é armazenado</strong> em nenhum banco de dados ou sistema de cache</li>
               <li>Nenhum outro arquivo do Drive é acessado além dos explicitamente selecionados pelo usuário</li>
