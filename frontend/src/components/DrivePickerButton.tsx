@@ -25,6 +25,7 @@ export function DrivePickerButton({ onFilesSelected, disabled }: DrivePickerButt
       .addView(view)
       .setOAuthToken(token)
       .setDeveloperKey(import.meta.env.VITE_GOOGLE_API_KEY)
+      .setAppId('673862576917')
       .setCallback((data: GooglePickerData) => {
         if (data.action === window.google.picker.Action.PICKED && data.docs) {
           onFilesSelected(
