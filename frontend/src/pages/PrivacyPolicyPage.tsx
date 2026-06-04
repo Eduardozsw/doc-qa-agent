@@ -87,10 +87,12 @@ export function PrivacyPolicyPage() {
               Esta funcionalidade é <strong className="text-white">estritamente opcional</strong> e requer consentimento explícito a cada uso.
             </p>
             <ul className="list-disc list-inside space-y-1 pl-2 mt-2">
-              <li>O acesso é concedido com o escopo <strong className="text-white">por arquivo</strong> (<code>drive.file</code>), limitado exclusivamente aos arquivos que o próprio usuário seleciona no seletor do Google</li>
+              <li>São utilizados dois escopos OAuth: <code>drive.metadata.readonly</code> para exibir a lista de arquivos no seletor do Google, e <code>drive.file</code> para baixar exclusivamente os arquivos selecionados pelo usuário</li>
+              <li>O escopo <strong className="text-white">drive.metadata.readonly</strong> permite apenas visualizar nomes e metadados dos arquivos — <strong className="text-white">nunca o conteúdo</strong></li>
+              <li>O escopo <strong className="text-white">drive.file</strong> concede acesso somente aos arquivos que o próprio usuário seleciona no seletor do Google</li>
               <li>O token de acesso OAuth é utilizado <strong className="text-white">apenas para baixar o arquivo selecionado</strong> e descartado imediatamente após o download</li>
               <li>O token <strong className="text-white">não é armazenado</strong> em nenhum banco de dados ou sistema de cache</li>
-              <li>Nenhum outro arquivo do Drive é acessado além dos explicitamente selecionados pelo usuário</li>
+              <li>Nenhum conteúdo de arquivo do Drive é acessado além dos explicitamente selecionados pelo usuário</li>
               <li>O MindDoc não acessa, indexa nem monitora o Google Drive do usuário de forma contínua ou automática</li>
             </ul>
             <p className="mt-2">
