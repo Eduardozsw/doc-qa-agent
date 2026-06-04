@@ -16,6 +16,7 @@ declare global {
           addView: (v: unknown) => unknown;
           setOAuthToken: (t: string) => unknown;
           setDeveloperKey: (k: string) => unknown;
+          setAppId: (id: string) => unknown;
           setCallback: (cb: (data: GooglePickerData) => void) => unknown;
           enableFeature: (f: string) => unknown;
           build: () => { setVisible: (v: boolean) => void };
