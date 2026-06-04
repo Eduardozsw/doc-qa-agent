@@ -71,7 +71,7 @@ export function PrivacyPolicyPage() {
             <p>Coletamos apenas os dados estritamente necessários para o funcionamento do serviço:</p>
             <ul className="list-disc list-inside space-y-1 pl-2">
               <li><strong className="text-white">Email</strong> — usado exclusivamente para autenticação e identificação da conta</li>
-              <li><strong className="text-white">Documentos PDF</strong> — enviados pelo próprio usuário para consulta, seja por upload direto ou importação do Google Drive</li>
+              <li><strong className="text-white">Documentos PDF</strong> — enviados pelo próprio usuário para consulta via upload direto</li>
               <li><strong className="text-white">Histórico de perguntas</strong> — mantido temporariamente na sessão ativa, não armazenado permanentemente</li>
             </ul>
             <p className="mt-2">
@@ -81,34 +81,11 @@ export function PrivacyPolicyPage() {
 
           <div style={{ borderTop: `1px solid ${DARK.border}` }} />
 
-          <Section title="3. Integração com Google Drive (opcional)">
-            <p>
-              O MindDoc oferece a opção de importar arquivos PDF diretamente do Google Drive do usuário.
-              Esta funcionalidade é <strong className="text-white">estritamente opcional</strong> e requer consentimento explícito a cada uso.
-            </p>
-            <ul className="list-disc list-inside space-y-1 pl-2 mt-2">
-              <li>São utilizados dois escopos OAuth: <code>drive.metadata.readonly</code> para exibir a lista de arquivos no seletor do Google, e <code>drive.file</code> para baixar exclusivamente os arquivos selecionados pelo usuário</li>
-              <li>O escopo <strong className="text-white">drive.metadata.readonly</strong> permite apenas visualizar nomes e metadados dos arquivos — <strong className="text-white">nunca o conteúdo</strong></li>
-              <li>O escopo <strong className="text-white">drive.file</strong> concede acesso somente aos arquivos que o próprio usuário seleciona no seletor do Google</li>
-              <li>O token de acesso OAuth é utilizado <strong className="text-white">apenas para baixar o arquivo selecionado</strong> e descartado imediatamente após o download</li>
-              <li>O token <strong className="text-white">não é armazenado</strong> em nenhum banco de dados ou sistema de cache</li>
-              <li>Nenhum conteúdo de arquivo do Drive é acessado além dos explicitamente selecionados pelo usuário</li>
-              <li>O MindDoc não acessa, indexa nem monitora o Google Drive do usuário de forma contínua ou automática</li>
-            </ul>
-            <p className="mt-2">
-              O uso dos dados obtidos via Google Drive segue as mesmas regras aplicadas aos documentos enviados diretamente:
-              não são lidos por humanos, não são compartilhados e não são usados para treinar modelos de IA.
-            </p>
-          </Section>
-
-          <div style={{ borderTop: `1px solid ${DARK.border}` }} />
-
-          <Section title="4. Finalidade do tratamento">
+          <Section title="3. Finalidade do tratamento">
             <p>Os dados são tratados com as seguintes finalidades:</p>
             <ul className="list-disc list-inside space-y-1 pl-2">
               <li><strong className="text-white">Email</strong> — autenticar o usuário e associar documentos à conta correta</li>
               <li><strong className="text-white">Documentos PDF</strong> — extrair texto e gerar representações vetoriais para viabilizar as respostas da IA</li>
-              <li><strong className="text-white">Token Google Drive</strong> — baixar o arquivo selecionado pelo usuário; descartado imediatamente após o uso</li>
             </ul>
             <p className="mt-2">
               Os documentos enviados <strong className="text-white">não são lidos por humanos</strong>,

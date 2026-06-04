@@ -3,8 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 
 from api.deps import get_current_user, UserContext
-from models.requests import DeleteRequest, DriveIngestRequest
-from ingestion.drive_client import download_drive_file
+from models.requests import DeleteRequest
 from models.responses import AsyncIngestResponse, JobInfo, JobStatusResponse, JobStatus, ListFilesResponse, DeleteResponse
 from services import ingest as ingest_service
 from db import supabase as supabase_db
@@ -109,33 +108,6 @@ async def ingest_files(
         if not contents.startswith(b"%PDF-"):
             raise HTTPException(status_code=422, detail="Arquivo PDF inválido.")
         file_entries.append((f.filename or "unknown", contents))
-
-    return await _build_and_enqueue_jobs(file_entries, user, get_limit(user.plan, "documents"))
-
-
-@router.post("/from-drive", response_model=AsyncIngestResponse, status_code=202)
-@limiter.limit("10/minute")
-async def ingest_from_drive(
-    request: Request,
-    body: DriveIngestRequest,
-    user: UserContext = Depends(get_current_user),
-):
-    settings = get_settings()
-
-    file_entries: list[tuple[str, bytes]] = []
-    for file_ref in body.files:
-        contents = await download_drive_file(file_ref.file_id, body.access_token)
-        if len(contents) > settings.max_file_size_mb * 1024 * 1024:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Arquivo '{file_ref.file_name}' maior que {settings.max_file_size_mb}MB.",
-            )
-        if not contents.startswith(b"%PDF-"):
-            raise HTTPException(
-                status_code=422,
-                detail=f"Arquivo '{file_ref.file_name}' não é um PDF válido.",
-            )
-        file_entries.append((file_ref.file_name, contents))
 
     return await _build_and_enqueue_jobs(file_entries, user, get_limit(user.plan, "documents"))
 
