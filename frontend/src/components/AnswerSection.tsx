@@ -147,7 +147,7 @@ export function AnswerSection({ history, loading }: AnswerSectionProps) {
         </div>
       ))}
 
-      {loading && (
+      {loading && history[history.length - 1]?.answer === '' && (
         <div className="flex gap-3">
           <div
             className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5"
