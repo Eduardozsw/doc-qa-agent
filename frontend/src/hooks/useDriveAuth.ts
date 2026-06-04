@@ -11,7 +11,7 @@ export function useDriveAuth() {
     return new Promise((resolve, reject) => {
       const client = window.google.accounts.oauth2.initTokenClient({
         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        scope: 'https://www.googleapis.com/auth/drive.file',
         callback: (response) => {
           if (response.error) { reject(new Error(response.error)); return; }
           setAccessToken(response.access_token);
