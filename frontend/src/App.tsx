@@ -11,6 +11,7 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsOfServicePage } from './pages/TermsOfServicePage';
+import { SecurityPage } from './pages/SecurityPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -21,7 +22,7 @@ import { useFileManagement } from './hooks/useFileManagement';
 import { useJobPolling } from './hooks/useJobPolling';
 import { DARK } from './constants/theme';
 
-export type Message = { question: string; answer: string; sources: string[] };
+export type Message = { question: string; answer: string; sources: string[]; unverified?: boolean };
 
 function App() {
   const { user, session, loading: authLoading } = useAuth();
@@ -42,6 +43,7 @@ function App() {
       <Route path="/configuracoes" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
       <Route path="/privacidade" element={<PrivacyPolicyPage />} />
       <Route path="/termos" element={<TermsOfServicePage />} />
+      <Route path="/seguranca" element={<SecurityPage />} />
       <Route path="/sucesso" element={<SuccessPage />} />
       <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route path="/resumir-pdf" element={<ResumirPdfPage />} />
@@ -97,7 +99,7 @@ function MainApp({ session }: { session: Session | null }) {
     const namespacesToQuery = searchSelected.size > 0 ? Array.from(searchSelected) : [];
 
     try {
-      const res = await authFetch('/api/query', {
+      const res = await authFetch('/api/query/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: currentQuestion, namespaces: namespacesToQuery }),
@@ -105,10 +107,42 @@ function MainApp({ session }: { session: Session | null }) {
 
       if (!res.ok) throw new Error(`Erro ${res.status}`);
 
-      const data = await res.json();
-      setHistory(prev => prev.map((m, i) =>
-        i === prev.length - 1 ? { ...m, answer: data.resposta, sources: data.fontes ?? [] } : m
-      ));
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') { setLoading(false); continue; }
+
+          const event = JSON.parse(raw);
+
+          if (event.type === 'chunk') {
+            setHistory(prev => prev.map((m, i) =>
+              i === prev.length - 1 ? { ...m, answer: m.answer + event.text } : m
+            ));
+          } else if (event.type === 'done') {
+            setHistory(prev => prev.map((m, i) =>
+              i === prev.length - 1 ? { ...m, sources: event.fontes ?? [], unverified: event.blocked } : m
+            ));
+          } else if (event.type === 'blocked' || event.type === 'error') {
+            setHistory(prev => prev.map((m, i) =>
+              i === prev.length - 1
+                ? { ...m, answer: 'Não encontrei informação suficiente nos documentos para responder essa pergunta.', sources: [] }
+                : m
+            ));
+          }
+        }
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao consultar. Tente novamente.';
       setHistory(prev => prev.map((m, i) =>

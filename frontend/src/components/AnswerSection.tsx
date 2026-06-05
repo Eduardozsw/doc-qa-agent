@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, MessageSquare, FileText, User, Copy, Check } from 'lucide-react';
+import { Bot, MessageSquare, FileText, User, Copy, Check, AlertTriangle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Message } from '../App';
 import { DARK } from '../constants/theme';
@@ -130,6 +130,15 @@ export function AnswerSection({ history, loading }: AnswerSectionProps) {
                       <span className="truncate max-w-[200px]">{displayName(msg.sources[0])}</span>
                     </div>
                   )}
+                  {msg.unverified && (
+                    <div
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-fit text-xs font-sans"
+                      style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}
+                    >
+                      <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                      <span>Não verificado nos documentos</span>
+                    </div>
+                  )}
                   <CopyButton text={msg.answer} />
                 </div>
               </div>
@@ -138,7 +147,7 @@ export function AnswerSection({ history, loading }: AnswerSectionProps) {
         </div>
       ))}
 
-      {loading && (
+      {loading && history[history.length - 1]?.answer === '' && (
         <div className="flex gap-3">
           <div
             className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5"

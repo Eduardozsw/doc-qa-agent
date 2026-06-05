@@ -9,15 +9,15 @@ const FAQ_ITEMS = [
   },
   {
     q: 'O que acontece se a resposta não estiver no documento?',
-    a: 'O sistema responde que não encontrou a informação. Nunca inventa nem usa conhecimento externo — a resposta vem exclusivamente do conteúdo que você enviou.',
+    a: 'O sistema responde que não encontrou a informação. Nunca inventa nem usa conhecimento externo — a resposta vem exclusivamente do conteúdo que você enviou. É uma ferramenta de consulta aos seus documentos, não um substituto do julgamento clínico.',
   },
   {
-    q: 'Meus documentos ficam seguros?',
-    a: 'Seus arquivos são armazenados com criptografia e isolados por conta. Nunca são usados para treinar modelos ou compartilhados com terceiros.',
+    q: 'Como ficam os dados sensíveis de paciente?',
+    a: 'Dado de paciente é dado pessoal sensível e tratado com nível máximo de proteção: seus arquivos são armazenados com criptografia, isolados por conta e nunca compartilhados com terceiros nem usados para treinar modelos. Todo o tratamento segue a LGPD.',
   },
   {
-    q: 'Posso consultar múltiplos documentos ao mesmo tempo?',
-    a: 'Sim. Você pode fazer upload de vários PDFs e escolher quais incluir em cada consulta, para cruzar informações de diferentes fontes.',
+    q: 'Posso consultar vários documentos ao mesmo tempo?',
+    a: 'Sim. Você pode enviar vários documentos — laudos, protocolos, diretrizes — e escolher quais incluir em cada consulta, para cruzar informações de diferentes fontes.',
   },
   {
     q: 'Qual é o tamanho máximo de cada arquivo?',
