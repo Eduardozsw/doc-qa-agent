@@ -1,10 +1,10 @@
-import { Lock, Zap, Infinity } from 'lucide-react';
+import { Lock, ShieldCheck, Infinity } from 'lucide-react';
 import { DARK } from '../../constants/theme';
 
 const ITEMS = [
-  { icon: Lock, label: 'Dados isolados por conta', sub: 'Seus documentos nunca são compartilhados' },
-  { icon: Zap, label: 'Resposta em menos de 5s', sub: 'Para a maioria dos documentos' },
-  { icon: Infinity, label: 'Sem alucinação', sub: 'Só responde com base no documento' },
+  { icon: ShieldCheck, label: 'Conformidade com a LGPD', sub: 'Dados sensíveis tratados com nível máximo de proteção' },
+  { icon: Lock, label: 'Isolados por conta', sub: 'Os documentos de um usuário nunca se misturam com outros' },
+  { icon: Infinity, label: 'Sem alucinação', sub: 'Só responde com base no que está no documento' },
 ];
 
 export function TrustBarSection() {

@@ -1,13 +1,13 @@
-import { Scale, FlaskConical, Users, GraduationCap, BarChart3, Shield } from 'lucide-react';
+import { Stethoscope, ClipboardList, FlaskConical, Brain, HeartPulse, ShieldCheck } from 'lucide-react';
 import { DARK } from '../../constants/theme';
 
 const USECASES = [
-  { icon: Scale, title: 'Advogados', body: 'Analise contratos, petições e laudos em segundos, sem precisar ler o documento inteiro.' },
-  { icon: FlaskConical, title: 'Pesquisadores', body: 'Consulte artigos e papers científicos sem ler tudo — extraia só o que é relevante.' },
-  { icon: Users, title: 'Equipes de RH', body: 'Responda dúvidas sobre políticas internas, benefícios e processos de forma instantânea.' },
-  { icon: GraduationCap, title: 'Estudantes', body: 'Tire dúvidas de apostilas e livros didáticos. Entenda o material antes da prova.' },
-  { icon: BarChart3, title: 'Gestores', body: 'Extraia insights de relatórios financeiros e apresentações sem perder tempo.' },
-  { icon: Shield, title: 'Compliance', body: 'Verifique aderência a normas e regulamentos rapidamente, com rastreabilidade da fonte.' },
+  { icon: Stethoscope, title: 'Médicos(as)', body: 'Consulte protocolos clínicos e diretrizes durante o atendimento, sem folhear PDF.' },
+  { icon: ClipboardList, title: 'Consultórios', body: 'Encontre informação em prontuários e históricos em segundos, com a fonte citada.' },
+  { icon: FlaskConical, title: 'Laudos e exames', body: 'Busque achados específicos em laudos longos sem precisar reler o documento inteiro.' },
+  { icon: Brain, title: 'Psicologia', body: 'Revise registros de sessão e materiais clínicos mantendo os dados do paciente protegidos.' },
+  { icon: HeartPulse, title: 'Condutas e diretrizes', body: 'Tire dúvidas de condutas a partir das suas próprias referências e materiais de apoio.' },
+  { icon: ShieldCheck, title: 'Dados sensíveis', body: 'Documentos de paciente isolados por conta e tratados em conformidade com a LGPD.' },
 ];
 
 export function UseCasesSection() {
@@ -19,10 +19,10 @@ export function UseCasesSection() {
             Para quem é
           </p>
           <h2 className="font-display text-3xl sm:text-4xl text-white">
-            Qualquer profissional que<br className="hidden sm:block" /> lida com documentos
+            Feito para a rotina de<br className="hidden sm:block" /> quem cuida de pacientes
           </h2>
           <p className="text-sm font-sans max-w-md mx-auto" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Se você passa horas lendo documentos para encontrar uma informação pontual, o MindDoc foi feito para você.
+            Se você perde tempo procurando uma informação pontual no meio de laudos, protocolos e prontuários, o MindDoc foi feito para você.
           </p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

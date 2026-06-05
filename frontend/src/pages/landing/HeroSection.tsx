@@ -4,22 +4,22 @@ import { DARK } from '../../constants/theme';
 
 const CONVERSATIONS = [
   {
-    file: 'Contrato_Servicos_2024.pdf',
-    question: 'Qual é o prazo de vigência do contrato?',
-    answer: 'O contrato tem vigência de 12 meses, iniciando em 1º de janeiro de 2024. Pode ser renovado automaticamente por períodos iguais com notificação de 30 dias.',
-    source: 'Cláusula 4.1 — Vigência',
+    file: 'Protocolo_Sepse_2024.pdf',
+    question: 'O que o protocolo orienta na primeira hora?',
+    answer: 'Segundo o protocolo, a primeira hora prioriza coleta de lactato, hemoculturas antes do antibiótico, início precoce de antibioticoterapia de amplo espectro e reposição volêmica conforme avaliação.',
+    source: 'Seção 3 — Manejo inicial',
   },
   {
-    file: 'Relatorio_Financeiro_Q3.pdf',
-    question: 'Qual foi o lucro líquido no terceiro trimestre?',
-    answer: 'O lucro líquido no Q3 foi de R$ 4,2 milhões, crescimento de 18% em relação ao mesmo período do ano anterior, conforme demonstrativo de resultados.',
-    source: 'Pág. 12 — Demonstrativo de Resultados',
+    file: 'Diretriz_Hipertensao_SBC.pdf',
+    question: 'Qual a meta pressórica indicada para diabéticos?',
+    answer: 'A diretriz recomenda meta de pressão arterial abaixo de 130/80 mmHg para pacientes com diabetes, desde que bem tolerada, com acompanhamento individualizado.',
+    source: 'Cap. 7 — Populações especiais',
   },
   {
-    file: 'Manual_Produto_v3.pdf',
-    question: 'Como configurar a integração com o sistema ERP?',
-    answer: 'Acesse Configurações → Integrações → ERP. Insira a URL base e a chave de API do seu sistema. A conexão usa REST com autenticação OAuth 2.0.',
-    source: 'Seção 8.3 — Integrações',
+    file: 'Laudo_Tomografia_Torax.pdf',
+    question: 'O laudo descreve algum achado em pulmão?',
+    answer: 'Sim. A impressão diagnóstica menciona nódulo pulmonar de 6 mm no lobo superior direito, de aspecto indeterminado, com sugestão de controle tomográfico evolutivo.',
+    source: 'Impressão diagnóstica',
   },
 ];
 
@@ -172,20 +172,20 @@ export function HeroSection({ onCTA, isLoggedIn }: HeroSectionProps) {
               style={{ background: DARK.accentSubtle, color: '#fbbf24', border: `1px solid ${DARK.accentBorder}` }}
             >
               <Zap className="w-3.5 h-3.5" />
-              <span>Respostas precisas, sem alucinação</span>
+              <span>Feito para profissionais de saúde · LGPD</span>
             </div>
 
             <h1
               className="font-display leading-[1.12] text-white"
               style={{ fontSize: 'clamp(2.4rem, 5vw, 3.6rem)' }}
             >
-              Pergunte ao seu<br />
-              <span style={{ color: DARK.accent }}>documento.</span><br />
-              Obtenha respostas.
+              Consulte laudos,<br />
+              protocolos e <span style={{ color: DARK.accent }}>documentos</span><br />
+              do seu consultório.
             </h1>
 
             <p className="text-base font-sans leading-relaxed max-w-lg" style={{ color: DARK.textMuted }}>
-              Carregue qualquer PDF e faça perguntas em linguagem natural. A IA responde com base exclusiva no conteúdo — com a fonte citada. Nunca inventa.
+              Carregue os documentos do seu consultório e pergunte em linguagem natural. A IA responde com base exclusiva no conteúdo — com a fonte citada, nunca inventa. Dados sensíveis isolados por conta e em conformidade com a LGPD.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3">

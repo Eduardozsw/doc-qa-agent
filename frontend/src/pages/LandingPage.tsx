@@ -81,6 +81,7 @@ export function LandingPage() {
           <div className="flex items-center gap-4">
             <a href="#precos" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>Preços</a>
             <a href="#faq" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>FAQ</a>
+            <Link to="/seguranca" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>Segurança</Link>
             <Link to="/resumir-pdf" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>Resumir PDF</Link>
             <button
               onClick={handleCTA}
@@ -150,6 +151,9 @@ export function LandingPage() {
             <span className="font-display text-sm text-white">MindDoc</span>
           </div>
           <div className="flex items-center gap-4">
+            <Link to="/seguranca" className="text-xs font-sans transition-colors hover:text-white/50" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              Segurança
+            </Link>
             <Link to="/privacidade" className="text-xs font-sans transition-colors hover:text-white/50" style={{ color: 'rgba(255,255,255,0.25)' }}>
               Política de Privacidade
             </Link>
