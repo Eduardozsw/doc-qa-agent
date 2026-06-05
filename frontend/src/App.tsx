@@ -11,6 +11,7 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsOfServicePage } from './pages/TermsOfServicePage';
+import { SecurityPage } from './pages/SecurityPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -42,6 +43,7 @@ function App() {
       <Route path="/configuracoes" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
       <Route path="/privacidade" element={<PrivacyPolicyPage />} />
       <Route path="/termos" element={<TermsOfServicePage />} />
+      <Route path="/seguranca" element={<SecurityPage />} />
       <Route path="/sucesso" element={<SuccessPage />} />
       <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route path="/resumir-pdf" element={<ResumirPdfPage />} />

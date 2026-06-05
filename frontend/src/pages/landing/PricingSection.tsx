@@ -26,7 +26,7 @@ const PLANS = [
     price: 'R$19',
     priceOnetime: 'R$19',
     period: 'por mês',
-    description: 'Para profissionais que consultam documentos no dia a dia.',
+    description: 'Para o profissional de saúde que consulta documentos no dia a dia.',
     highlight: true,
     features: [
       '10 documentos simultâneos na busca',

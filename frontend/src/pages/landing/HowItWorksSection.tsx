@@ -5,14 +5,14 @@ const STEPS = [
   {
     icon: FileText,
     step: '01',
-    title: 'Envie seu PDF',
-    body: 'Arraste ou selecione qualquer documento. Em segundos o conteúdo é processado e indexado.',
+    title: 'Envie seus documentos',
+    body: 'Arraste laudos, protocolos, diretrizes ou prontuários. Em segundos o conteúdo é processado e indexado.',
   },
   {
     icon: MessageSquare,
     step: '02',
     title: 'Faça uma pergunta',
-    body: 'Escreva em linguagem natural, como se estivesse perguntando para uma pessoa.',
+    body: 'Escreva em linguagem natural, como se estivesse perguntando para um colega.',
   },
   {
     icon: Sparkles,
