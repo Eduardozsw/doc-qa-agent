@@ -185,7 +185,7 @@ export function HeroSection({ onCTA, isLoggedIn }: HeroSectionProps) {
             </h1>
 
             <p className="text-base font-sans leading-relaxed max-w-lg" style={{ color: DARK.textMuted }}>
-              Carregue os documentos do seu consultório e pergunte em linguagem natural. A IA responde com base exclusiva no conteúdo — com a fonte citada, nunca inventa. Dados sensíveis isolados por conta e em conformidade com a LGPD.
+              Carregue os documentos do seu consultório e pergunte em linguagem natural. A IA responde com base exclusiva no conteúdo.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3">
