@@ -70,25 +70,10 @@ function MainApp({ session }: { session: Session | null }) {
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   useEffect(() => {
     loadIndexedFiles();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (ingestStatus !== 'ready') return;
-    authFetch('/api/summarize')
-      .then(r => r.json())
-      .then(data => {
-        const topics: string[] = [];
-        for (const s of data.summaries ?? []) {
-          topics.push(...(s.summary?.topicos_abordados ?? []));
-        }
-        setSuggestions([...new Set(topics)].slice(0, 4));
-      })
-      .catch(() => {});
-  }, [ingestStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
@@ -106,7 +91,6 @@ function MainApp({ session }: { session: Session | null }) {
     const currentQuestion = question.trim();
     setQuestion('');
     setLoading(true);
-    setSuggestions([]);
 
     setHistory(prev => [...prev, { question: currentQuestion, answer: '', sources: [] }]);
 
@@ -337,34 +321,6 @@ function MainApp({ session }: { session: Session | null }) {
             padding: isMobile ? '12px 16px 16px' : '16px 24px 20px',
             borderTop: `1px solid ${DARK.border}`,
           }}>
-            {suggestions.length > 0 && !loading && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                {suggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setQuestion(s); setSuggestions([]); }}
-                    style={{
-                      fontSize: 12, padding: '5px 10px', borderRadius: 20,
-                      background: 'rgba(255,255,255,0.04)',
-                      border: `1px solid ${DARK.border}`,
-                      color: 'rgba(255,255,255,0.45)',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                      transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.borderColor = DARK.accentBorder;
-                      e.currentTarget.style.color = DARK.accent;
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.borderColor = DARK.border;
-                      e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
             <QuestionInput
               question={question}
               onQuestionChange={setQuestion}
