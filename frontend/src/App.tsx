@@ -120,7 +120,7 @@ function MainApp({ session }: { session: Session | null }) {
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const raw = line.slice(6).trim();
-          if (raw === '[DONE]') continue;
+          if (raw === '[DONE]') { setLoading(false); continue; }
 
           const event = JSON.parse(raw);
 
