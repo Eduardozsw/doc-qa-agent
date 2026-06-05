@@ -3,6 +3,6 @@ from ingestion.chunker import chunk_text
 from ingestion.embedder import upsert_chunks
 
 text = load_document('docs/examples/sample.txt')
-chunks = chunk_text(text)
+chunks = [(chunk, 0) for chunk in chunk_text(text)]
 upsert_chunks(chunks, 'sample')
 print(f'{len(chunks)} chunks indexados')
