@@ -1,6 +1,6 @@
 import json
 import logging
-import time
+import threading
 from typing import Generator
 
 from models.requests import QueryRequest
@@ -92,18 +92,16 @@ def handle_query_stream(user_id: str, plan: str, body: QueryRequest) -> Generato
                 pass
 
     if resposta_completa:
-        t0 = time.monotonic()
         save_message(conversation_id, "user", body.query)
         save_message(conversation_id, "assistant", resposta_completa)
-        logger.info(f"[stream-timing] save_message: {(time.monotonic() - t0)*1000:.0f}ms")
 
         if count_pairs(conversation_id) > _WINDOW:
             pair = pop_oldest_pair(conversation_id)
             if pair:
-                try:
-                    t1 = time.monotonic()
-                    new_summary = summarize(summary, pair[0], pair[1])
-                    update_summary(conversation_id, new_summary)
-                    logger.info(f"[stream-timing] summarize: {(time.monotonic() - t1)*1000:.0f}ms")
-                except Exception as e:
-                    logger.warning(f"Sumarização falhou para conversa {conversation_id}: {e}")
+                def _summarize_bg(conv_id: str, s: str, p: tuple) -> None:
+                    try:
+                        new_summary = summarize(s, p[0], p[1])
+                        update_summary(conv_id, new_summary)
+                    except Exception as e:
+                        logger.warning(f"Sumarização falhou para conversa {conv_id}: {e}")
+                threading.Thread(target=_summarize_bg, args=(conversation_id, summary, pair), daemon=True).start()
