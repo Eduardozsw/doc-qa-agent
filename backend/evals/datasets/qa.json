@@ -1,58 +1,58 @@
 [
   {
-    "query": "Como é feita a autenticação na API?",
-    "esperado": "deve mencionar Bearer Token no header Authorization"
+    "query": "Como é definida a hipertensão arterial sistêmica?",
+    "esperado": "deve mencionar PAS ≥ 140 mmHg e/ou PAD ≥ 90 mmHg confirmada em duas ou mais aferições"
   },
   {
-    "query": "Como criar uma nova tarefa?",
-    "esperado": "deve mencionar POST /tasks com body contendo title"
+    "query": "Qual o CID-10 da hipertensão arterial sistêmica?",
+    "esperado": "deve mencionar I10"
   },
   {
-    "query": "Como listar todas as tarefas?",
-    "esperado": "deve mencionar GET /tasks"
+    "query": "Quais são os critérios para diagnóstico de hipertensão?",
+    "esperado": "deve mencionar no mínimo 2 aferições em 2 visitas distintas"
   },
   {
-    "query": "O que acontece quando o token é inválido?",
-    "esperado": "deve mencionar erro 401"
+    "query": "O que é hipertensão estágio 2?",
+    "esperado": "deve mencionar PAS 160–179 ou PAD 100–109 mmHg"
   },
   {
-    "query": "Como deletar uma tarefa?",
-    "esperado": "deve mencionar DELETE /tasks/:id e status 204"
+    "query": "Quais medicamentos são de primeira linha para hipertensão?",
+    "esperado": "deve mencionar diuréticos tiazídicos, bloqueadores do canal de cálcio, IECA e BRA"
   },
   {
-    "query": "Como atualizar o status de uma tarefa?",
-    "esperado": "deve mencionar PATCH /tasks/:id com body contendo done"
+    "query": "Quando o IECA é contraindicado?",
+    "esperado": "deve mencionar contraindicação na gestação"
   },
   {
-    "query": "O que retorna quando a tarefa não é encontrada?",
-    "esperado": "deve mencionar erro 404"
+    "query": "Qual a meta pressórica para diabéticos?",
+    "esperado": "deve mencionar < 130/80 mmHg"
   },
   {
-    "query": "Qual o preço da assinatura?",
+    "query": "O que é urgência hipertensiva e como tratar?",
+    "esperado": "deve mencionar PAS ≥ 180 ou PAD ≥ 120 sem lesão de órgão-alvo e redução gradual em 24–48h com captopril ou clonidina oral"
+  },
+  {
+    "query": "Qual medicamento IV é indicado na emergência hipertensiva?",
+    "esperado": "deve mencionar nitroprussiato de sódio"
+  },
+  {
+    "query": "Qual a recomendação de atividade física para hipertensos?",
+    "esperado": "deve mencionar 150 minutos por semana de atividade aeróbica de intensidade moderada"
+  },
+  {
+    "query": "Qual o limite de sódio na dieta para hipertensos?",
+    "esperado": "deve mencionar menos de 2 g/dia ou menos de 5 g de sal"
+  },
+  {
+    "query": "Quando encaminhar ao especialista?",
+    "esperado": "deve mencionar hipertensão resistente, suspeita de hipertensão secundária ou lesão de órgão-alvo"
+  },
+  {
+    "query": "Qual o preço do enalapril na farmácia?",
     "esperado": "deve dizer que não encontrou nos documentos"
   },
   {
-    "query": "Qual linguagem foi usada para construir a API?",
-    "esperado": "deve dizer que não encontrou nos documentos"
-  },
-  {
-    "query": "O que acontece quando o body está mal formatado?",
-    "esperado": "deve mencionar erro 422"
-  },
-  {
-    "query": "Como ativar meu windows?",
-    "esperado": "deve dizer que não encontrou nos documentos"
-  },
-  {
-    "query": "O que um especialista em Ruby precisa saber?",
-    "esperado": "deve dizer que não encontrou nos documentos"
-  },
-  {
-    "query": "Como buscar uma tarefa específica pelo id?",
-    "esperado": "deve mencionar GET /tasks/:id"
-  },
-  {
-    "query": "É possível filtrar tarefas por status?",
+    "query": "Como ativar meu Windows?",
     "esperado": "deve dizer que não encontrou nos documentos"
   }
 ]
