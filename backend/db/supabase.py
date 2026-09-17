@@ -32,42 +32,6 @@ def get_user_plan(user_id: str) -> str:
         return "free"
 
 
-def get_customer_id(user_id: str) -> str | None:
-    try:
-        result = get_admin().table("profiles").select("customer_id").eq("id", user_id).single().execute()
-        return result.data.get("customer_id") if result.data else None
-    except Exception as e:
-        logger.warning(f"Falha ao buscar customer_id para {user_id}: {e}")
-        return None
-
-
-def set_customer_id(user_id: str, customer_id: str) -> None:
-    try:
-        get_admin().table("profiles").update({"customer_id": customer_id}).eq("id", user_id).execute()
-    except Exception as e:
-        logger.error(f"Falha ao salvar customer_id para {user_id}: {e}")
-        raise
-
-
-def update_plan_and_status(
-    user_id: str,
-    plan: str,
-    status: str,
-    subscription_id: str | None = None,
-    period_end: datetime | None = None,
-) -> None:
-    try:
-        data: dict = {"plan": plan, "subscription_status": status}
-        if subscription_id is not None:
-            data["subscription_id"] = subscription_id
-        if period_end is not None:
-            data["current_period_end"] = period_end.isoformat()
-        get_admin().table("profiles").update(data).eq("id", user_id).execute()
-    except Exception as e:
-        logger.error(f"Falha ao atualizar plano para {user_id}: {e}")
-        raise
-
-
 def count_namespaces(user_id: str) -> int:
     try:
         result = get_admin().table("namespaces").select("*", count="exact").eq("user_id", user_id).execute()
@@ -226,26 +190,3 @@ def get_namespaces_with_summaries(user_id: str) -> list[dict]:
     except Exception as e:
         logger.error(f"Falha ao buscar summaries para {user_id}: {e}")
         return []
-
-
-def expire_pix_plans() -> None:
-    try:
-        now = datetime.utcnow().isoformat()
-        result = (
-            get_admin()
-            .table("profiles")
-            .select("id")
-            .neq("plan", "free")
-            .is_("subscription_id", "null")
-            .lt("current_period_end", now)
-            .execute()
-        )
-        if not result.data:
-            return
-        ids = [r["id"] for r in result.data]
-        get_admin().table("profiles").update(
-            {"plan": "free", "subscription_status": "expired"}
-        ).in_("id", ids).execute()
-        logger.info(f"expire_pix_plans: {len(ids)} plano(s) expirado(s)")
-    except Exception as e:
-        logger.error(f"Falha ao expirar planos PIX: {e}")

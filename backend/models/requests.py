@@ -33,25 +33,6 @@ class QueryRequest(BaseModel):
         return v
 
 
-class CheckoutRequest(BaseModel):
-    plan: str
-    payment_method: str = "card"
-
-    @field_validator("plan")
-    @classmethod
-    def validate_plan(cls, v: str) -> str:
-        if v not in ("solo", "pro"):
-            raise ValueError("plano inválido")
-        return v
-
-    @field_validator("payment_method")
-    @classmethod
-    def validate_payment_method(cls, v: str) -> str:
-        if v not in ("card", "pix"):
-            raise ValueError("método de pagamento inválido")
-        return v
-
-
 class DeleteRequest(BaseModel):
     namespaces: list[str]
 

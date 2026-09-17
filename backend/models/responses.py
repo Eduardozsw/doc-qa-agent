@@ -15,10 +15,6 @@ class DeleteResponse(BaseModel):
     arquivos: list[str]
 
 
-class BillingUrlResponse(BaseModel):
-    url: str
-
-
 class JobInfo(BaseModel):
     job_id: str
     filename: str

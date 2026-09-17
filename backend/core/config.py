@@ -1,5 +1,8 @@
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -24,22 +27,6 @@ class Settings(BaseSettings):
 
     # Upload
     max_file_size_mb: int = 50
-    max_files_per_user: int = 5
-
-    # Stripe
-    stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
-    stripe_price_solo: str = ""
-    stripe_price_pro: str = ""
-    stripe_price_solo_onetime: str = ""
-    stripe_price_pro_onetime: str = ""
-
-    # Resend
-    resend_api_key: str = ""
-    resend_from_email: str = ""
-
-    # Frontend
-    frontend_url: str = "http://localhost"
 
     @property
     def allowed_origins_list(self) -> list[str]:
