@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Sparkles, FileText, X } from 'lucide-react';
-import { Session, User } from '@supabase/supabase-js';
+import { Session, User } from './lib/auth';
 import { PDFUpload } from './components/PDFUpload';
 import { PlanLimitModal } from './components/PlanLimitModal';
 import { QuestionInput } from './components/QuestionInput';
@@ -13,8 +13,6 @@ import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsOfServicePage } from './pages/TermsOfServicePage';
 import { SecurityPage } from './pages/SecurityPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { SuccessPage } from './pages/SuccessPage';
-import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { ResumirPdfPage } from './pages/ResumirPdfPage';
 import { useAuth } from './contexts/AuthContext';
 import { useAuthFetch } from './hooks/useAuthFetch';
@@ -44,8 +42,6 @@ function App() {
       <Route path="/privacidade" element={<PrivacyPolicyPage />} />
       <Route path="/termos" element={<TermsOfServicePage />} />
       <Route path="/seguranca" element={<SecurityPage />} />
-      <Route path="/sucesso" element={<SuccessPage />} />
-      <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route path="/resumir-pdf" element={<ResumirPdfPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -56,13 +52,14 @@ const PLAN_MAX_FILES: Record<string, number> = { free: 3, solo: 10, pro: 20 };
 
 function MainApp({ session }: { session: Session | null }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { profile } = useAuth();
   const authFetch = useAuthFetch(session);
   const maxFiles = PLAN_MAX_FILES[profile?.plan ?? 'free'] ?? 3;
   const {
     indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError, ingestWarning,
     slotsAvailable, activeJobs, handleJobDone, handleToggleSearch, handleAddFiles, handleRemovePending,
-    handleIngest, handleRemoveIndexed, loadIndexedFiles, dismissWarning,
+    handleIngest, handleRemoveIndexed, loadIndexedFiles, dismissWarning, selectOnly,
   } = useFileManagement(authFetch, maxFiles);
 
   const { jobs: jobStatuses } = useJobPolling(authFetch, activeJobs, handleJobDone);
@@ -74,7 +71,12 @@ function MainApp({ session }: { session: Session | null }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
-    loadIndexedFiles();
+    const namespace = searchParams.get('namespace');
+    loadIndexedFiles().then(files => {
+      if (namespace && files.includes(namespace)) {
+        selectOnly(namespace);
+      }
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -154,20 +156,6 @@ function MainApp({ session }: { session: Session | null }) {
   };
 
   const canSubmit = (ingestStatus === 'ready' || ingestStatus === 'partial') && question.trim().length > 0 && !loading;
-
-  const handleUpgradeSolo = async () => {
-    try {
-      const res = await authFetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'solo' }),
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch {
-      // mantém o modal aberto
-    }
-  };
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
@@ -339,7 +327,6 @@ function MainApp({ session }: { session: Session | null }) {
         <PlanLimitModal
           warning={ingestWarning}
           onClose={dismissWarning}
-          onUpgrade={handleUpgradeSolo}
         />
       )}
     </div>

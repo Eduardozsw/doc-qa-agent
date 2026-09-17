@@ -55,7 +55,7 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
   const handleToggleSearch = (name: string) =>
     setSearchSelected(prev => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) next.delete(name); else next.add(name);
       return next;
     });
 
@@ -159,10 +159,14 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
       setIndexedFiles(files);
       addToSelected(files);
       if (files.length > 0) setIngestStatus('ready');
+      return files;
     } catch (err) {
       console.error('Erro ao buscar arquivos indexados:', err);
+      return [];
     }
   };
+
+  const selectOnly = (ns: string) => setSearchSelected(new Set([ns]));
 
   return {
     indexedFiles,
@@ -181,5 +185,6 @@ export function useFileManagement(authFetch: AuthFetch, maxFiles: number) {
     handleRemoveIndexed,
     loadIndexedFiles,
     dismissWarning,
+    selectOnly,
   };
 }

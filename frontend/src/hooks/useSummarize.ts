@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Session } from '@supabase/supabase-js';
+import { Session } from '../lib/auth';
 import { useAuthFetch } from './useAuthFetch';
 
 export type SummarizeStatus = 'idle' | 'ingesting' | 'summarizing' | 'done' | 'error';

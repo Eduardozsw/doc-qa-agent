@@ -212,7 +212,6 @@ export function HeroSection({ onCTA, isLoggedIn }: HeroSectionProps) {
 
             <div className="flex items-center gap-6 text-xs font-sans" style={{ color: DARK.textFaint }}>
               <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /> Sem cartão de crédito</div>
-              <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /> Login com Google</div>
               <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /> Grátis para começar</div>
             </div>
           </div>

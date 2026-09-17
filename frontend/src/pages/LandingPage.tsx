@@ -5,48 +5,16 @@ import { DARK } from '../constants/theme';
 import { HeroSection } from './landing/HeroSection';
 import { HowItWorksSection } from './landing/HowItWorksSection';
 import { UseCasesSection } from './landing/UseCasesSection';
-import { PricingSection } from './landing/PricingSection';
 import { TrustBarSection } from './landing/TrustBarSection';
 import { FAQSection } from './landing/FAQSection';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
-
 export function LandingPage() {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleCTA = () => {
     if (user) navigate('/app');
     else navigate('/login');
-  };
-
-  const handleSelectPlan = async (plan: string, paymentMethod: 'card' | 'pix' = 'card') => {
-    if (plan === 'free') {
-      handleCTA();
-      return;
-    }
-
-    if (!user || !session) {
-      sessionStorage.setItem('pending_plan', plan);
-      navigate('/login');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/api/billing/checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ plan, payment_method: paymentMethod }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      window.location.href = data.url;
-    } catch {
-      alert('Erro ao iniciar checkout. Tente novamente.');
-    }
   };
 
   return (
@@ -79,7 +47,6 @@ export function LandingPage() {
             <span className="font-display text-lg text-white tracking-tight">MindDoc</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="#precos" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>Preços</a>
             <a href="#faq" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>FAQ</a>
             <Link to="/seguranca" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>Segurança</Link>
             <Link to="/resumir-pdf" className="text-sm font-sans hidden sm:block transition-colors hover:text-white/90" style={{ color: DARK.textMuted }}>Resumir PDF</Link>
@@ -98,7 +65,6 @@ export function LandingPage() {
       <HeroSection onCTA={handleCTA} isLoggedIn={!!user} />
       <HowItWorksSection />
       <UseCasesSection />
-      <PricingSection onCTA={handleCTA} onSelectPlan={handleSelectPlan} />
       <TrustBarSection />
       <FAQSection />
 
@@ -119,7 +85,7 @@ export function LandingPage() {
                 <span style={{ color: DARK.accent }}>Comece a perguntar.</span>
               </h2>
               <p className="text-sm font-sans max-w-md mx-auto" style={{ color: DARK.textMuted }}>
-                Experimente gratuitamente. Sem cartão de crédito. Login com Google em um clique.
+                Experimente gratuitamente. Sem cartão de crédito.
               </p>
               <button
                 onClick={handleCTA}

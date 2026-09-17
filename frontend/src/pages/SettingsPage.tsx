@@ -1,16 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Sparkles, ArrowLeft, User, Mail, Lock,
-  Loader2, AlertCircle, CheckCircle2, Link2, CreditCard, Zap, Menu, X, Send,
+  Sparkles, ArrowLeft, User, Lock,
+  Loader2, AlertCircle, CheckCircle2, Menu, X,
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { useAuth, Plan } from '../contexts/AuthContext';
 import { DARK } from '../constants/theme';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
-
-type Section = 'perfil' | 'assinatura' | 'senha' | 'vinculadas';
+type Section = 'perfil' | 'senha';
 
 const SECTION_ANIM = `
   @keyframes _sec-in {
@@ -19,21 +16,9 @@ const SECTION_ANIM = `
   }
 `;
 
-function GoogleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908C16.658 14.215 17.64 11.907 17.64 9.2z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
-      <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-    </svg>
-  );
-}
-
-
 type FeedbackState = { type: 'success' | 'error'; message: string } | null;
 
-const PLAN_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
+const PLAN_META: Record<Plan, { label: string; color: string; bg: string; border: string }> = {
   free:  { label: 'Grátis', color: 'rgba(255,255,255,0.5)',  bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' },
   solo:  { label: 'Solo',   color: '#38bdf8',                bg: DARK.skySubtle,           border: DARK.skyBorder },
   pro:   { label: 'Pro',    color: '#fbbf24',                bg: DARK.accentSubtle,        border: DARK.accentBorder },
@@ -54,18 +39,6 @@ function Feedback({ state }: { state: FeedbackState }) {
         ? <CheckCircle2 style={{ width: 13, height: 13, flexShrink: 0 }} />
         : <AlertCircle  style={{ width: 13, height: 13, flexShrink: 0 }} />}
       {state.message}
-    </div>
-  );
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-      textTransform: 'uppercase' as const,
-      color: 'rgba(255,255,255,0.3)', marginBottom: 7,
-    }}>
-      {children}
     </div>
   );
 }
@@ -182,18 +155,11 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle: string })
   );
 }
 
-
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { user, session, profile, updateName, updateEmail, requestPasswordReset } = useAuth();
-  const plan = profile?.plan ?? 'free';
-  const planMeta = PLAN_META[plan] ?? PLAN_META.free;
-  const isPix = plan !== 'free' && !profile?.subscription_id;
-  const daysRemaining = (() => {
-    if (!isPix || !profile?.current_period_end) return null;
-    const diff = new Date(profile.current_period_end).getTime() - Date.now();
-    return Math.max(0, Math.ceil(diff / 86_400_000));
-  })();
+  const { user, profile, updateName, updatePassword } = useAuth();
+  const plan: Plan = profile?.plan ?? 'free';
+  const planMeta = PLAN_META[plan];
   const [activeSection, setActiveSection] = useState<Section>('perfil');
   const [navOpen, setNavOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -208,27 +174,8 @@ export function SettingsPage() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Assinatura
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [portalFeedback, setPortalFeedback] = useState<FeedbackState>(null);
-  const handleManageSubscription = async () => {
-    if (!session) return;
-    setPortalLoading(true); setPortalFeedback(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/billing/portal`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (res.status === 501) { setPortalFeedback({ type: 'error', message: 'Gerenciamento de assinatura em breve. Entre em contato pelo suporte.' }); return; }
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      window.location.href = data.url;
-    } catch { setPortalFeedback({ type: 'error', message: 'Erro ao abrir portal. Tente novamente.' }); }
-    finally { setPortalLoading(false); }
-  };
-
   // Nome
-  const [name, setName] = useState(user?.user_metadata?.full_name ?? '');
+  const [name, setName] = useState(user?.name ?? '');
   const [nameLoading, setNameLoading] = useState(false);
   const [nameFeedback, setNameFeedback] = useState<FeedbackState>(null);
   const handleSaveName = async (e: React.FormEvent) => {
@@ -240,52 +187,28 @@ export function SettingsPage() {
     finally { setNameLoading(false); }
   };
 
-  // Email
-  const [email, setEmail] = useState(user?.email ?? '');
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [emailFeedback, setEmailFeedback] = useState<FeedbackState>(null);
-  const handleSaveEmail = async (e: React.FormEvent) => {
+  // Senha
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState<FeedbackState>(null);
+  const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === user?.email) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setEmailFeedback({ type: 'error', message: 'Informe um email válido.' }); return; }
-    setEmailLoading(true); setEmailFeedback(null);
-    try { await updateEmail(email); setEmailFeedback({ type: 'success', message: 'Confirmação enviada para o novo email.' }); }
-    catch (err) { setEmailFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar email.' }); }
-    finally { setEmailLoading(false); }
-  };
-
-  // Contas vinculadas
-  const hasGoogle = user?.identities?.some(i => i.provider === 'google') ?? false;
-  const [linkLoading, setLinkLoading] = useState(false);
-  const [linkFeedback, setLinkFeedback] = useState<FeedbackState>(null);
-  const handleLinkGoogle = async () => {
-    setLinkLoading(true); setLinkFeedback(null);
+    setPasswordFeedback(null);
+    if (newPassword.length < 8) { setPasswordFeedback({ type: 'error', message: 'A nova senha deve ter no mínimo 8 caracteres.' }); return; }
+    if (newPassword !== confirmPassword) { setPasswordFeedback({ type: 'error', message: 'As senhas não coincidem.' }); return; }
+    setPasswordLoading(true);
     try {
-      const { error } = await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo: `${window.location.origin}/configuracoes` } });
-      if (error) throw new Error(error.message);
+      await updatePassword(currentPassword, newPassword);
+      setPasswordFeedback({ type: 'success', message: 'Senha atualizada.' });
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
     } catch (err) {
-      setLinkFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao vincular.' });
-      setLinkLoading(false);
-    }
+      setPasswordFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao atualizar senha.' });
+    } finally { setPasswordLoading(false); }
   };
 
-  const isOAuthOnly = !user?.identities?.some(i => i.provider === 'email');
-
-  // Redefinição de senha por link
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetFeedback, setResetFeedback] = useState<FeedbackState>(null);
-  const handleSendResetLink = async () => {
-    if (!user?.email) return;
-    setResetLoading(true); setResetFeedback(null);
-    try {
-      await requestPasswordReset(user.email);
-      setResetFeedback({ type: 'success', message: 'Link enviado! Verifique seu email.' });
-    } catch (err) {
-      setResetFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao enviar link.' });
-    } finally { setResetLoading(false); }
-  };
-
-  const displayName = user?.user_metadata?.full_name || user?.email || 'Usuário';
+  const displayName = user?.name || user?.email || 'Usuário';
   const avatarInitial = displayName[0].toUpperCase();
   const iconStyle = { width: 14, height: 14, strokeWidth: 1.7 };
 
@@ -294,14 +217,12 @@ export function SettingsPage() {
       label: 'Conta',
       items: [
         { id: 'perfil' as Section, icon: <User style={iconStyle} />, label: 'Perfil' },
-        ...(plan !== 'free' ? [{ id: 'assinatura' as Section, icon: <CreditCard style={iconStyle} />, label: 'Assinatura' }] : []),
       ],
     },
     {
       label: 'Segurança',
       items: [
         { id: 'senha' as Section, icon: <Lock style={iconStyle} />, label: 'Senha' },
-        { id: 'vinculadas' as Section, icon: <Link2 style={iconStyle} />, label: 'Contas vinculadas' },
       ],
     },
   ];
@@ -422,7 +343,7 @@ export function SettingsPage() {
                   fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.88)',
                   margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
-                  {user?.user_metadata?.full_name || 'Usuário'}
+                  {displayName}
                 </p>
                 {/* Plan chip */}
                 <span style={{
@@ -476,7 +397,7 @@ export function SettingsPage() {
               {/* ─── Perfil ─── */}
               {activeSection === 'perfil' && (
                 <div>
-                  <SectionHeader title="Perfil" subtitle="Seu nome e email de acesso" />
+                  <SectionHeader title="Perfil" subtitle="Seu nome de exibição" />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
                     <Card>
@@ -496,113 +417,11 @@ export function SettingsPage() {
                     </Card>
 
                     <Card>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-                        <Mail style={{ width: 13, height: 13, color: 'rgba(255,255,255,0.3)' }} />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Email</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: `1px solid ${DARK.border}` }}>
+                        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>{user?.email}</span>
                       </div>
-                      <form onSubmit={handleSaveEmail} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <div style={{ flex: 1 }}>
-                            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" maxLength={254} />
-                          </div>
-                          <BtnPrimary type="submit" loading={emailLoading} disabled={email === user?.email || !email.trim()}>Salvar</BtnPrimary>
-                        </div>
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.22)', lineHeight: 1.5, margin: 0 }}>
-                          Um email de confirmação será enviado antes da troca ser efetivada.
-                        </p>
-                        <Feedback state={emailFeedback} />
-                      </form>
                     </Card>
 
-                  </div>
-                </div>
-              )}
-
-              {/* ─── Assinatura ─── */}
-              {activeSection === 'assinatura' && (
-                <div>
-                  <SectionHeader title="Assinatura" subtitle="Plano atual e faturamento" />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                    {/* Plan card */}
-                    <div style={{
-                      position: 'relative', overflow: 'hidden',
-                      background: 'rgba(245,158,11,0.04)',
-                      border: '1px solid rgba(245,158,11,0.14)',
-                      borderRadius: 16, padding: '22px 24px',
-                    }}>
-                      {/* Glow top */}
-                      <div style={{
-                        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-                        background: 'linear-gradient(90deg, transparent 10%, rgba(245,158,11,0.4) 50%, transparent 90%)',
-                      }} />
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div style={{
-                            width: 40, height: 40, borderRadius: 10,
-                            background: 'rgba(245,158,11,0.1)',
-                            border: '1px solid rgba(245,158,11,0.2)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}>
-                            <Zap style={{ width: 18, height: 18, color: DARK.accent }} />
-                          </div>
-                          <div>
-                            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'white' }}>
-                              Plano {PLAN_META[plan]?.label}
-                            </p>
-                            <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
-                              Gerencie sua assinatura
-                            </p>
-                          </div>
-                        </div>
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 99,
-                          background: 'rgba(52,211,153,0.1)', color: '#34d399',
-                          border: '1px solid rgba(52,211,153,0.2)', letterSpacing: '0.06em',
-                          textTransform: 'uppercase' as const,
-                        }}>
-                          Ativo
-                        </span>
-                      </div>
-                      {isPix ? (
-                        <div style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 8,
-                          padding: '9px 14px', borderRadius: 8, fontSize: 12,
-                          background: 'rgba(245,158,11,0.06)',
-                          border: '1px solid rgba(245,158,11,0.18)',
-                          color: 'rgba(255,255,255,0.55)',
-                        }}>
-                          <span style={{ fontWeight: 700, color: DARK.accent, fontSize: 14 }}>
-                            {daysRemaining !== null ? daysRemaining : '—'}
-                          </span>
-                          {daysRemaining === 1 ? 'dia restante' : 'dias restantes'}
-                        </div>
-                      ) : (
-                        <button
-                          onClick={handleManageSubscription}
-                          disabled={portalLoading}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            padding: '9px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-                            background: 'rgba(255,255,255,0.05)',
-                            color: 'rgba(255,255,255,0.55)',
-                            border: `1px solid ${DARK.border}`,
-                            cursor: portalLoading ? 'default' : 'pointer',
-                            opacity: portalLoading ? 0.5 : 1,
-                            whiteSpace: 'nowrap' as const,
-                            fontFamily: 'inherit',
-                            transition: 'background 0.15s, color 0.15s',
-                          }}
-                          onMouseEnter={e => { if (!portalLoading) { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; } }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
-                        >
-                          {portalLoading && <Loader2 style={{ width: 12, height: 12 }} />}
-                          Gerenciar assinatura →
-                        </button>
-                      )}
-                    </div>
-
-                    <Feedback state={portalFeedback} />
                   </div>
                 </div>
               )}
@@ -610,67 +429,26 @@ export function SettingsPage() {
               {/* ─── Senha ─── */}
               {activeSection === 'senha' && (
                 <div>
-                  <SectionHeader
-                    title="Redefinir senha"
-                    subtitle="Enviaremos um link para o seu email com instruções para criar uma nova senha."
-                  />
+                  <SectionHeader title="Senha" subtitle="Altere a senha usada para acessar sua conta" />
                   <Card style={{ maxWidth: 500 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: `1px solid ${DARK.border}` }}>
-                        <Mail style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>{user?.email}</span>
+                    <form onSubmit={handleSavePassword} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: 7 }}>Senha atual</div>
+                        <Input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="Senha atual" maxLength={128} required />
                       </div>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: 0, lineHeight: 1.6 }}>
-                        O link expira em 1 hora. Após clicar, você será direcionado a uma página segura para definir sua nova senha.
-                      </p>
-                      <Feedback state={resetFeedback} />
-                      <BtnPrimary loading={resetLoading} onClick={handleSendResetLink} disabled={resetFeedback?.type === 'success'}>
-                        <Send style={{ width: 12, height: 12 }} />
-                        Enviar link de redefinição
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: 7 }}>Nova senha</div>
+                        <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 8 caracteres" maxLength={128} required />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: 7 }}>Confirmar nova senha</div>
+                        <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repita a nova senha" maxLength={128} required />
+                      </div>
+                      <Feedback state={passwordFeedback} />
+                      <BtnPrimary type="submit" loading={passwordLoading} disabled={!currentPassword || !newPassword || !confirmPassword}>
+                        Atualizar senha
                       </BtnPrimary>
-                    </div>
-                  </Card>
-                </div>
-              )}
-
-              {/* ─── Contas vinculadas ─── */}
-              {activeSection === 'vinculadas' && (
-                <div>
-                  <SectionHeader title="Contas vinculadas" subtitle="Métodos de login associados à sua conta" />
-                  <Card>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{
-                          width: 38, height: 38, borderRadius: 9,
-                          background: 'rgba(255,255,255,0.04)',
-                          border: `1px solid ${DARK.border}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <GoogleIcon />
-                        </div>
-                        <div>
-                          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600, margin: 0 }}>Google</p>
-                          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)', marginTop: 2, marginBottom: 0 }}>
-                            {hasGoogle ? 'Conta vinculada' : 'Não vinculado'}
-                          </p>
-                        </div>
-                      </div>
-                      {hasGoogle ? (
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99,
-                          background: 'rgba(52,211,153,0.08)',
-                          border: '1px solid rgba(52,211,153,0.15)',
-                          color: '#34d399',
-                        }}>
-                          <CheckCircle2 style={{ width: 12, height: 12 }} />
-                          Vinculado
-                        </span>
-                      ) : (
-                        <BtnPrimary loading={linkLoading} onClick={handleLinkGoogle}>Vincular</BtnPrimary>
-                      )}
-                    </div>
-                    <Feedback state={linkFeedback} />
+                    </form>
                   </Card>
                 </div>
               )}

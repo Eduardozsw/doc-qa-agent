@@ -1,13 +1,22 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import {
+  User,
+  Session,
+  Plan,
+  getToken,
+  setToken,
+  clearToken,
+  login as apiLogin,
+  register as apiRegister,
+  me as apiMe,
+  updateMe as apiUpdateMe,
+  logout as apiLogout,
+} from '../lib/auth';
 
-export type Plan = 'free' | 'solo' | 'pro';
+export type { Plan };
 
 interface Profile {
   plan: Plan;
-  subscription_id: string | null;
-  current_period_end: string | null;
 }
 
 interface AuthContextType {
@@ -15,129 +24,107 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signInWithGoogle: (redirectTo?: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
-  verifyOtp: (email: string, token: string) => Promise<void>;
-  requestPasswordReset: (email: string) => Promise<void>;
   updateName: (name: string) => Promise<void>;
-  updateEmail: (email: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 function translateAuthError(message: string): string {
-  if (message.includes('Invalid login credentials')) return 'Email ou senha incorretos. Se você entrou com o Google, use o botão "Continuar com Google".';
-  if (message.includes('User already registered')) return 'Este email já está cadastrado.';
-  if (message.includes('Password should be at least')) return 'A senha deve ter no mínimo 6 caracteres.';
-  if (message.includes('Unable to validate email')) return 'Email inválido.';
-  if (message.includes('Email not confirmed')) return 'Confirme seu email antes de entrar.';
-  if (message.includes('Token has expired') || message.includes('token is invalid') || message.includes('Invalid token')) return 'Código inválido ou expirado. Tente novamente.';
-  if (message.includes('same password')) return 'A nova senha deve ser diferente da atual.';
-  if (message.includes('For security purposes') || message.includes('email rate limit')) return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
-  return 'Ocorreu um erro. Tente novamente.';
+  const lower = message.toLowerCase();
+  if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('network request failed')) {
+    return 'Não foi possível conectar ao servidor. Tente novamente.';
+  }
+  return message || 'Ocorreu um erro. Tente novamente.';
 }
 
-async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('plan, subscription_id, current_period_end')
-    .eq('id', userId)
-    .single();
-
-  if (error) {
-    console.error('Erro ao buscar perfil do usuário:', error);
-    return null;
+async function runAuthAction<T>(action: () => Promise<T>): Promise<T> {
+  try {
+    return await action();
+  } catch (err) {
+    throw new Error(translateAuthError(err instanceof Error ? err.message : String(err)));
   }
-  return data as Profile;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const updateSession = async (newSession: Session | null) => {
-    setSession(newSession);
-    setUser(newSession?.user ?? null);
-    setProfile(newSession?.user ? await fetchProfile(newSession.user.id) : null);
-  };
+  const clearAuth = useCallback(() => {
+    clearToken();
+    setUser(null);
+    setSession(null);
+  }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      await updateSession(session);
+    const token = getToken();
+    if (!token) {
       setLoading(false);
-    });
+      return;
+    }
+    setSession({ access_token: token });
+    apiMe(token)
+      .then(setUser)
+      .catch(() => clearAuth())
+      .finally(() => setLoading(false));
+  }, [clearAuth]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      updateSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const signInWithGoogle = async (redirectTo?: string) => {
-    const destination = redirectTo ?? '/app';
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}${destination}` },
-    });
-  };
+  useEffect(() => {
+    const handler = () => clearAuth();
+    window.addEventListener('auth:unauthorized', handler);
+    return () => window.removeEventListener('auth:unauthorized', handler);
+  }, [clearAuth]);
 
   const signInWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(translateAuthError(error.message));
+    const res = await runAuthAction(() => apiLogin(email, password));
+    setToken(res.access_token);
+    setSession({ access_token: res.access_token });
+    setUser(res.user);
   };
 
-  const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw new Error(translateAuthError(error.message));
-    if (!data.user) throw new Error('EMAIL_ALREADY_EXISTS');
+  const signUp = async (email: string, password: string, name?: string) => {
+    const res = await runAuthAction(() => apiRegister(email, password, name));
+    setToken(res.access_token);
+    setSession({ access_token: res.access_token });
+    setUser(res.user);
   };
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // ignora erro do servidor
+    const token = getToken();
+    if (token) {
+      try {
+        await apiLogout(token);
+      } catch {
+        // best-effort — limpa localmente mesmo se o backend falhar
+      }
     }
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-  };
-
-  const verifyOtp = async (email: string, token: string) => {
-    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
-    if (error) throw new Error(translateAuthError(error.message));
-  };
-
-  const requestPasswordReset = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
-    });
-    if (error) throw new Error(translateAuthError(error.message));
+    clearAuth();
   };
 
   const updateName = async (name: string) => {
-    const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
-    if (error) throw new Error(translateAuthError(error.message));
+    if (!session) throw new Error('Não autenticado.');
+    const updated = await runAuthAction(() => apiUpdateMe(session.access_token, { name }));
+    setUser(updated);
   };
 
-  const updateEmail = async (email: string) => {
-    const { error } = await supabase.auth.updateUser({ email });
-    if (error) throw new Error(translateAuthError(error.message));
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    if (!session) throw new Error('Não autenticado.');
+    const updated = await runAuthAction(() =>
+      apiUpdateMe(session.access_token, { password: newPassword, current_password: currentPassword }),
+    );
+    setUser(updated);
   };
 
-  const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) throw new Error(translateAuthError(error.message));
-  };
+  const profile: Profile | null = user ? { plan: user.plan } : null;
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signInWithGoogle, signInWithEmail, signUp, signOut, verifyOtp, requestPasswordReset, updateName, updateEmail, updatePassword }}>
+    <AuthContext.Provider
+      value={{ user, session, profile, loading, signInWithEmail, signUp, signOut, updateName, updatePassword }}
+    >
       {children}
     </AuthContext.Provider>
   );
