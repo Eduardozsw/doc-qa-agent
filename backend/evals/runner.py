@@ -47,7 +47,9 @@ def runner() -> dict:
     scores = []
     resultados = []
     for caso in data:
-        resultado = orchestrator(caso["query"], namespaces=[EVAL_NAMESPACE], plan="pro")
+        # use_cache=False: evals medem o pipeline de verdade a cada rodada, não
+        # respostas cacheadas de uma rodada anterior com a mesma pergunta.
+        resultado = orchestrator(caso["query"], namespaces=[EVAL_NAMESPACE], plan="pro", use_cache=False)
         score = judge(caso["query"], resultado["resposta"], caso["esperado"])
         print(f"[{score:.2f}] {caso['query'][:55]} → {resultado['resposta'][:70]}")
         scores.append(score)
