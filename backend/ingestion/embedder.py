@@ -4,6 +4,7 @@ from functools import lru_cache
 import tiktoken
 from openai import OpenAI
 
+from core.tracing import openai_client
 from db import vectors as vectors_db
 
 EMBED_BATCH_SIZE = 100
@@ -15,7 +16,7 @@ _window_start = time.time()
 
 @lru_cache
 def _client() -> OpenAI:
-    return OpenAI()
+    return openai_client()
 
 
 @lru_cache

@@ -37,12 +37,20 @@ async def handle_query(user_id: str, plan: str, body: QueryRequest) -> dict:
     has_history = get_limit(plan, "history")
 
     if not has_history:
-        return orchestrator(body.query, namespaces=namespaces, historico=[], plan=plan)
+        return orchestrator(body.query, namespaces=namespaces, historico=[], plan=plan, user_id=user_id)
 
     conversation_id = get_or_create_conversation(user_id)
     summary, historico = get_history(conversation_id, user_id)
 
-    result = orchestrator(body.query, namespaces=namespaces, historico=historico, plan=plan, summary=summary)
+    result = orchestrator(
+        body.query,
+        namespaces=namespaces,
+        historico=historico,
+        plan=plan,
+        summary=summary,
+        user_id=user_id,
+        session_id=conversation_id,
+    )
 
     save_message(conversation_id, "user", body.query)
     save_message(conversation_id, "assistant", result["resposta"])
@@ -73,7 +81,7 @@ def handle_query_stream(user_id: str, plan: str, body: QueryRequest) -> Generato
     has_history = get_limit(plan, "history")
 
     if not has_history:
-        yield from orchestrator_stream(body.query, namespaces=namespaces, plan=plan)
+        yield from orchestrator_stream(body.query, namespaces=namespaces, plan=plan, user_id=user_id)
         return
 
     conversation_id = get_or_create_conversation(user_id)
@@ -81,7 +89,15 @@ def handle_query_stream(user_id: str, plan: str, body: QueryRequest) -> Generato
 
     resposta_completa = ""
 
-    for event_line in orchestrator_stream(body.query, namespaces=namespaces, historico=historico, plan=plan, summary=summary):
+    for event_line in orchestrator_stream(
+        body.query,
+        namespaces=namespaces,
+        historico=historico,
+        plan=plan,
+        summary=summary,
+        user_id=user_id,
+        session_id=conversation_id,
+    ):
         yield event_line
         if event_line.startswith("data: {"):
             try:

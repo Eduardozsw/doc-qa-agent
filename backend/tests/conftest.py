@@ -7,6 +7,17 @@ os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("DATABASE_URL", "postgresql://docqa:docqa@localhost:5432/docqa_test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:1")
 
+# Garante que o .env local do dev (que pode ter chaves reais do Langfuse) nunca
+# ligue tracing durante os testes.
+for _var in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST", "LANGFUSE_BASE_URL"):
+    os.environ.pop(_var, None)
+
+
+@pytest.fixture(autouse=True)
+def _no_langfuse_env(monkeypatch):
+    for _var in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST", "LANGFUSE_BASE_URL"):
+        monkeypatch.delenv(_var, raising=False)
+
 
 @pytest.fixture
 def db():

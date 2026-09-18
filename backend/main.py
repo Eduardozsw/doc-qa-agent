@@ -26,6 +26,8 @@ async def lifespan(app: FastAPI):
     from db.postgres import init_db
     init_db()
     yield
+    from core.tracing import flush
+    flush()
 
 
 app = FastAPI(title="doc-qa-agent", version="1.0.0", lifespan=lifespan)

@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from typing import Generator
-from openai import OpenAI
 
-client = OpenAI()
+from core.tracing import openai_client
+
+client = openai_client()
 
 _SYSTEM = (
     "Você é um assistente para profissionais de saúde brasileiros. Responda APENAS com base nos trechos fornecidos, "

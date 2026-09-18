@@ -1,7 +1,7 @@
-from openai import OpenAI
 from agent.answerer import Usage
+from core.tracing import openai_client
 
-client = OpenAI()
+client = openai_client()
 
 def validate(
     query: str,
