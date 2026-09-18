@@ -34,13 +34,20 @@ def tracing_enabled() -> bool:
     return bool(os.environ.get("LANGFUSE_PUBLIC_KEY")) and bool(os.environ.get("LANGFUSE_SECRET_KEY"))
 
 
+# O padrão do SDK é 600 s por requisição: uma conexão que morre no meio (ex.: troca de
+# rede) prenderia o usuário por 10 minutos. 30 s cobre com folga as chamadas do pipeline.
+OPENAI_TIMEOUT_S = 30.0
+OPENAI_MAX_RETRIES = 2
+
+
 def openai_client():
     """Cliente OpenAI. Com tracing habilitado, usa o drop-in do langfuse que
     registra cada chamada (tokens, custo) como uma generation automaticamente."""
+    kwargs = {"timeout": OPENAI_TIMEOUT_S, "max_retries": OPENAI_MAX_RETRIES}
     if tracing_enabled():
         from langfuse.openai import OpenAI as _LangfuseOpenAI
-        return _LangfuseOpenAI()
-    return _openai.OpenAI()
+        return _LangfuseOpenAI(**kwargs)
+    return _openai.OpenAI(**kwargs)
 
 
 def observe(**kwargs):

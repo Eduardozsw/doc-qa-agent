@@ -315,3 +315,11 @@ def test_stream_spans_share_trace_id_and_propagate_user_id(monkeypatch):
     assert root.attributes.get("user.id") == "user-123"
 
     get_settings.cache_clear()
+
+
+def test_openai_client_uses_short_timeout():
+    from core.tracing import OPENAI_TIMEOUT_S, openai_client
+
+    client = openai_client()
+    assert client.timeout == OPENAI_TIMEOUT_S
+    assert client.max_retries == 2
