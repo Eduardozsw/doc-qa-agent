@@ -248,6 +248,11 @@ original agora é guardado (BYTEA no Postgres, tabela `documents`) em vez de apa
 o visualizador do frontend abrir o documento na página/trecho citados via `GET /api/files/{namespace}/pdf`
 — implica um custo de armazenamento proporcional ao volume de PDFs indexados.
 
+## Aprendendo RAG
+
+[`docs/aprendendo-rag.md`](docs/aprendendo-rag.md) explica cada técnica do pipeline (o que é, onde está no
+código, por que ajudou ou não) com os números das evals de cada fase.
+
 ## Decisões e limitações
 
 Este projeto foi originalmente construído sobre serviços de produção (Supabase, Pinecone, Stripe/PIX,

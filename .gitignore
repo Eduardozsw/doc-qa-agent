@@ -10,7 +10,8 @@ PLANOS.md
 *.doc
 *.xlsx
 *.csv
-/docs/
+/docs/*
+!/docs/aprendendo-rag.md
 
 # Python
 __pycache__/
