@@ -12,6 +12,8 @@ PLANOS.md
 *.csv
 /docs/*
 !/docs/aprendendo-rag.md
+!/docs/benchmark.md
+!/docs/benchmark/
 
 # Python
 __pycache__/
