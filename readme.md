@@ -50,9 +50,16 @@ nativo), sem depender de contas de terceiros além de uma chave de API da OpenAI
 Fluxo de ingestão: PDF enviado → job na fila Redis → worker extrai texto, faz chunking, gera embeddings na
 OpenAI e grava os vetores no Postgres (extensão `pgvector`).
 
-Fluxo de pergunta: pergunta → *rewriter* (reformula com contexto do histórico) → *retriever* (busca por
-similaridade de cosseno no `pgvector`, por namespace/documento) → *answerer* (`gpt-4o-mini`, responde só com
-os trechos recuperados) → *validator* (guardrail que verifica se a resposta é sustentada pelo contexto).
+Fluxo de pergunta: pergunta → *rewriter* (reformula com contexto do histórico) → *retriever* (busca híbrida
+no `pgvector`, por namespace/documento) → *answerer* (`gpt-4o-mini`, responde só com os trechos recuperados)
+→ *validator* (guardrail que verifica se a resposta é sustentada pelo contexto).
+
+Busca híbrida: o retriever combina similaridade vetorial (`pgvector`, cosseno) com busca full-text do
+Postgres (`tsvector`/`tsquery` na configuração `portuguese`, útil para siglas e termos exatos que o
+embedding às vezes dilui) e funde os dois rankings por Reciprocal Rank Fusion. Dá pra desligar via
+`HYBRID_SEARCH=false` e cair na busca puramente vetorial. Chunker atual (`v2`) quebra o texto por token
+(`tiktoken`) respeitando fronteira de sentença, em vez de cortar por contagem fixa de palavras; documentos
+indexados antes desta versão continuam funcionando, mas reenvie o PDF para aproveitar o chunker novo.
 
 ## Stack
 
