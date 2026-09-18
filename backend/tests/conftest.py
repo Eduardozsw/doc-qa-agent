@@ -1,6 +1,4 @@
 import os
-import sys
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -8,11 +6,6 @@ os.environ.setdefault("OPENAI_API_KEY", "test-key")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("DATABASE_URL", "postgresql://docqa:docqa@localhost:5432/docqa_test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:1")
-os.environ.setdefault("PINECONE_API_KEY", "test-key")
-os.environ.setdefault("PINECONE_INDEX", "test-index")
-
-# Mock ingestion.embedder before it's imported (Pinecone sai só na F2)
-sys.modules["ingestion.embedder"] = MagicMock()
 
 
 @pytest.fixture

@@ -13,7 +13,6 @@ dependencies = [
     "pymupdf",
     "redis",
     "slowapi",
-    "pinecone",
     "psycopg[binary,pool]>=3.3.5",
     "pgvector>=0.5.0",
     "pyjwt>=2.14.0",

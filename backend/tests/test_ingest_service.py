@@ -22,10 +22,12 @@ async def test_remove_files_owned_succeeds():
         with patch("services.ingest.namespaces_db.get_sha256_for_namespace", return_value="abc123"):
             with patch("services.ingest.namespaces_db.remove_namespace") as mock_remove:
                 with patch("services.ingest.redis_db.delete_cached_namespace") as mock_del_cache:
-                    from services.ingest import remove_files
-                    await remove_files(USER_ID, ["doc.pdf"])
+                    with patch("services.ingest.delete_namespace") as mock_delete_ns:
+                        from services.ingest import remove_files
+                        await remove_files(USER_ID, ["doc.pdf"])
     mock_remove.assert_called_once_with(USER_ID, "doc.pdf")
     mock_del_cache.assert_called_once_with("abc123", USER_ID)
+    mock_delete_ns.assert_called_once_with("doc.pdf")
 
 
 @pytest.mark.asyncio
@@ -102,6 +104,6 @@ def test_process_file_job_wraps_upsert_error_as_runtime():
         with patch("services.ingest.uploads_db.delete_temp_file"):
             with patch("services.ingest.load_pages_from_bytes", return_value=[(1, "texto")]):
                 with patch("services.ingest.chunk_pages", return_value=[("chunk1", 1)]):
-                    with patch("services.ingest.upsert_chunks", side_effect=Exception("pinecone error")):
+                    with patch("services.ingest.upsert_chunks", side_effect=Exception("erro de indexação")):
                         with pytest.raises(RuntimeError, match="salvar"):
                             process_file_job(job)

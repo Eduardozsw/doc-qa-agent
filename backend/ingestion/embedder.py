@@ -1,26 +1,35 @@
-import os
 import time
+from functools import lru_cache
+
 import tiktoken
 from openai import OpenAI
-from pinecone import Pinecone
-from dotenv import load_dotenv
 
-load_dotenv()
+from db import vectors as vectors_db
 
-client = OpenAI()
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index = pc.Index(os.getenv("PINECONE_INDEX", ""))
+EMBED_BATCH_SIZE = 100
 
-_enc = tiktoken.encoding_for_model("text-embedding-3-small")
 _TPM_LIMIT = 950_000
 _tokens_sent = 0
 _window_start = time.time()
 
+
+@lru_cache
+def _client() -> OpenAI:
+    return OpenAI()
+
+
+@lru_cache
+def _enc():
+    return tiktoken.encoding_for_model("text-embedding-3-small")
+
+
 def _count_tokens(texts: list[str]) -> int:
-    return sum(len(_enc.encode(t)) for t in texts)
+    return sum(len(_enc().encode(t)) for t in texts)
+
 
 def embed_text(text: str) -> list[float]:
     return embed_texts([text])[0]
+
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
     global _tokens_sent, _window_start
@@ -38,30 +47,24 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         _tokens_sent = 0
         _window_start = time.time()
 
-    response = client.embeddings.create(input=texts, model="text-embedding-3-small")
+    response = _client().embeddings.create(input=texts, model="text-embedding-3-small")
     _tokens_sent += token_count
     return [d.embedding for d in response.data]
 
-def delete_namespace(namespace: str) -> None:
-    try:
-        index.delete(delete_all=True, namespace=namespace)
-    except Exception:
-        pass
 
-UPSERT_BATCH_SIZE = 50
-EMBED_BATCH_SIZE = 100
+def delete_namespace(namespace: str) -> None:
+    vectors_db.delete_namespace(namespace)
+
 
 def upsert_chunks(chunks: list[tuple[str, int]], doc_name: str, namespace: str = "") -> None:
-    vectors = []
-
     for batch_start in range(0, len(chunks), EMBED_BATCH_SIZE):
         batch = chunks[batch_start:batch_start + EMBED_BATCH_SIZE]
         texts = [text for text, _ in batch]
         embeddings = embed_texts(texts)
+
+        rows = []
         for i, ((text, page), vetor) in enumerate(zip(batch, embeddings)):
             idx = batch_start + i
-            vectors.append((f"{doc_name}_chunk_{idx}", vetor, {"text": text, "page": page}))
+            rows.append((f"{doc_name}_chunk_{idx}", idx, page, text, vetor))
 
-    for i in range(0, len(vectors), UPSERT_BATCH_SIZE):
-        batch = vectors[i:i + UPSERT_BATCH_SIZE]
-        index.upsert(vectors=batch, namespace=namespace)
+        vectors_db.upsert_vectors(namespace, rows)

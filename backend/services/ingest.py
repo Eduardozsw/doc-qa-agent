@@ -6,7 +6,7 @@ from db import namespaces as namespaces_db
 from db import uploads as uploads_db
 from ingestion.loader import load_pages_from_bytes
 from ingestion.chunker import chunk_pages
-from ingestion.embedder import upsert_chunks
+from ingestion.embedder import upsert_chunks, delete_namespace
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,10 @@ async def remove_files(user_id: str, namespaces: list[str]) -> None:
         namespaces_db.remove_namespace(user_id, ns)
         if sha256:
             redis_db.delete_cached_namespace(sha256, user_id)
+        try:
+            delete_namespace(ns)
+        except Exception as e:
+            logger.error(f"Falha ao apagar vetores do namespace {ns}: {e}")
 
 
 def process_file_job(job: dict) -> None:
