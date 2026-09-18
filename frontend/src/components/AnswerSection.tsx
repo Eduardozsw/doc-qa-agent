@@ -1,11 +1,12 @@
 import { isValidElement, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Bot, MessageSquare, FileText, User, Copy, Check, AlertTriangle, Clock, ThumbsUp, ThumbsDown, Database } from 'lucide-react';
+import { Bot, MessageSquare, FileText, User, Copy, Check, AlertTriangle, Clock, ThumbsUp, ThumbsDown, Database, GitCompare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Message } from '../App';
 import type { Citacao } from '../lib/api';
 import { DARK } from '../constants/theme';
 import { Citations } from './Citations';
+import type { PdfViewerRequest } from './PdfViewer';
 
 type AuthFetch = (url: string, options?: RequestInit) => Promise<Response>;
 
@@ -19,6 +20,7 @@ interface AnswerSectionProps {
   loading: boolean;
   authFetch: AuthFetch;
   onFeedback: (index: number, score: 1 | -1) => void;
+  onOpenPdf: (req: PdfViewerRequest) => void;
 }
 
 /**
@@ -136,6 +138,42 @@ function buildMarkdownComponents() {
   };
 }
 
+/** Card de divergência entre documentos: uma descrição por conflito, com chips `[n]` que
+ * rolam até a citação correspondente no bloco "Embasamento" (mesmo mecanismo dos links `[n]` do texto). */
+function ConflictCard({ conflitos, msgIndex }: { conflitos: Message['conflitos']; msgIndex: number }) {
+  return (
+    <div
+      className="rounded-xl px-3 py-2.5 text-xs font-sans space-y-2"
+      style={{ background: 'rgba(245,158,11,0.06)', border: `1px solid ${DARK.accentBorder}` }}
+    >
+      <p className="font-medium flex items-center gap-1.5" style={{ color: DARK.accent }}>
+        <GitCompare className="w-3.5 h-3.5 flex-shrink-0" />
+        Divergência entre documentos
+      </p>
+      <ul className="space-y-1.5">
+        {conflitos.map((conflito, idx) => (
+          <li key={idx} className="leading-relaxed" style={{ color: DARK.text }}>
+            <span>{conflito.descricao}</span>{' '}
+            {conflito.ids.map(id => (
+              <a
+                key={id}
+                href={`#cit-${msgIndex}-${id}`}
+                onClick={e => {
+                  e.preventDefault();
+                  handleCitationClick(`#cit-${msgIndex}-${id}`);
+                }}
+                style={{ color: DARK.accent, fontWeight: 600, textDecoration: 'none', marginRight: 4 }}
+              >
+                [{id}]
+              </a>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
@@ -230,7 +268,7 @@ function FeedbackButtons({
   );
 }
 
-export function AnswerSection({ history, loading, authFetch, onFeedback }: AnswerSectionProps) {
+export function AnswerSection({ history, loading, authFetch, onFeedback, onOpenPdf }: AnswerSectionProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -339,13 +377,26 @@ export function AnswerSection({ history, loading, authFetch, onFeedback }: Answe
                         <span>Resposta em cache</span>
                       </div>
                     )}
+                    {msg.modelo && msg.modelo !== 'gpt-4o-mini' && (
+                      <span
+                        title="Pergunta encaminhada ao modelo mais forte"
+                        className="px-2 py-0.5 rounded-full text-[10px] font-sans font-medium w-fit"
+                        style={{ background: 'rgba(255,255,255,0.04)', color: DARK.textFaint, border: `1px solid ${DARK.border}` }}
+                      >
+                        {msg.modelo}
+                      </span>
+                    )}
                     <CopyButton text={msg.answer} />
                     {!(loading && isLast) && (
                       <FeedbackButtons msg={msg} msgIndex={i} authFetch={authFetch} onFeedback={onFeedback} />
                     )}
                   </div>
 
-                  <Citations citacoes={msg.citacoes} msgIndex={i} />
+                  {msg.conflitos.length > 0 && (
+                    <ConflictCard conflitos={msg.conflitos} msgIndex={i} />
+                  )}
+
+                  <Citations citacoes={msg.citacoes} msgIndex={i} onOpenPdf={onOpenPdf} />
                 </div>
               </div>
             )}

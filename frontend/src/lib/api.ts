@@ -9,6 +9,11 @@ export type Citacao = {
   verificada: boolean;
 };
 
+export type Conflito = {
+  ids: number[];
+  descricao: string;
+};
+
 export async function apiFetch(path: string, init: RequestInit = {}, token?: string | null): Promise<Response> {
   return fetch(`${API_BASE}${path}`, {
     ...init,

@@ -1,13 +1,15 @@
-import { Check, AlertTriangle } from 'lucide-react';
+import { Check, AlertTriangle, ExternalLink } from 'lucide-react';
 import type { Citacao } from '../lib/api';
 import { DARK } from '../constants/theme';
+import type { PdfViewerRequest } from './PdfViewer';
 
 interface CitationsProps {
   citacoes: Citacao[];
   msgIndex: number;
+  onOpenPdf: (req: PdfViewerRequest) => void;
 }
 
-export function Citations({ citacoes, msgIndex }: CitationsProps) {
+export function Citations({ citacoes, msgIndex, onOpenPdf }: CitationsProps) {
   if (citacoes.length === 0) return null;
 
   return (
@@ -31,13 +33,30 @@ export function Citations({ citacoes, msgIndex }: CitationsProps) {
                 <AlertTriangle className="w-3.5 h-3.5" style={{ color: DARK.accent }} />
               </span>
             )}
-            <span className="leading-relaxed">
+            <span className="leading-relaxed flex-1">
               <span style={{ color: DARK.textMuted }}>[{cit.id}]</span>{' '}
               <span className="font-medium">{cit.documento}</span>
               {cit.pagina != null && <span style={{ color: DARK.textMuted }}> · p. {cit.pagina}</span>}
               {' — '}
               <span style={{ color: DARK.textFaint, fontStyle: 'italic' }}>&quot;{cit.trecho}&quot;</span>
             </span>
+            <button
+              onClick={() => onOpenPdf({
+                namespace: cit.namespace,
+                documento: cit.documento,
+                pagina: cit.pagina,
+                trecho: cit.trecho,
+              })}
+              title="Abrir no PDF"
+              className="flex-shrink-0 flex items-center gap-1 rounded-md"
+              style={{
+                padding: '3px 6px', fontSize: 11,
+                background: 'transparent', border: `1px solid ${DARK.border}`,
+                color: DARK.textMuted, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+            </button>
           </li>
         ))}
       </ul>

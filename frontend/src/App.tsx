@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Sparkles, FileText, X } from 'lucide-react';
 import { Session, User } from './lib/auth';
@@ -7,6 +7,7 @@ import { PlanLimitModal } from './components/PlanLimitModal';
 import { QuestionInput } from './components/QuestionInput';
 import { AnswerSection } from './components/AnswerSection';
 import { UserMenu } from './components/UserMenu';
+import type { PdfViewerRequest } from './components/PdfViewer';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
@@ -19,7 +20,10 @@ import { useAuthFetch } from './hooks/useAuthFetch';
 import { useFileManagement } from './hooks/useFileManagement';
 import { useJobPolling } from './hooks/useJobPolling';
 import { DARK } from './constants/theme';
-import type { Citacao } from './lib/api';
+import type { Citacao, Conflito } from './lib/api';
+
+// Carregado sob demanda: react-pdf/pdfjs só entra no bundle quando o usuário abre um PDF.
+const PdfViewer = lazy(() => import('./components/PdfViewer').then(m => ({ default: m.PdfViewer })));
 
 export type Message = {
   question: string;
@@ -32,6 +36,8 @@ export type Message = {
   traceId?: string;
   feedback?: 1 | -1;
   cached?: boolean;
+  conflitos: Conflito[];
+  modelo?: string;
 };
 
 function App() {
@@ -81,6 +87,15 @@ function MainApp({ session }: { session: Session | null }) {
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [pdfRequest, setPdfRequest] = useState<PdfViewerRequest | null>(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfEverOpened, setPdfEverOpened] = useState(false);
+
+  const handleOpenPdf = (req: PdfViewerRequest) => {
+    setPdfRequest(req);
+    setPdfOpen(true);
+    setPdfEverOpened(true);
+  };
 
   useEffect(() => {
     const namespace = searchParams.get('namespace');
@@ -108,7 +123,7 @@ function MainApp({ session }: { session: Session | null }) {
     setQuestion('');
     setLoading(true);
 
-    setHistory(prev => [...prev, { question: currentQuestion, answer: '', sources: [], citacoes: [], correcao: false }]);
+    setHistory(prev => [...prev, { question: currentQuestion, answer: '', sources: [], citacoes: [], correcao: false, conflitos: [] }]);
 
     const namespacesToQuery = searchSelected.size > 0 ? Array.from(searchSelected) : [];
 
@@ -160,6 +175,8 @@ function MainApp({ session }: { session: Session | null }) {
                     status: undefined,
                     traceId: event.trace_id ?? undefined,
                     cached: event.cached ?? false,
+                    conflitos: event.conflitos ?? [],
+                    modelo: event.modelo ?? undefined,
                   }
                 : m
             ));
@@ -173,6 +190,7 @@ function MainApp({ session }: { session: Session | null }) {
                     citacoes: [],
                     correcao: false,
                     status: undefined,
+                    conflitos: [],
                   }
                 : m
             ));
@@ -182,7 +200,7 @@ function MainApp({ session }: { session: Session | null }) {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao consultar. Tente novamente.';
       setHistory(prev => prev.map((m, i) =>
-        i === prev.length - 1 ? { ...m, answer: `Erro: ${message}`, sources: [], citacoes: [], correcao: false, status: undefined } : m
+        i === prev.length - 1 ? { ...m, answer: `Erro: ${message}`, sources: [], citacoes: [], correcao: false, status: undefined, conflitos: [] } : m
       ));
     } finally {
       setLoading(false);
@@ -340,7 +358,13 @@ function MainApp({ session }: { session: Session | null }) {
                 </button>
               </div>
             )}
-            <AnswerSection history={history} loading={loading} authFetch={authFetch} onFeedback={handleFeedback} />
+            <AnswerSection
+              history={history}
+              loading={loading}
+              authFetch={authFetch}
+              onFeedback={handleFeedback}
+              onOpenPdf={handleOpenPdf}
+            />
           </div>
 
           {/* Input */}
@@ -358,6 +382,20 @@ function MainApp({ session }: { session: Session | null }) {
             />
           </div>
         </div>
+
+        {/* Visualizador de PDF — carregado sob demanda (react-pdf só entra no bundle no 1º uso);
+            depois de aberto uma vez, fica montado para manter o cache de blobs entre reaberturas. */}
+        {pdfEverOpened && (
+          <Suspense fallback={null}>
+            <PdfViewer
+              open={pdfOpen}
+              request={pdfRequest}
+              onClose={() => setPdfOpen(false)}
+              authFetch={authFetch}
+              isMobile={isMobile}
+            />
+          </Suspense>
+        )}
       </div>
 
       {/* Modal de limite de documentos */}

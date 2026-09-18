@@ -1,3 +1,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Destaque do trecho citado dentro do text layer do react-pdf */
+.pdf-highlight-span {
+  background-color: rgba(245, 158, 11, 0.35);
+  border-radius: 2px;
+}
