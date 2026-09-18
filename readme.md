@@ -177,6 +177,24 @@ localmente nasce com plano `pro` (limite mais alto de perguntas, documentos e re
 `free`/`solo` continuam existindo no código só para não descartar essa lógica, mas não são atribuíveis por
 nenhum fluxo da aplicação.
 
+## Observabilidade (opcional)
+
+O backend suporta tracing via [Langfuse Cloud](https://cloud.langfuse.com), desligado por padrão. Sem as
+chaves, nada relacionado ao langfuse é importado ou inicializado — o comportamento é idêntico ao de não ter
+essa seção no código.
+
+Para habilitar:
+
+1. Crie um projeto gratuito em https://cloud.langfuse.com (ou https://us.cloud.langfuse.com para a região US).
+2. Copie `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` e `LANGFUSE_BASE_URL` do projeto para `backend/.env`
+   (ver `backend/.env.example`).
+3. Reinicie a API.
+
+Com as chaves configuradas, cada pergunta gera um trace (`doc-qa` ou `doc-qa-stream`) com spans para
+reescrita da pergunta, busca de trechos, geração da resposta e validação, além de uma generation por
+chamada à OpenAI com tokens e custo calculados automaticamente. Respostas bloqueadas (sem trechos ou
+reprovadas pelo validador) ficam marcadas com a tag `blocked`.
+
 ## Decisões e limitações
 
 Este projeto foi originalmente construído sobre serviços de produção (Supabase, Pinecone, Stripe/PIX,
@@ -188,7 +206,8 @@ equivalente:
   recuperação de senha por email.
 - **Pinecone (banco vetorial)** → `pgvector` na mesma instância de Postgres (um serviço a menos para rodar).
 - **Stripe/PIX, Resend (billing e email)** → removidos; sem cobrança, todo usuário é `pro`.
-- **Langfuse (observabilidade)** → removido.
+- **Langfuse (observabilidade)** → opcional via Langfuse Cloud (ver seção "Observabilidade" acima); sem
+  chaves configuradas, o backend roda sem tocar nessa dependência.
 - O LLM de produção continua sendo a API da OpenAI (`gpt-4o-mini` e `text-embedding-3-small`); não há
   configuração para outro provedor.
 
