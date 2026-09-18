@@ -68,6 +68,20 @@ default `true`) usa `gpt-4o-mini` para reordenar os `RERANK_CANDIDATES` (default
 relevância (0-3) antes do corte final. Ambos são fail-open: qualquer erro do LLM devolve o ranking anterior
 em vez de quebrar a resposta.
 
+Extração estruturada (`ingestion/loader.py`, chunker `v3`): tabelas do PDF (`page.find_tables()`) viram
+markdown no lugar do bloco original — é assim que a Tabela 3 do CAB 37 (classificação da pressão arterial)
+chega inteira a um único chunk — e títulos (fonte maior ou negrito curto) viram linhas `## Título`;
+cabeçalho/rodapé repetido é removido. O chunker nunca deixa um `## Título` sozinho no fim de um chunk nem
+quebra uma tabela markdown no meio (tabelas grandes são fatiadas por linha, repetindo o cabeçalho).
+Contextual retrieval (`ingestion/contextualizer.py`, `CONTEXTUAL_RETRIEVAL_ENABLED`, default `false`): 1
+chamada a `gpt-4o-mini` por chunk gera 1-2 frases situando o trecho no documento, usadas só no embedding
+(o texto citado/exibido continua o original) — custo de +1 chamada mini por chunk na ingestão, fail-open.
+Vem desligado por padrão: medido no CAB 37 (documento único de 130 páginas), não trouxe ganho — hit@5, MRR
+e citation_rate pioraram vs. sem contexto — porque o prefixo tende a ajudar mais em corpora com muitos
+documentos parecidos, não num documento longo isolado. Ligue com `CONTEXTUAL_RETRIEVAL_ENABLED=true`.
+OCR opcional (`OCR_ENABLED`, default `false`) usa `pytesseract` quando uma página não tem texto extraível
+(PDF escaneado); exige `tesseract-ocr` + `tesseract-ocr-por` no host e `uv sync --extra ocr`.
+
 ## Stack
 
 - **Backend**: FastAPI, Postgres + `pgvector` (dados relacionais e vetores no mesmo banco), Redis (fila de
