@@ -20,6 +20,12 @@ dependencies = [
     "langfuse>=4.15.4",
 ]
 
+[project.optional-dependencies]
+ocr = [
+    "pillow>=12.3.0",
+    "pytesseract>=0.3.13",
+]
+
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "httpx"]
 
