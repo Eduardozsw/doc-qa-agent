@@ -1,6 +1,7 @@
 import logging
 
 from core.exceptions import ForbiddenError
+from db import documents as documents_db
 from db import namespaces as namespaces_db
 from db import query_cache as query_cache_db
 from db import redis as redis_db
@@ -39,6 +40,7 @@ async def remove_files(user_id: str, namespaces: list[str]) -> None:
             query_cache_db.invalidate_namespace(ns)
         except Exception as e:
             logger.error(f"Falha ao invalidar cache semântico do namespace {ns}: {e}")
+        documents_db.delete_document(ns)
 
 
 def process_file_job(job: dict) -> None:
@@ -73,6 +75,7 @@ def process_file_job(job: dict) -> None:
 
         namespaces_db.add_namespace(job["user_id"], job["namespace"], job["sha256"], job["filename"])
         redis_db.set_cached_namespace(job["sha256"], job["user_id"], job["namespace"])
+        documents_db.save_document(job["namespace"], job["user_id"], job["filename"], contents)
         logger.info(f"Job {job_id} concluído: {len(chunks)} chunks")
     except (ValueError, RuntimeError):
         raise

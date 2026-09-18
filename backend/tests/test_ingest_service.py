@@ -23,11 +23,13 @@ async def test_remove_files_owned_succeeds():
             with patch("services.ingest.namespaces_db.remove_namespace") as mock_remove:
                 with patch("services.ingest.redis_db.delete_cached_namespace") as mock_del_cache:
                     with patch("services.ingest.delete_namespace") as mock_delete_ns:
-                        from services.ingest import remove_files
-                        await remove_files(USER_ID, ["doc.pdf"])
+                        with patch("services.ingest.documents_db.delete_document") as mock_delete_doc:
+                            from services.ingest import remove_files
+                            await remove_files(USER_ID, ["doc.pdf"])
     mock_remove.assert_called_once_with(USER_ID, "doc.pdf")
     mock_del_cache.assert_called_once_with("abc123", USER_ID)
     mock_delete_ns.assert_called_once_with("doc.pdf")
+    mock_delete_doc.assert_called_once_with("doc.pdf")
 
 
 @pytest.mark.asyncio
@@ -56,10 +58,12 @@ def test_process_file_job_success():
                             with patch("services.ingest.upsert_chunks") as mock_upsert:
                                 with patch("services.ingest.namespaces_db.add_namespace") as mock_add:
                                     with patch("services.ingest.redis_db.set_cached_namespace"):
-                                        process_file_job(job)
+                                        with patch("services.ingest.documents_db.save_document") as mock_save_doc:
+                                            process_file_job(job)
     mock_add.assert_called_once_with(USER_ID, "user_sha_doc", "abc123", "doc.pdf")
     mock_ctx.assert_called_once_with([("chunk1", 1)], "preview")
     mock_upsert.assert_called_once_with([("chunk1", 1)], "user_sha_doc", "user_sha_doc", [""])
+    mock_save_doc.assert_called_once_with("user_sha_doc", USER_ID, "doc.pdf", b"%PDF-fake")
 
 
 def test_process_file_job_deletes_temp_on_error():

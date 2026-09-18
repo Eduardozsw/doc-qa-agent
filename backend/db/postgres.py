@@ -78,6 +78,16 @@ CREATE TABLE IF NOT EXISTS temp_uploads (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- F6: PDF original guardado (não é mais apagado ao fim do ingest) para o visualizador
+-- do frontend, que abre o documento na página/trecho citados.
+CREATE TABLE IF NOT EXISTS documents (
+  namespace TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  filename TEXT NOT NULL,
+  content BYTEA NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- F5: feedback do usuário (👍/👎) por resposta, opcionalmente ligado a um trace do
 -- Langfuse (trace_id fica NULL se o tracing estiver desligado).
 CREATE TABLE IF NOT EXISTS feedback (
