@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from core.limits import get_limit
 
@@ -12,63 +12,6 @@ def test_summary_limits_by_plan():
 
 def test_unknown_plan_falls_back_to_free():
     assert get_limit("unknown", "summaries") == 3
-
-
-def _mock_admin(return_data=None, count=None):
-    admin = MagicMock()
-    chain = admin.table.return_value.select.return_value
-    chain.eq.return_value = chain
-    chain.gte.return_value = chain
-    chain.not_.is_.return_value = chain
-    chain.single.return_value.execute.return_value.data = return_data
-    chain.execute.return_value.data = return_data if return_data is not None else []
-    chain.execute.return_value.count = count or 0
-    admin.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock()
-    return admin
-
-
-@patch("db.supabase.get_admin")
-def test_get_summary_returns_cached(mock_get_admin):
-    mock_get_admin.return_value = _mock_admin(return_data={"summary": {"topicos_abordados": ["a"], "resumo": "b"}})
-    from db.supabase import get_summary
-    result = get_summary("user1", "ns1")
-    assert result == {"topicos_abordados": ["a"], "resumo": "b"}
-
-
-@patch("db.supabase.get_admin")
-def test_get_summary_returns_none_when_not_found(mock_get_admin):
-    mock_get_admin.return_value = _mock_admin(return_data=None)
-    from db.supabase import get_summary
-    result = get_summary("user1", "ns1")
-    assert result is None
-
-
-@patch("db.supabase.get_admin")
-def test_count_summaries_this_month(mock_get_admin):
-    mock_get_admin.return_value = _mock_admin(count=2)
-    from db.supabase import count_summaries_this_month
-    result = count_summaries_this_month("user1")
-    assert result == 2
-
-
-@patch("db.supabase.get_admin")
-def test_get_namespaces_with_summaries(mock_get_admin):
-    data = [{"namespace": "ns1", "filename": "doc.pdf", "summary": {"resumo": "..."}}]
-    mock_get_admin.return_value = _mock_admin(return_data=data)
-    from db.supabase import get_namespaces_with_summaries
-    result = get_namespaces_with_summaries("user1")
-    assert len(result) == 1
-    assert result[0]["namespace"] == "ns1"
-
-
-@patch("db.supabase.get_admin")
-def test_save_summary_calls_update(mock_get_admin):
-    admin = MagicMock()
-    mock_get_admin.return_value = admin
-    from db.supabase import save_summary
-    save_summary("user1", "ns1", {"topicos_abordados": ["a"], "resumo": "b"})
-    admin.table.assert_called_once_with("namespaces")
-    admin.table.return_value.update.assert_called_once()
 
 
 @patch("agent.pdf_summarizer.retrieve")
@@ -113,8 +56,8 @@ def test_generate_summary_raises_on_invalid_structure(mock_client, mock_retrieve
 # --- Service-level tests ---
 
 @pytest.mark.asyncio
-@patch("services.summarize.supabase_db.get_namespaces")
-@patch("services.summarize.supabase_db.get_summary")
+@patch("services.summarize.namespaces_db.get_namespaces")
+@patch("services.summarize.namespaces_db.get_summary")
 async def test_summarize_returns_cached(mock_get_summary, mock_get_namespaces):
     mock_get_namespaces.return_value = ["ns1"]
     mock_get_summary.return_value = {"topicos_abordados": ["a"], "resumo": "b"}
@@ -125,7 +68,7 @@ async def test_summarize_returns_cached(mock_get_summary, mock_get_namespaces):
 
 
 @pytest.mark.asyncio
-@patch("services.summarize.supabase_db.get_namespaces")
+@patch("services.summarize.namespaces_db.get_namespaces")
 async def test_summarize_raises_forbidden_when_not_owned(mock_get_namespaces):
     mock_get_namespaces.return_value = ["ns2"]
     from services.summarize import summarize_document
@@ -135,9 +78,9 @@ async def test_summarize_raises_forbidden_when_not_owned(mock_get_namespaces):
 
 
 @pytest.mark.asyncio
-@patch("services.summarize.supabase_db.get_namespaces")
-@patch("services.summarize.supabase_db.get_summary")
-@patch("services.summarize.supabase_db.count_summaries_this_month")
+@patch("services.summarize.namespaces_db.get_namespaces")
+@patch("services.summarize.namespaces_db.get_summary")
+@patch("services.summarize.namespaces_db.count_summaries_this_month")
 async def test_summarize_raises_forbidden_when_limit_reached(
     mock_count, mock_get_summary, mock_get_namespaces
 ):
@@ -151,11 +94,11 @@ async def test_summarize_raises_forbidden_when_limit_reached(
 
 
 @pytest.mark.asyncio
-@patch("services.summarize.supabase_db.get_namespaces")
-@patch("services.summarize.supabase_db.get_summary")
-@patch("services.summarize.supabase_db.count_summaries_this_month")
+@patch("services.summarize.namespaces_db.get_namespaces")
+@patch("services.summarize.namespaces_db.get_summary")
+@patch("services.summarize.namespaces_db.count_summaries_this_month")
 @patch("services.summarize.generate_summary")
-@patch("services.summarize.supabase_db.save_summary")
+@patch("services.summarize.namespaces_db.save_summary")
 async def test_summarize_generates_and_saves(
     mock_save, mock_generate, mock_count, mock_get_summary, mock_get_namespaces
 ):

@@ -8,7 +8,7 @@ from agent.orchestrator import orchestrator, orchestrator_stream
 from agent.summarizer import summarize
 from core.exceptions import ForbiddenError
 from core.limits import get_limit
-from db import supabase as supabase_db
+from db import namespaces as namespaces_db
 from db.conversations import (
     get_or_create_conversation,
     get_history,
@@ -25,7 +25,7 @@ _WINDOW = 5
 
 async def handle_query(user_id: str, plan: str, body: QueryRequest) -> dict:
     if body.namespaces:
-        user_namespaces = set(supabase_db.get_namespaces(user_id))
+        user_namespaces = set(namespaces_db.get_namespaces(user_id))
         unauthorized = [n for n in body.namespaces if n not in user_namespaces]
         if unauthorized:
             logger.warning(
@@ -61,7 +61,7 @@ async def handle_query(user_id: str, plan: str, body: QueryRequest) -> dict:
 
 def handle_query_stream(user_id: str, plan: str, body: QueryRequest) -> Generator[str, None, None]:
     if body.namespaces:
-        user_namespaces = set(supabase_db.get_namespaces(user_id))
+        user_namespaces = set(namespaces_db.get_namespaces(user_id))
         unauthorized = [n for n in body.namespaces if n not in user_namespaces]
         if unauthorized:
             logger.warning(

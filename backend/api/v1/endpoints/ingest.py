@@ -6,7 +6,8 @@ from api.deps import get_current_user, UserContext
 from models.requests import DeleteRequest
 from models.responses import AsyncIngestResponse, JobInfo, JobStatusResponse, JobStatus, ListFilesResponse, DeleteResponse
 from services import ingest as ingest_service
-from db import supabase as supabase_db
+from db import namespaces as namespaces_db
+from db import uploads as uploads_db
 from db import redis as redis_db
 from core.limits import get_limit
 from core.limiter import limiter
@@ -23,14 +24,14 @@ async def _build_and_enqueue_jobs(
     user: UserContext,
     limit: int | None,
 ) -> AsyncIngestResponse:
-    # Build sha→cached_ns map in one pass (avoids double Supabase lookups)
+    # Build sha→cached_ns map in one pass (avoids double DB lookups)
     file_data: list[tuple[str, bytes, str]] = []
     sha_to_cached_ns: dict[str, str | None] = {}
     for filename, contents in file_entries:
         sha = sha256_bytes(contents)
         sha_to_cached_ns[sha] = (
             redis_db.get_cached_namespace(sha, user.id)
-            or supabase_db.get_namespace_by_sha256(user.id, sha)
+            or namespaces_db.get_namespace_by_sha256(user.id, sha)
         )
         file_data.append((filename, contents, sha))
 
@@ -38,7 +39,7 @@ async def _build_and_enqueue_jobs(
 
     # All-or-nothing: if any file fails validation before this point, no jobs are created.
     if limit is not None:
-        current = supabase_db.count_namespaces(user.id)
+        current = namespaces_db.count_namespaces(user.id)
         available = limit - current
 
         cached_files = [(n, c, s) for n, c, s in file_data if sha_to_cached_ns[s]]
@@ -60,9 +61,9 @@ async def _build_and_enqueue_jobs(
             jobs.append(JobInfo(job_id=job_id, filename=filename))
             continue
 
-        # Upload to Supabase Storage and enqueue
+        # Upload temporário (Postgres) e enqueue
         job_id = str(uuid.uuid4())
-        supabase_db.upload_temp_file(job_id, contents)
+        uploads_db.upload_temp_file(job_id, contents)
 
         payload = {
             "job_id": job_id,
@@ -76,7 +77,7 @@ async def _build_and_enqueue_jobs(
             redis_db.set_job_status(job_id, "pending", filename=filename, user_id=user.id)
             redis_db.enqueue_job(payload)
         except Exception:
-            supabase_db.delete_temp_file(job_id)
+            uploads_db.delete_temp_file(job_id)
             raise
         jobs.append(JobInfo(job_id=job_id, filename=filename))
 

@@ -18,9 +18,13 @@ from api.v1.router import router
 
 get_settings()
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from db.postgres import init_db
+    init_db()
     yield
 
 
@@ -43,9 +47,21 @@ async def health():
 
 @app.get("/health/db")
 async def health_db():
-    from db.supabase import get_admin
+    from db.postgres import get_conn
+    from db.redis import get_client
+
     try:
-        result = get_admin().table("namespaces").select("namespace", count="exact").limit(1).execute()
-        return JSONResponse({"status": "ok", "namespaces_total": result.count})
+        with get_conn() as conn:
+            row = conn.execute("SELECT count(*) AS n FROM namespaces").fetchone()
+        namespaces_total = row["n"] if row else 0
     except Exception as e:
         return JSONResponse({"status": "error", "detail": str(e)}, status_code=500)
+
+    try:
+        get_client().ping()
+        redis_status = "ok"
+    except Exception as e:
+        logger.warning(f"health/db: Redis indisponível: {e}")
+        redis_status = "error"
+
+    return JSONResponse({"status": "ok", "namespaces_total": namespaces_total, "redis": redis_status})

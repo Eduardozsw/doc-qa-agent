@@ -2,7 +2,8 @@ import logging
 
 from core.exceptions import ForbiddenError
 from db import redis as redis_db
-from db import supabase as supabase_db
+from db import namespaces as namespaces_db
+from db import uploads as uploads_db
 from ingestion.loader import load_pages_from_bytes
 from ingestion.chunker import chunk_pages
 from ingestion.embedder import upsert_chunks
@@ -11,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 async def list_files(user_id: str) -> list[str]:
-    return supabase_db.get_namespaces(user_id)
+    return namespaces_db.get_namespaces(user_id)
 
 
 async def remove_files(user_id: str, namespaces: list[str]) -> None:
-    user_namespaces = supabase_db.get_namespaces(user_id)
+    user_namespaces = namespaces_db.get_namespaces(user_id)
     not_owned = [n for n in namespaces if n not in user_namespaces]
     if not_owned:
         logger.warning(
@@ -24,8 +25,8 @@ async def remove_files(user_id: str, namespaces: list[str]) -> None:
         raise ForbiddenError("Arquivo não encontrado")
 
     for ns in namespaces:
-        sha256 = supabase_db.get_sha256_for_namespace(user_id, ns)
-        supabase_db.remove_namespace(user_id, ns)
+        sha256 = namespaces_db.get_sha256_for_namespace(user_id, ns)
+        namespaces_db.remove_namespace(user_id, ns)
         if sha256:
             redis_db.delete_cached_namespace(sha256, user_id)
 
@@ -33,7 +34,7 @@ async def remove_files(user_id: str, namespaces: list[str]) -> None:
 def process_file_job(job: dict) -> None:
     job_id = job["job_id"]
     try:
-        contents = supabase_db.download_temp_file(job_id)
+        contents = uploads_db.download_temp_file(job_id)
 
         try:
             pages = load_pages_from_bytes(contents)
@@ -54,7 +55,7 @@ def process_file_job(job: dict) -> None:
             logger.error(f"Job {job_id} — falha ao indexar chunks: {e}")
             raise RuntimeError("Erro ao salvar o documento. Tente novamente em alguns instantes.")
 
-        supabase_db.add_namespace(job["user_id"], job["namespace"], job["sha256"], job["filename"])
+        namespaces_db.add_namespace(job["user_id"], job["namespace"], job["sha256"], job["filename"])
         redis_db.set_cached_namespace(job["sha256"], job["user_id"], job["namespace"])
         logger.info(f"Job {job_id} concluído: {len(chunks)} chunks")
     except (ValueError, RuntimeError):
@@ -63,4 +64,4 @@ def process_file_job(job: dict) -> None:
         logger.error(f"Job {job_id} — erro inesperado: {e}")
         raise RuntimeError("Erro inesperado ao processar o arquivo.")
     finally:
-        supabase_db.delete_temp_file(job_id)
+        uploads_db.delete_temp_file(job_id)

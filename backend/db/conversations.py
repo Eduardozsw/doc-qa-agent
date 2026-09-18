@@ -1,5 +1,6 @@
 import logging
-from db.supabase import get_admin
+
+from db.postgres import get_conn
 
 logger = logging.getLogger(__name__)
 
@@ -7,44 +8,45 @@ _WINDOW = 5
 
 
 def get_or_create_conversation(user_id: str) -> str:
-    admin = get_admin()
-    result = (
-        admin.table("conversations")
-        .select("id")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .limit(1)
-        .execute()
-    )
-    if result.data:
-        return result.data[0]["id"]
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT id FROM conversations
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (user_id,),
+        ).fetchone()
+        if row:
+            return str(row["id"])
 
-    created = admin.table("conversations").insert({"user_id": user_id, "summary": ""}).execute()
-    return created.data[0]["id"]
+        created = conn.execute(
+            "INSERT INTO conversations (user_id, summary) VALUES (%s, '') RETURNING id",
+            (user_id,),
+        ).fetchone()
+        conn.commit()
+    return str(created["id"])
 
 
 def get_history(conversation_id: str, user_id: str) -> tuple[str, list[dict]]:
-    admin = get_admin()
+    with get_conn() as conn:
+        conv = conn.execute(
+            "SELECT summary FROM conversations WHERE id = %s AND user_id = %s",
+            (conversation_id, user_id),
+        ).fetchone()
+        summary = conv["summary"] if conv else ""
 
-    conv = (
-        admin.table("conversations")
-        .select("summary")
-        .eq("id", conversation_id)
-        .eq("user_id", user_id)
-        .single()
-        .execute()
-    )
-    summary = conv.data.get("summary", "") if conv.data else ""
+        msgs = conn.execute(
+            """
+            SELECT role, content FROM messages
+            WHERE conversation_id = %s
+            ORDER BY id ASC
+            """,
+            (conversation_id,),
+        ).fetchall()
 
-    msgs = (
-        admin.table("messages")
-        .select("role, content")
-        .eq("conversation_id", conversation_id)
-        .order("created_at", desc=False)
-        .execute()
-    )
-
-    messages = msgs.data or []
+    messages = msgs or []
     pairs = _to_pairs(messages)
     recent = pairs[-_WINDOW:]
 
@@ -53,55 +55,73 @@ def get_history(conversation_id: str, user_id: str) -> tuple[str, list[dict]]:
 
 
 def save_message(conversation_id: str, role: str, content: str) -> None:
-    get_admin().table("messages").insert({
-        "conversation_id": conversation_id,
-        "role": role,
-        "content": content,
-    }).execute()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO messages (conversation_id, role, content)
+            VALUES (%s, %s, %s)
+            """,
+            (conversation_id, role, content),
+        )
+        conn.commit()
 
 
 def count_pairs(conversation_id: str) -> int:
-    result = (
-        get_admin().table("messages")
-        .select("id", count="exact")
-        .eq("conversation_id", conversation_id)
-        .eq("role", "user")
-        .execute()
-    )
-    return result.count or 0
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT count(*) AS n FROM messages
+            WHERE conversation_id = %s AND role = 'user'
+            """,
+            (conversation_id,),
+        ).fetchone()
+    return row["n"] if row else 0
 
 
 def pop_oldest_pair(conversation_id: str) -> tuple[str, str] | None:
-    admin = get_admin()
-    msgs = (
-        admin.table("messages")
-        .select("id, role, content")
-        .eq("conversation_id", conversation_id)
-        .order("created_at", desc=False)
-        .limit(2)
-        .execute()
-    )
-    rows = msgs.data or []
-    if len(rows) < 2:
-        return None
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, role, content FROM messages
+            WHERE conversation_id = %s
+            ORDER BY id ASC
+            LIMIT 2
+            """,
+            (conversation_id,),
+        ).fetchall()
 
-    pergunta = next((r["content"] for r in rows if r["role"] == "user"), None)
-    resposta = next((r["content"] for r in rows if r["role"] == "assistant"), None)
-    if not pergunta or not resposta:
-        return None
+        rows = rows or []
+        if len(rows) < 2:
+            return None
 
-    ids = [r["id"] for r in rows]
-    admin.table("messages").delete().in_("id", ids).execute()
+        pergunta = next((r["content"] for r in rows if r["role"] == "user"), None)
+        resposta = next((r["content"] for r in rows if r["role"] == "assistant"), None)
+        if not pergunta or not resposta:
+            return None
+
+        ids = [r["id"] for r in rows]
+        conn.execute("DELETE FROM messages WHERE id = ANY(%s)", (ids,))
+        conn.commit()
     return pergunta, resposta
 
 
 def update_summary(conversation_id: str, summary: str) -> None:
-    get_admin().table("conversations").update({"summary": summary}).eq("id", conversation_id).execute()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE conversations SET summary = %s WHERE id = %s",
+            (summary, conversation_id),
+        )
+        conn.commit()
 
 
 def reset_conversation(user_id: str) -> str:
-    created = get_admin().table("conversations").insert({"user_id": user_id, "summary": ""}).execute()
-    return created.data[0]["id"]
+    with get_conn() as conn:
+        created = conn.execute(
+            "INSERT INTO conversations (user_id, summary) VALUES (%s, '') RETURNING id",
+            (user_id,),
+        ).fetchone()
+        conn.commit()
+    return str(created["id"])
 
 
 def _to_pairs(messages: list[dict]) -> list[tuple[str, str]]:

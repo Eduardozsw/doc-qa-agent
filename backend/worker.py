@@ -15,6 +15,9 @@ QUEUE_KEY = "ingest_queue"
 
 
 def run_worker() -> None:
+    from db.postgres import init_db
+    init_db()
+
     logger.info("Worker iniciado, aguardando jobs...")
     while True:
         try:
