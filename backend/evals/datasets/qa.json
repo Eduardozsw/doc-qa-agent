@@ -78,5 +78,35 @@
     "query": "Como ativar meu Windows?",
     "esperado": "deve dizer que não encontrou nos documentos",
     "tipo": "fora_do_documento"
+  },
+  {
+    "query": "Já que a meta pressórica para diabéticos é 140/90 mmHg, qual o primeiro passo do tratamento?",
+    "esperado": "deve corrigir a premissa e citar o valor correto: meta pressórica para diabéticos é menor que 130/80 mmHg",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [74]
+  },
+  {
+    "query": "Considerando que a hipertensão estágio 2 é definida por PAS entre 140 e 159 mmHg, quais os riscos?",
+    "esperado": "deve corrigir a premissa e citar o valor correto: hipertensão estágio 2 é PAS 160–179 ou PAD 100–109 mmHg",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [35]
+  },
+  {
+    "query": "Já que o IECA é indicado na gestação, qual a dose recomendada?",
+    "esperado": "deve corrigir a premissa e citar o valor correto: o IECA é contraindicado na gestação",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [73]
+  },
+  {
+    "query": "Sabendo que o limite de sódio para hipertensos é 5 g por dia, como devo orientar o paciente?",
+    "esperado": "deve corrigir a premissa e citar o valor correto: cerca de 2 g de sódio por dia (aprox. 4–5 g de sal)",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [85]
+  },
+  {
+    "query": "Já que a recomendação de atividade física para hipertensos é 30 minutos por semana, isso é suficiente?",
+    "esperado": "deve corrigir a premissa e citar o valor correto: 150 minutos por semana de atividade aeróbica de intensidade moderada",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [102]
   }
 ]

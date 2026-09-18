@@ -5,12 +5,16 @@ from agent.orchestrator import orchestrator
 from db import vectors as vectors_db
 from evals.judge import judge
 from evals.retrieval import evaluate_retrieval
+from ingestion import chunker
 from ingestion.chunker import chunk_pages
 from ingestion.embedder import upsert_chunks
 from ingestion.loader import load_pages_from_bytes
 from scripts.fetch_demo_pdf import DEMO_PDF_PATH, ensure_pdf
 
-EVAL_NAMESPACE = "evals_cab37"
+# Só existe `CHUNKER_VERSION` em ingestion/chunker.py a partir da F2 (chunker por
+# sentença); até lá, "v1" identifica o chunker de 500 palavras atual.
+CHUNKER_VERSION = getattr(chunker, "CHUNKER_VERSION", "v1")
+EVAL_NAMESPACE = f"evals_cab37_{CHUNKER_VERSION}"
 
 DATASET_PATH = Path(__file__).parent / "datasets" / "qa.json"
 
@@ -38,11 +42,13 @@ def runner() -> dict:
         data = json.load(file)
 
     scores = []
+    resultados = []
     for caso in data:
         resultado = orchestrator(caso["query"], namespaces=[EVAL_NAMESPACE], plan="pro")
         score = judge(caso["query"], resultado["resposta"], caso["esperado"])
         print(f"[{score:.2f}] {caso['query'][:55]} → {resultado['resposta'][:70]}")
         scores.append(score)
+        resultados.append((caso, resultado))
 
     retrieval = evaluate_retrieval(data, EVAL_NAMESPACE)
 
@@ -52,13 +58,31 @@ def runner() -> dict:
         "hit@5": retrieval["hit@5"],
         "hit@8": retrieval["hit@8"],
         "mrr": retrieval["mrr"],
-        # placeholders da Fase 1 (citação e correção de premissa ainda não existem)
-        "citation_rate": 0.0,
-        "correction_rate": 0.0,
+        "citation_rate": _citation_rate(resultados),
+        "correction_rate": _correction_rate(resultados),
     }
 
     _print_metricas(metricas)
     return metricas
+
+
+def _citation_rate(resultados: list[tuple[dict, dict]]) -> float:
+    """Fração dos casos que exigem documento (tipo != fora_do_documento) cuja
+    resposta trouxe pelo menos uma citação verificada deterministicamente."""
+    elegiveis = [r for caso, r in resultados if caso.get("tipo") != "fora_do_documento"]
+    if not elegiveis:
+        return 0.0
+    acertos = sum(1 for r in elegiveis if any(c.get("verificada") for c in r.get("citacoes", [])))
+    return acertos / len(elegiveis)
+
+
+def _correction_rate(resultados: list[tuple[dict, dict]]) -> float:
+    """Fração dos casos de premissa falsa em que a resposta trouxe o bloco de correção."""
+    premissa_falsa = [r for caso, r in resultados if caso.get("tipo") == "premissa_falsa"]
+    if not premissa_falsa:
+        return 0.0
+    acertos = sum(1 for r in premissa_falsa if r.get("correcao") is True)
+    return acertos / len(premissa_falsa)
 
 
 def _print_metricas(metricas: dict) -> None:
