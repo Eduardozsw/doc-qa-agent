@@ -25,7 +25,12 @@ async def query(
         raise HTTPException(status_code=429, detail=f"Limite de {limit} perguntas mensais atingido")
 
     result = await query_service.handle_query(user.id, user.plan, body)
-    return QueryResponse(resposta=result["resposta"], fontes=result.get("fontes", []))
+    return QueryResponse(
+        resposta=result["resposta"],
+        fontes=result.get("fontes", []),
+        citacoes=result.get("citacoes", []),
+        correcao=result.get("correcao", False),
+    )
 
 
 @router.post("/stream")

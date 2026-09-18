@@ -1,9 +1,20 @@
 from pydantic import BaseModel
 
 
+class Citacao(BaseModel):
+    id: int
+    documento: str
+    namespace: str
+    pagina: int | None = None
+    trecho: str
+    verificada: bool
+
+
 class QueryResponse(BaseModel):
     resposta: str
     fontes: list[str]
+    citacoes: list[Citacao] = []
+    correcao: bool = False
 
 
 class ListFilesResponse(BaseModel):

@@ -1,14 +1,62 @@
 import json
+import logging
+import queue
+from concurrent.futures import ThreadPoolExecutor
 from typing import Generator
 
 from agent.answerer import answer, answer_stream
+from agent.context import _SEM_INFO, display_name, extract_citation_ids, is_sem_info
 from agent.query_rewriter import rewrite_query
 from agent.retriever import retrieve
 from core import tracing
 from core.limits import get_limit
-from guardrails.validator import validate
+from guardrails.validator import Verification, verify
 
-_SEM_INFO = "Não encontrei informação suficiente nos documentos para responder essa pergunta"
+logger = logging.getLogger(__name__)
+
+_STATUS_LENTO = "Verificando o embasamento — está demorando mais que o normal"
+
+
+def _montar_citacoes(
+    chunks_with_sources: list[tuple], citation_ids: list[int], verification: Verification, include_page: bool
+) -> list[dict]:
+    """Monta a lista `citacoes` do contrato: só os ids citados em `[n]`, na ordem
+    da 1ª ocorrência, com o trecho e o veredito do verificador."""
+    verificadas_por_id = {c.id: c for c in verification.citacoes}
+
+    citacoes = []
+    for cid in citation_ids:
+        if cid > len(chunks_with_sources):
+            continue
+        _, namespace, _, pagina = chunks_with_sources[cid - 1]
+        verificada = verificadas_por_id.get(cid)
+        citacoes.append({
+            "id": cid,
+            "documento": display_name(namespace),
+            "namespace": namespace,
+            "pagina": pagina if (include_page and pagina) else None,
+            "trecho": verificada.trecho if verificada else "",
+            "verificada": verificada.verificada if verificada else False,
+        })
+    return citacoes
+
+
+def _montar_fontes(citacoes: list[dict]) -> list[str]:
+    """`fontes` = documentos únicos das citações usadas na resposta, na mesma ordem."""
+    vistos = set()
+    fontes = []
+    for c in citacoes:
+        chave = (c["documento"], c["pagina"])
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        fontes.append(f"{c['documento']} (p. {c['pagina']})" if c["pagina"] else c["documento"])
+    return fontes
+
+
+def _bloqueado(fundamentada: bool, citation_ids: list[int]) -> bool:
+    """Só é chamado para respostas que não são `_SEM_INFO` (ver `is_sem_info`)."""
+    return not fundamentada or not citation_ids
 
 
 def orchestrator(
@@ -43,33 +91,43 @@ def orchestrator(
 
         if not chunks_with_sources:
             tracing.update_trace(tags=["blocked"])
-            result = {"resposta": _SEM_INFO, "fontes": []}
+            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False}
             trace.update(output=result)
             return result
-
-        top = chunks_with_sources[0]
-        if include_page and top[3]:
-            fontes = [f"{top[1]} (p. {top[3]})"]
-        else:
-            fontes = [top[1]]
-
-        chunks = [text for _, _, text, _ in chunks_with_sources]
 
         with tracing.span("answer") as s:
-            resposta, answer_usage = answer(query, chunks, historico=historico, summary=summary)
+            resposta, answer_usage = answer(query, chunks_with_sources, historico=historico, summary=summary)
             s.update(output=resposta)
 
-        with tracing.span("validate") as s:
-            valido, validator_usage = validate(query, chunks, resposta, historico=historico, summary=summary)
-            s.update(output={"valido": valido})
+        def _log_retry(tentativa: int) -> None:
+            logger.info(f"Verificador: tentativa {tentativa} após falha")
 
-        if not valido:
-            tracing.update_trace(tags=["blocked"])
-            result = {"resposta": _SEM_INFO, "fontes": []}
+        with tracing.span("validate") as s:
+            verification = verify(
+                query, chunks_with_sources, resposta, historico=historico, summary=summary, on_retry=_log_retry
+            )
+            s.update(output={"fundamentada": verification.fundamentada, "correcao": verification.correcao})
+
+        if is_sem_info(resposta):
+            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False}
             trace.update(output=result)
             return result
 
-        result = {"resposta": resposta, "fontes": fontes}
+        citation_ids = extract_citation_ids(resposta, max_id=len(chunks_with_sources))
+
+        if _bloqueado(verification.fundamentada, citation_ids):
+            tracing.update_trace(tags=["blocked"])
+            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False}
+            trace.update(output=result)
+            return result
+
+        citacoes = _montar_citacoes(chunks_with_sources, citation_ids, verification, include_page)
+        result = {
+            "resposta": resposta,
+            "fontes": _montar_fontes(citacoes),
+            "citacoes": citacoes,
+            "correcao": verification.correcao,
+        }
         trace.update(output=result)
         return result
 
@@ -120,14 +178,12 @@ def orchestrator_stream(
             yield "data: [DONE]\n\n"
             return
 
-        chunks = [text for _, _, text, _ in chunks_with_sources]
-
         with tracing.active(root, user_id=user_id, session_id=session_id):
             answer_span = tracing.root_span("answer")
 
         full_response = ""
         try:
-            iterator = answer_stream(query, chunks, historico=historico, summary=summary)
+            iterator = answer_stream(query, chunks_with_sources, historico=historico, summary=summary)
             while True:
                 try:
                     with tracing.active(answer_span, user_id=user_id, session_id=session_id):
@@ -147,28 +203,68 @@ def orchestrator_stream(
                 answer_span.update(output=full_response)
             tracing.end_span(answer_span)
 
-        valido = True
-        try:
+        # `verify` é síncrono e pode retentar com backoff (até ~2s). Roda numa thread
+        # separada para poder, enquanto ela não termina, dar polling numa fila
+        # alimentada por `on_retry` e emitir o evento "status" a cada nova tentativa —
+        # sem isso, o generator ficaria bloqueado sem poder yield nada até o fim.
+        status_queue: queue.Queue[int] = queue.Queue()
+
+        def _run_verify() -> Verification:
+            def _on_retry(tentativa: int) -> None:
+                status_queue.put(tentativa)
+
+            # A thread não herda contextvars: reabre o span raiz e cria "validate"
+            # dentro dela, igual ao padrão usado no resto deste generator.
             with tracing.active(root, user_id=user_id, session_id=session_id), tracing.span("validate") as s:
-                valido, _ = validate(query, chunks, full_response, historico=historico, summary=summary)
-                s.update(output={"valido": valido})
+                verification = verify(
+                    query, chunks_with_sources, full_response, historico=historico, summary=summary,
+                    on_retry=_on_retry,
+                )
+                s.update(output={"fundamentada": verification.fundamentada, "correcao": verification.correcao})
+                return verification
+
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_run_verify)
+                while not future.done():
+                    try:
+                        status_queue.get(timeout=0.2)
+                    except queue.Empty:
+                        continue
+                    yield f"data: {json.dumps({'type': 'status', 'text': _STATUS_LENTO})}\n\n"
+                while not status_queue.empty():
+                    status_queue.get_nowait()
+                    yield f"data: {json.dumps({'type': 'status', 'text': _STATUS_LENTO})}\n\n"
+                verification = future.result()
         except Exception:
-            valido = True
+            # Fail-closed: qualquer falha inesperada na orquestração do verificador
+            # bloqueia a resposta, igual ao caso de esgotar as tentativas internas.
+            verification = Verification(fundamentada=False, correcao=False)
+
+        sem_info = is_sem_info(full_response)
+        citation_ids = [] if sem_info else extract_citation_ids(full_response, max_id=len(chunks_with_sources))
+        bloqueado = False if sem_info else _bloqueado(verification.fundamentada, citation_ids)
 
         with tracing.active(root):
-            if valido:
-                top = chunks_with_sources[0]
-                if include_page and top[3]:
-                    fontes = [f"{top[1]} (p. {top[3]})"]
-                else:
-                    fontes = [top[1]]
-            else:
-                fontes = []
+            if sem_info:
+                resposta_final = _SEM_INFO
+                fontes, citacoes, correcao = [], [], False
+            elif bloqueado:
+                resposta_final = full_response
+                fontes, citacoes, correcao = [], [], False
                 tracing.update_trace(tags=["blocked"])
+            else:
+                resposta_final = full_response
+                citacoes = _montar_citacoes(chunks_with_sources, citation_ids, verification, include_page)
+                fontes = _montar_fontes(citacoes)
+                correcao = verification.correcao
 
-            root.update(output={"resposta": full_response, "fontes": fontes, "blocked": not valido})
+            root.update(output={
+                "resposta": resposta_final, "fontes": fontes, "blocked": bloqueado,
+                "citacoes": citacoes, "correcao": correcao,
+            })
 
-        yield f"data: {json.dumps({'type': 'done', 'fontes': fontes, 'blocked': not valido, 'resposta': full_response})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'fontes': fontes, 'blocked': bloqueado, 'resposta': resposta_final, 'citacoes': citacoes, 'correcao': correcao})}\n\n"
         yield "data: [DONE]\n\n"
     finally:
         # Cobre também o caso do cliente desconectar no meio do streaming: o

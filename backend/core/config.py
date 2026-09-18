@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     # OpenAI
     openai_api_key: str
+    openai_chat_model: str = "gpt-4o-mini"
 
     # Auth
     jwt_secret: str

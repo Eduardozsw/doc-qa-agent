@@ -196,7 +196,12 @@ def test_stream_spans_share_trace_id_and_propagate_user_id(monkeypatch):
         lambda *a, **kw: [("id1", "doc.pdf", "trecho 1", 1), ("id2", "doc.pdf", "trecho 2", 2)],
     )
     monkeypatch.setattr("agent.orchestrator.answer_stream", lambda *a, **kw: iter(["ola ", "mundo"]))
-    monkeypatch.setattr("agent.orchestrator.validate", lambda *a, **kw: (True, None))
+
+    from guardrails.validator import Verification
+    monkeypatch.setattr(
+        "agent.orchestrator.verify",
+        lambda *a, **kw: Verification(fundamentada=True, correcao=False, citacoes=[]),
+    )
 
     from agent.orchestrator import orchestrator_stream
 
