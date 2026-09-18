@@ -3,21 +3,28 @@ import pytest
 from db.vectors import count, delete_namespace, query, query_keyword, upsert_vectors
 
 
-def _vec(seed: float) -> list[float]:
-    return [seed] * 1536
+def _vec(a: float, b: float | None = None) -> list[float]:
+    """Vetor de teste: metade das dimensões = a, metade = b (default b = a, mesma
+    direção). Vetores com `a`/`b` diferentes ficam ortogonais, úteis para testar
+    ordenação por similaridade de cosseno — vetores puramente constantes (seed único)
+    têm sempre a mesma direção e dariam cosseno 1.0 entre si, não servindo para isso."""
+    if b is None:
+        b = a
+    metade = 1536 // 2
+    return [a] * metade + [b] * (1536 - metade)
 
 
 @pytest.mark.db
 def test_upsert_and_query_returns_score_in_range_and_best_first(db):
     rows = [
-        ("ns1_chunk_0", 0, 1, "texto idêntico à query", _vec(0.1)),
-        ("ns1_chunk_1", 1, 2, "texto bem diferente", _vec(0.9)),
-        ("ns2_chunk_0", 0, 1, "texto de outro namespace", _vec(0.1)),
+        ("ns1_chunk_0", 0, 1, "texto idêntico à query", _vec(1, 0)),
+        ("ns1_chunk_1", 1, 2, "texto bem diferente", _vec(0, 1)),
+        ("ns2_chunk_0", 0, 1, "texto de outro namespace", _vec(1, 0)),
     ]
     upsert_vectors("ns1", rows[:2])
     upsert_vectors("ns2", rows[2:])
 
-    results = query("ns1", _vec(0.1), top_k=10)
+    results = query("ns1", _vec(1, 0), top_k=10)
 
     assert len(results) == 2
     for score, _text, _page in results:
