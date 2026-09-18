@@ -3,7 +3,11 @@
     "query": "Como é definida a hipertensão arterial sistêmica?",
     "esperado": "deve mencionar PAS ≥ 140 mmHg e/ou PAD ≥ 90 mmHg confirmada em duas ou mais aferições",
     "tipo": "factual",
-    "paginas_relevantes": [30, 32]
+    "paginas_relevantes": [
+      30,
+      32
+    ],
+    "termo_chave": "140/90mmHg"
   },
   {
     "query": "Qual o CID-10 da hipertensão arterial sistêmica?",
@@ -14,37 +18,57 @@
     "query": "Quais são os critérios para diagnóstico de hipertensão?",
     "esperado": "deve mencionar no mínimo 2 aferições em 2 visitas distintas",
     "tipo": "factual",
-    "paginas_relevantes": [31, 32]
+    "paginas_relevantes": [
+      31,
+      32
+    ],
+    "termo_chave": "três dias diferentes"
   },
   {
     "query": "O que é hipertensão estágio 2?",
     "esperado": "deve mencionar PAS 160–179 ou PAD 100–109 mmHg",
     "tipo": "factual",
-    "paginas_relevantes": [35]
+    "paginas_relevantes": [
+      35
+    ],
+    "termo_chave": "Hipertensão estágio 2"
   },
   {
     "query": "Quais medicamentos são de primeira linha para hipertensão?",
     "esperado": "deve mencionar diuréticos tiazídicos, bloqueadores do canal de cálcio, IECA e BRA",
     "tipo": "factual",
-    "paginas_relevantes": [60, 61]
+    "paginas_relevantes": [
+      60,
+      61
+    ],
+    "termo_chave": "primeira escolha para o tratamento da hipertensão arterial"
   },
   {
     "query": "Quando o IECA é contraindicado?",
     "esperado": "deve mencionar contraindicação na gestação",
     "tipo": "factual",
-    "paginas_relevantes": [73]
+    "paginas_relevantes": [
+      73
+    ],
+    "termo_chave": "efeitos teratogênicos"
   },
   {
     "query": "Qual a meta pressórica para diabéticos?",
     "esperado": "deve mencionar < 130/80 mmHg",
     "tipo": "factual",
-    "paginas_relevantes": [74]
+    "paginas_relevantes": [
+      74
+    ],
+    "termo_chave": "130/80mmHg nos pacientes com diabetes"
   },
   {
     "query": "O que é urgência hipertensiva e como tratar?",
     "esperado": "deve mencionar PAD ≥ 120 mmHg sem lesão de órgão-alvo e tratamento oral com captopril, com redução gradual da PA",
     "tipo": "factual",
-    "paginas_relevantes": [77]
+    "paginas_relevantes": [
+      77
+    ],
+    "termo_chave": "captopril 25 mg via oral"
   },
   {
     "query": "Qual medicamento IV é indicado na emergência hipertensiva?",
@@ -55,19 +79,29 @@
     "query": "Qual a recomendação de atividade física para hipertensos?",
     "esperado": "deve mencionar 150 minutos por semana de atividade aeróbica de intensidade moderada",
     "tipo": "factual",
-    "paginas_relevantes": [102]
+    "paginas_relevantes": [
+      102
+    ],
+    "termo_chave": "150 minutos por semana"
   },
   {
     "query": "Qual o limite de sódio na dieta para hipertensos?",
     "esperado": "deve mencionar cerca de 2 g de sódio por dia (aprox. 4–5 g de sal)",
     "tipo": "factual",
-    "paginas_relevantes": [85]
+    "paginas_relevantes": [
+      85
+    ],
+    "termo_chave": "4 g de sal por dia"
   },
   {
     "query": "Quando encaminhar ao especialista?",
     "esperado": "deve mencionar hipertensão resistente, suspeita de hipertensão secundária ou lesão de órgão-alvo",
     "tipo": "factual",
-    "paginas_relevantes": [62, 65]
+    "paginas_relevantes": [
+      62,
+      65
+    ],
+    "termo_chave": "referidos a serviços especializados"
   },
   {
     "query": "Qual o preço do enalapril na farmácia?",
@@ -83,30 +117,346 @@
     "query": "Já que a meta pressórica para diabéticos é 140/90 mmHg, qual o primeiro passo do tratamento?",
     "esperado": "deve corrigir a premissa e citar o valor correto: meta pressórica para diabéticos é menor que 130/80 mmHg",
     "tipo": "premissa_falsa",
-    "paginas_relevantes": [74]
+    "paginas_relevantes": [
+      74
+    ],
+    "termo_chave": "130/80mmHg nos pacientes com diabetes"
   },
   {
     "query": "Considerando que a hipertensão estágio 2 é definida por PAS entre 140 e 159 mmHg, quais os riscos?",
     "esperado": "deve corrigir a premissa e citar o valor correto: hipertensão estágio 2 é PAS 160–179 ou PAD 100–109 mmHg",
     "tipo": "premissa_falsa",
-    "paginas_relevantes": [35]
+    "paginas_relevantes": [
+      35
+    ],
+    "termo_chave": "Hipertensão estágio 2"
   },
   {
     "query": "Já que o IECA é indicado na gestação, qual a dose recomendada?",
     "esperado": "deve corrigir a premissa e citar o valor correto: o IECA é contraindicado na gestação",
     "tipo": "premissa_falsa",
-    "paginas_relevantes": [73]
+    "paginas_relevantes": [
+      73
+    ],
+    "termo_chave": "efeitos teratogênicos"
   },
   {
     "query": "Sabendo que o limite de sódio para hipertensos é 5 g por dia, como devo orientar o paciente?",
     "esperado": "deve corrigir a premissa e citar o valor correto: cerca de 2 g de sódio por dia (aprox. 4–5 g de sal)",
     "tipo": "premissa_falsa",
-    "paginas_relevantes": [85]
+    "paginas_relevantes": [
+      85
+    ],
+    "termo_chave": "4 g de sal por dia"
   },
   {
     "query": "Já que a recomendação de atividade física para hipertensos é 30 minutos por semana, isso é suficiente?",
     "esperado": "deve corrigir a premissa e citar o valor correto: 150 minutos por semana de atividade aeróbica de intensidade moderada",
     "tipo": "premissa_falsa",
-    "paginas_relevantes": [102]
+    "paginas_relevantes": [
+      102
+    ],
+    "termo_chave": "150 minutos por semana"
+  },
+  {
+    "query": "Quais valores de pressão arterial na MRPA (Monitorização Residencial da Pressão Arterial) caracterizam hipertensão?",
+    "esperado": "deve mencionar valores acima de 130/85 mmHg na MRPA como critério de hipertensão",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      33,
+      34
+    ],
+    "termo_chave": "130/85"
+  },
+  {
+    "query": "Qual a classificação da pressão arterial considerada 'ótima' na tabela de classificação para adultos?",
+    "esperado": "deve mencionar PAS menor que 120 mmHg e PAD menor que 80 mmHg como pressão ótima",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      35
+    ],
+    "termo_chave": "Ótima"
+  },
+  {
+    "query": "Quais achados do exame clínico e da anamnese indicam alto risco cardiovascular na estratificação de risco da pessoa com PA limítrofe?",
+    "esperado": "deve mencionar itens como AVC prévio, IAM prévio, lesão de órgão-alvo, hipertrofia de ventrículo esquerdo, nefropatia, retinopatia, aneurisma de aorta abdominal ou diabetes mellitus",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      40
+    ],
+    "termo_chave": "Aneurisma de aorta abdominal"
+  },
+  {
+    "query": "Com que periodicidade deve ser reavaliada a pessoa com PA limítrofe classificada como alto risco cardiovascular pelo escore de Framingham?",
+    "esperado": "deve mencionar seguimento trimestral após orientações sobre estilo de vida saudável",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      40,
+      41
+    ],
+    "termo_chave": "poderá ser trimestral"
+  },
+  {
+    "query": "Quais exames complementares mínimos são recomendados na rotina de acompanhamento da pessoa com HAS?",
+    "esperado": "deve mencionar eletrocardiograma, dosagem de glicose, colesterol total e frações, triglicerídeos, creatinina, urina tipo 1, potássio e fundoscopia",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      46,
+      47
+    ],
+    "termo_chave": "Rotina complementar mínima"
+  },
+  {
+    "query": "Qual o efeito da redução do consumo de álcool sobre a pressão arterial?",
+    "esperado": "deve mencionar redução de cerca de 3,3 mmHg na pressão sistólica e 2,0 mmHg na diastólica",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      58
+    ],
+    "termo_chave": "3,3mmHg"
+  },
+  {
+    "query": "Qual o benefício de parar de fumar para o risco cardiovascular da pessoa com hipertensão?",
+    "esperado": "deve mencionar que a cessação do tabagismo pode diminuir rapidamente o risco de doença coronariana entre 35% e 40%",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      58,
+      59
+    ],
+    "termo_chave": "35% e 40%"
+  },
+  {
+    "query": "A partir de quais valores de pressão arterial a atividade física intensa ou anaeróbia deixa de ser recomendada para a pessoa com HAS?",
+    "esperado": "deve mencionar PA sistólica acima de 160 mmHg ou diastólica acima de 105 mmHg como limite para não recomendar atividades físicas intensas",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      100,
+      101
+    ],
+    "termo_chave": "superior a 160 ou 105"
+  },
+  {
+    "query": "Por que os diuréticos são considerados a primeira escolha no tratamento medicamentoso da hipertensão?",
+    "esperado": "deve mencionar tolerabilidade pelo menos equivalente à de outros grupos e melhor relação de custo-efetividade",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      61
+    ],
+    "termo_chave": "custo-efetividade"
+  },
+  {
+    "query": "Os betabloqueadores são indicados como medicação de primeira linha para o tratamento da hipertensão arterial?",
+    "esperado": "deve dizer que não; o documento afirma que não se indica o uso de betabloqueadores como droga de primeira linha no tratamento da HAS",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      61
+    ],
+    "termo_chave": "Não se indica o uso de betabloqueadores"
+  },
+  {
+    "query": "Como pode ser iniciado o tratamento medicamentoso quando a pessoa já está em hipertensão estágio 2?",
+    "esperado": "deve mencionar que o tratamento pode ser iniciado com dois anti-hipertensivos em doses baixas simultaneamente",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      61,
+      62
+    ],
+    "termo_chave": "dois anti-hipertensivos em doses baixas"
+  },
+  {
+    "query": "O que caracteriza uma emergência hipertensiva?",
+    "esperado": "deve mencionar elevação crítica da PA com quadro clínico grave, progressiva lesão de órgãos-alvo e risco de morte, exigindo redução imediata da pressão arterial com agentes aplicados por via parenteral",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      75,
+      76
+    ],
+    "termo_chave": "por via parenteral"
+  },
+  {
+    "query": "O que é pseudocrise hipertensiva e como deve ser conduzida?",
+    "esperado": "deve mencionar medida de PA elevada associada a queixas vagas como cefaleia ou sinais de ansiedade, sem sinais de comprometimento de órgão-alvo, tratada conforme a causa da elevação",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      76,
+      77
+    ],
+    "termo_chave": "pseudocrise hipertensiva"
+  },
+  {
+    "query": "Como deve ser a dose inicial de anti-hipertensivos em idosos, comparada à utilizada em adultos jovens?",
+    "esperado": "deve mencionar que a dose inicial em idosos deve ser a metade da dose utilizada em jovens",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      71,
+      72
+    ],
+    "termo_chave": "metade da dose utilizada em jovens"
+  },
+  {
+    "query": "Qual medicamento anti-hipertensivo é o mais bem estudado para uso durante a gestação?",
+    "esperado": "deve mencionar a metildopa como a medicação mais bem estudada para uso na gestação",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      72,
+      73
+    ],
+    "termo_chave": "A metildopa é a medicação mais bem estudada"
+  },
+  {
+    "query": "Como é definida a hipertensão arterial em crianças e adolescentes?",
+    "esperado": "deve mencionar pressão igual ou maior ao percentil 95 de distribuição da pressão arterial",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      49,
+      50
+    ],
+    "termo_chave": "percentil 95 de distribuição da pressão arterial"
+  },
+  {
+    "query": "Quais estratégias podem melhorar a adesão da pessoa ao tratamento anti-hipertensivo?",
+    "esperado": "deve mencionar facilitar o acesso, manter o tratamento simples com medicamentos disponíveis na farmácia básica ou popular e encorajar modificações no estilo de vida, entre outras recomendações",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      74,
+      75
+    ],
+    "termo_chave": "melhorar a aderência à terapêutica anti-hipertensiva"
+  },
+  {
+    "query": "Quais são as etapas da consulta de enfermagem para acompanhamento da pessoa com HAS segundo a Sistematização da Assistência de Enfermagem (SAE)?",
+    "esperado": "deve mencionar histórico, exame físico, diagnóstico das necessidades de cuidado, planejamento da assistência, implementação da assistência e avaliação do processo de cuidado",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      40,
+      41,
+      42,
+      43
+    ],
+    "termo_chave": "Sistematização da Assistência de Enfermagem"
+  },
+  {
+    "query": "Com que frequência a pressão arterial deve ser verificada até a primeira consulta médica de reavaliação do tratamento anti-hipertensivo?",
+    "esperado": "deve mencionar verificação semanal da PA até a primeira consulta médica de reavaliação, que não deve ultrapassar 30 dias",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      72,
+      73
+    ],
+    "termo_chave": "verificação semanal da PA"
+  },
+  {
+    "query": "Quando o atendimento odontológico deve ser suspenso e o paciente encaminhado para avaliação médica em razão da pressão arterial?",
+    "esperado": "deve mencionar que quando a PA do usuário atinge valores de 180/100mmHg o atendimento deve ser suspenso e o usuário encaminhado para consulta com médico ou enfermeira da UBS",
+    "tipo": "factual",
+    "paginas_relevantes": [
+      108,
+      109
+    ],
+    "termo_chave": "deve-se suspender o atendimento"
+  },
+  {
+    "query": "Já que o diagnóstico de hipertensão pode ser confirmado com uma única aferição em uma única consulta, posso fechar o diagnóstico do meu paciente agora?",
+    "esperado": "deve corrigir a premissa e citar que o diagnóstico de HAS requer a média de PA verificada em pelo menos três dias diferentes, com intervalo mínimo de uma semana entre as medidas",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [
+      31,
+      32
+    ],
+    "termo_chave": "três dias diferentes"
+  },
+  {
+    "query": "Já que os betabloqueadores são a primeira linha de tratamento medicamentoso da hipertensão, qual devo prescrever primeiro para um paciente sem comorbidades?",
+    "esperado": "deve corrigir a premissa e citar que não se indica o uso de betabloqueadores como droga de primeira linha no tratamento da HAS; os diuréticos são a primeira escolha",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [
+      60,
+      61
+    ],
+    "termo_chave": "Não se indica o uso de betabloqueadores"
+  },
+  {
+    "query": "Já que a dose inicial de anti-hipertensivo em idosos deve ser o dobro da dose usada em adultos jovens, qual a dose inicial de captopril para um paciente idoso?",
+    "esperado": "deve corrigir a premissa e citar que a dose inicial em idosos deve ser a metade da dose utilizada em jovens",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [
+      71,
+      72
+    ],
+    "termo_chave": "metade da dose utilizada em jovens"
+  },
+  {
+    "query": "Já que o nifedipino sublingual de ação rápida é a droga de escolha na urgência hipertensiva, como devo orientar sua administração?",
+    "esperado": "deve corrigir a premissa e citar que o uso de nifedipino de curta duração por via sublingual não é recomendável nessa situação; o captopril 25 mg via oral é indicado",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [
+      76,
+      77
+    ],
+    "termo_chave": "captopril 25 mg via oral"
+  },
+  {
+    "query": "Já que a hipertensão em crianças e adolescentes é definida a partir do percentil 75 da distribuição da pressão arterial, quando devo classificar uma criança como hipertensa?",
+    "esperado": "deve corrigir a premissa e citar que a hipertensão nessa população é definida como pressão igual ou maior ao percentil 95 de distribuição da pressão arterial",
+    "tipo": "premissa_falsa",
+    "paginas_relevantes": [
+      49,
+      50
+    ],
+    "termo_chave": "percentil 95 de distribuição da pressão arterial"
+  },
+  {
+    "query": "Qual a dose pediátrica de losartana, em mg por quilo de peso, para uma criança de 6 anos com hipertensão secundária a doença renal?",
+    "esperado": "deve dizer que não encontrou essa informação nos documentos, sem inventar uma dose",
+    "tipo": "fora_do_documento",
+    "termos_ausentes": [
+      "losartana em crianças",
+      "por quilo de peso"
+    ]
+  },
+  {
+    "query": "Qual o nome comercial (marca) do captopril mais vendido nas farmácias do Brasil?",
+    "esperado": "deve dizer que não encontrou essa informação nos documentos, sem inventar um nome de marca",
+    "tipo": "fora_do_documento",
+    "termos_ausentes": [
+      "nome comercial",
+      "marca comercial"
+    ]
+  },
+  {
+    "query": "Qual o protocolo de trombólise com alteplase para o AVC isquêmico agudo?",
+    "esperado": "deve dizer que não encontrou essa informação nos documentos, sem inventar um protocolo",
+    "tipo": "fora_do_documento",
+    "termos_ausentes": [
+      "trombólise",
+      "alteplase"
+    ]
+  },
+  {
+    "query": "Este documento indica cirurgia bariátrica para pacientes hipertensos obesos que não respondem a outras medidas?",
+    "esperado": "deve dizer que não encontrou essa informação nos documentos, sem inventar uma indicação",
+    "tipo": "fora_do_documento",
+    "termos_ausentes": [
+      "bariátrica",
+      "cirurgia bariátrica"
+    ]
+  },
+  {
+    "query": "Qual o valor pago pela tabela SUS pelo exame de Mapa (Monitorização Ambulatorial da Pressão Arterial)?",
+    "esperado": "deve dizer que não encontrou essa informação nos documentos, sem inventar um valor",
+    "tipo": "fora_do_documento",
+    "termos_ausentes": [
+      "tabela SUS",
+      "R$"
+    ]
+  },
+  {
+    "query": "Como configuro um roteador Wi-Fi doméstico para melhorar o sinal da internet?",
+    "esperado": "deve dizer que não encontrou essa informação nos documentos, sem inventar uma resposta",
+    "tipo": "fora_do_documento",
+    "termos_ausentes": [
+      "Wi-Fi",
+      "roteador"
+    ]
   }
 ]
