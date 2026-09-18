@@ -8,3 +8,5 @@ tests
 evals
 check_regression.py
 baseline
+docs/
+scripts/

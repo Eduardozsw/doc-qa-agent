@@ -1,9 +1,9 @@
-name: Evals
+name: Tests
 
-on: workflow_dispatch
+on: [push, pull_request]
 
 jobs:
-  evals:
+  backend:
     runs-on: ubuntu-latest
 
     services:
@@ -46,13 +46,38 @@ jobs:
       - name: Instalar dependências
         run: uv sync --frozen
 
-      - name: Baixar PDF de demonstração
-        run: uv run python scripts/fetch_demo_pdf.py
-
-      - name: Rodar evals (check_regression)
-        run: uv run python check_regression.py
+      - name: Rodar pytest
+        run: uv run pytest -q
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          JWT_SECRET: ci
+          OPENAI_API_KEY: test-key
+          JWT_SECRET: test-secret
           DATABASE_URL: postgresql://docqa:docqa@localhost:5432/docqa
-          REDIS_URL: redis://localhost:6379
+          REDIS_URL: redis://localhost:1
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

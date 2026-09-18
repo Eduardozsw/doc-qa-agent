@@ -1,0 +1,57 @@
+import json
+from unittest.mock import patch
+
+from evals.runner import DATASET_PATH, EVAL_NAMESPACE, ensure_indexed, runner
+
+
+@patch("evals.runner.ensure_indexed")
+@patch("evals.runner.judge")
+@patch("evals.runner.orchestrator")
+def test_runner_returns_average_and_uses_eval_namespace(mock_orchestrator, mock_judge, mock_ensure_indexed):
+    num_casos = len(json.loads(DATASET_PATH.read_text()))
+    mock_orchestrator.return_value = {"resposta": "resposta qualquer", "fontes": []}
+    mock_judge.return_value = 0.8
+
+    score = runner()
+
+    mock_ensure_indexed.assert_called_once_with()
+    assert mock_orchestrator.call_count == num_casos
+    for call in mock_orchestrator.call_args_list:
+        assert call.kwargs["namespaces"] == [EVAL_NAMESPACE]
+        assert call.kwargs["plan"] == "pro"
+
+    assert score == 0.8
+
+
+@patch("evals.runner.upsert_chunks")
+@patch("evals.runner.load_pages_from_bytes")
+@patch("evals.runner.vectors_db")
+def test_ensure_indexed_skips_when_already_indexed(mock_vectors_db, mock_load_pages, mock_upsert_chunks):
+    mock_vectors_db.count.return_value = 3
+
+    ensure_indexed()
+
+    mock_vectors_db.count.assert_called_once_with(EVAL_NAMESPACE)
+    mock_load_pages.assert_not_called()
+    mock_upsert_chunks.assert_not_called()
+
+
+@patch("evals.runner.upsert_chunks")
+@patch("evals.runner.load_pages_from_bytes")
+@patch("evals.runner.vectors_db")
+def test_ensure_indexed_indexes_pdf_into_eval_namespace(mock_vectors_db, mock_load_pages, mock_upsert_chunks, tmp_path):
+    mock_vectors_db.count.return_value = 0
+    mock_load_pages.return_value = [(1, "texto da pagina 1")]
+
+    fake_pdf = tmp_path / "cab37_hipertensao.pdf"
+    fake_pdf.write_bytes(b"%PDF-1.4 conteudo falso")
+
+    with patch("evals.runner.DEMO_PDF_PATH", fake_pdf):
+        ensure_indexed()
+
+    mock_load_pages.assert_called_once_with(fake_pdf.read_bytes())
+    mock_upsert_chunks.assert_called_once()
+    chunks_arg, doc_name_arg, namespace_arg = mock_upsert_chunks.call_args[0]
+    assert doc_name_arg == EVAL_NAMESPACE
+    assert namespace_arg == EVAL_NAMESPACE
+    assert chunks_arg == [("texto da pagina 1", 1)]

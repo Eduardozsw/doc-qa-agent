@@ -10,7 +10,7 @@ PLANOS.md
 *.doc
 *.xlsx
 *.csv
-docs/
+/docs/
 
 # Python
 __pycache__/
