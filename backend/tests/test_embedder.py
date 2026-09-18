@@ -40,7 +40,30 @@ def test_upsert_chunks_builds_ids_and_batches(mock_client, mock_upsert, mock_enc
     assert [r[1] for r in rows] == [0, 1, 2]
     assert [r[2] for r in rows] == [1, 1, 2]
     assert [r[3] for r in rows] == ["chunk um", "chunk dois", "chunk tres"]
-    assert len(rows[0][4]) == 1536
+    assert [r[4] for r in rows] == ["", "", ""]
+    assert len(rows[0][5]) == 1536
+
+
+@patch("ingestion.embedder._enc")
+@patch("ingestion.embedder.vectors_db.upsert_vectors")
+@patch("ingestion.embedder._client")
+def test_upsert_chunks_embeds_context_plus_text_but_row_keeps_original_text(mock_client, mock_upsert, mock_enc):
+    mock_enc.return_value = _fake_enc()
+    mock_client.return_value.embeddings.create.return_value = _fake_openai_response(2)
+
+    chunks = [("texto original um", 1), ("texto original dois", 2)]
+    contexts = ["contexto do primeiro chunk", ""]
+    embedder.upsert_chunks(chunks, "doc123", "ns1", contexts=contexts)
+
+    # o embedding foi calculado sobre context + "\n\n" + text (quando há contexto)
+    enviado = mock_client.return_value.embeddings.create.call_args.kwargs["input"]
+    assert enviado[0] == "contexto do primeiro chunk\n\ntexto original um"
+    assert enviado[1] == "texto original dois"
+
+    # mas a linha gravada guarda o texto ORIGINAL, sem o contexto
+    _, rows = mock_upsert.call_args[0]
+    assert [r[3] for r in rows] == ["texto original um", "texto original dois"]
+    assert [r[4] for r in rows] == ["contexto do primeiro chunk", ""]
 
 
 @patch("ingestion.embedder._enc")

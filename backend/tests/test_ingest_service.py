@@ -51,11 +51,15 @@ def test_process_file_job_success():
         with patch("services.ingest.uploads_db.delete_temp_file"):
             with patch("services.ingest.load_pages_from_bytes", return_value=[(1, "texto")]):
                 with patch("services.ingest.chunk_pages", return_value=[("chunk1", 1)]):
-                    with patch("services.ingest.upsert_chunks"):
-                        with patch("services.ingest.namespaces_db.add_namespace") as mock_add:
-                            with patch("services.ingest.redis_db.set_cached_namespace"):
-                                process_file_job(job)
+                    with patch("services.ingest.build_preview", return_value="preview"):
+                        with patch("services.ingest.contextualize", return_value=[""]) as mock_ctx:
+                            with patch("services.ingest.upsert_chunks") as mock_upsert:
+                                with patch("services.ingest.namespaces_db.add_namespace") as mock_add:
+                                    with patch("services.ingest.redis_db.set_cached_namespace"):
+                                        process_file_job(job)
     mock_add.assert_called_once_with(USER_ID, "user_sha_doc", "abc123", "doc.pdf")
+    mock_ctx.assert_called_once_with([("chunk1", 1)], "preview")
+    mock_upsert.assert_called_once_with([("chunk1", 1)], "user_sha_doc", "user_sha_doc", [""])
 
 
 def test_process_file_job_deletes_temp_on_error():
@@ -104,6 +108,8 @@ def test_process_file_job_wraps_upsert_error_as_runtime():
         with patch("services.ingest.uploads_db.delete_temp_file"):
             with patch("services.ingest.load_pages_from_bytes", return_value=[(1, "texto")]):
                 with patch("services.ingest.chunk_pages", return_value=[("chunk1", 1)]):
-                    with patch("services.ingest.upsert_chunks", side_effect=Exception("erro de indexação")):
-                        with pytest.raises(RuntimeError, match="salvar"):
-                            process_file_job(job)
+                    with patch("services.ingest.build_preview", return_value="preview"):
+                        with patch("services.ingest.contextualize", return_value=[""]):
+                            with patch("services.ingest.upsert_chunks", side_effect=Exception("erro de indexação")):
+                                with pytest.raises(RuntimeError, match="salvar"):
+                                    process_file_job(job)

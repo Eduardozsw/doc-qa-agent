@@ -1,12 +1,13 @@
 import logging
 
 from core.exceptions import ForbiddenError
-from db import redis as redis_db
 from db import namespaces as namespaces_db
+from db import redis as redis_db
 from db import uploads as uploads_db
-from ingestion.loader import load_pages_from_bytes
 from ingestion.chunker import chunk_pages
-from ingestion.embedder import upsert_chunks, delete_namespace
+from ingestion.contextualizer import build_preview, contextualize
+from ingestion.embedder import delete_namespace, upsert_chunks
+from ingestion.loader import load_pages_from_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +54,14 @@ def process_file_job(job: dict) -> None:
         if not chunks:
             raise ValueError("Não foi possível extrair conteúdo do documento.")
 
+        preview = build_preview("\n".join(text for _, text in pages))
+        contexts = contextualize(chunks, preview)
+        vazios = sum(1 for c in contexts if not c)
+        if vazios:
+            logger.warning(f"Job {job_id} — {vazios}/{len(contexts)} contextos vazios")
+
         try:
-            upsert_chunks(chunks, job["namespace"], job["namespace"])
+            upsert_chunks(chunks, job["namespace"], job["namespace"], contexts)
         except Exception as e:
             logger.error(f"Job {job_id} — falha ao indexar chunks: {e}")
             raise RuntimeError("Erro ao salvar o documento. Tente novamente em alguns instantes.")

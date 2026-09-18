@@ -57,15 +57,29 @@ def delete_namespace(namespace: str) -> None:
     vectors_db.delete_namespace(namespace)
 
 
-def upsert_chunks(chunks: list[tuple[str, int]], doc_name: str, namespace: str = "") -> None:
+def upsert_chunks(
+    chunks: list[tuple[str, int]],
+    doc_name: str,
+    namespace: str = "",
+    contexts: list[str] | None = None,
+) -> None:
+    """Embeda `f"{context}\\n\\n{text}"` quando há contexto (contextual retrieval), mas
+    grava `text` original na coluna `text` — quem lê o chunk (answerer, verificador, tsv)
+    continua vendo só o texto original."""
+    contexts = contexts or ["" for _ in chunks]
+
     for batch_start in range(0, len(chunks), EMBED_BATCH_SIZE):
         batch = chunks[batch_start:batch_start + EMBED_BATCH_SIZE]
-        texts = [text for text, _ in batch]
-        embeddings = embed_texts(texts)
+        batch_contexts = contexts[batch_start:batch_start + EMBED_BATCH_SIZE]
+        textos_para_embedding = [
+            f"{contexto}\n\n{texto}" if contexto else texto
+            for (texto, _), contexto in zip(batch, batch_contexts)
+        ]
+        embeddings = embed_texts(textos_para_embedding)
 
         rows = []
-        for i, ((text, page), vetor) in enumerate(zip(batch, embeddings)):
+        for i, ((text, page), contexto, vetor) in enumerate(zip(batch, batch_contexts, embeddings)):
             idx = batch_start + i
-            rows.append((f"{doc_name}_chunk_{idx}", idx, page, text, vetor))
+            rows.append((f"{doc_name}_chunk_{idx}", idx, page, text, contexto, vetor))
 
         vectors_db.upsert_vectors(namespace, rows)

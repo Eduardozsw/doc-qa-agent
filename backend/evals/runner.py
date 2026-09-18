@@ -7,6 +7,7 @@ from evals.judge import judge
 from evals.retrieval import evaluate_retrieval
 from ingestion import chunker
 from ingestion.chunker import chunk_pages
+from ingestion.contextualizer import build_preview, contextualize
 from ingestion.embedder import upsert_chunks
 from ingestion.loader import load_pages_from_bytes
 from scripts.fetch_demo_pdf import DEMO_PDF_PATH, ensure_pdf
@@ -32,7 +33,9 @@ def ensure_indexed() -> None:
     contents = DEMO_PDF_PATH.read_bytes()
     pages = load_pages_from_bytes(contents)
     chunks = chunk_pages(pages)
-    upsert_chunks(chunks, EVAL_NAMESPACE, EVAL_NAMESPACE)
+    preview = build_preview("\n".join(text for _, text in pages))
+    contexts = contextualize(chunks, preview)
+    upsert_chunks(chunks, EVAL_NAMESPACE, EVAL_NAMESPACE, contexts)
 
 
 def runner() -> dict:

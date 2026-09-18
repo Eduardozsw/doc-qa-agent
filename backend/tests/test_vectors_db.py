@@ -17,9 +17,9 @@ def _vec(a: float, b: float | None = None) -> list[float]:
 @pytest.mark.db
 def test_upsert_and_query_returns_score_in_range_and_best_first(db):
     rows = [
-        ("ns1_chunk_0", 0, 1, "texto idêntico à query", _vec(1, 0)),
-        ("ns1_chunk_1", 1, 2, "texto bem diferente", _vec(0, 1)),
-        ("ns2_chunk_0", 0, 1, "texto de outro namespace", _vec(1, 0)),
+        ("ns1_chunk_0", 0, 1, "texto idêntico à query", "", _vec(1, 0)),
+        ("ns1_chunk_1", 1, 2, "texto bem diferente", "", _vec(0, 1)),
+        ("ns2_chunk_0", 0, 1, "texto de outro namespace", "", _vec(1, 0)),
     ]
     upsert_vectors("ns1", rows[:2])
     upsert_vectors("ns2", rows[2:])
@@ -38,7 +38,7 @@ def test_upsert_and_query_returns_score_in_range_and_best_first(db):
 
 @pytest.mark.db
 def test_query_respects_top_k(db):
-    rows = [(f"ns1_chunk_{i}", i, i, f"texto {i}", _vec(i / 10)) for i in range(5)]
+    rows = [(f"ns1_chunk_{i}", i, i, f"texto {i}", "", _vec(i / 10)) for i in range(5)]
     upsert_vectors("ns1", rows)
 
     results = query("ns1", _vec(0.0), top_k=2)
@@ -53,7 +53,7 @@ def test_query_unknown_namespace_returns_empty(db):
 
 @pytest.mark.db
 def test_delete_namespace_is_idempotent_and_count_zero(db):
-    rows = [("ns1_chunk_0", 0, 1, "texto", _vec(0.1))]
+    rows = [("ns1_chunk_0", 0, 1, "texto", "", _vec(0.1))]
     upsert_vectors("ns1", rows)
     assert count("ns1") == 1
 
@@ -68,9 +68,9 @@ def test_delete_namespace_is_idempotent_and_count_zero(db):
 @pytest.mark.db
 def test_query_keyword_finds_relevant_chunk(db):
     rows = [
-        ("ns1_chunk_0", 0, 1, "o paciente recebeu nitroprussiato de sódio na emergência", _vec(0.1)),
-        ("ns1_chunk_1", 1, 1, "a dieta recomendada reduz o consumo de sódio", _vec(0.2)),
-        ("ns1_chunk_2", 2, 2, "texto totalmente não relacionado sobre outro assunto", _vec(0.3)),
+        ("ns1_chunk_0", 0, 1, "o paciente recebeu nitroprussiato de sódio na emergência", "", _vec(0.1)),
+        ("ns1_chunk_1", 1, 1, "a dieta recomendada reduz o consumo de sódio", "", _vec(0.2)),
+        ("ns1_chunk_2", 2, 2, "texto totalmente não relacionado sobre outro assunto", "", _vec(0.3)),
     ]
     upsert_vectors("ns1", rows)
 
@@ -84,7 +84,7 @@ def test_query_keyword_finds_relevant_chunk(db):
 
 @pytest.mark.db
 def test_query_keyword_stopwords_only_returns_empty(db):
-    rows = [("ns1_chunk_0", 0, 1, "texto de exemplo qualquer", _vec(0.1))]
+    rows = [("ns1_chunk_0", 0, 1, "texto de exemplo qualquer", "", _vec(0.1))]
     upsert_vectors("ns1", rows)
 
     assert query_keyword("ns1", "de o a", top_k=10) == []
@@ -93,8 +93,8 @@ def test_query_keyword_stopwords_only_returns_empty(db):
 @pytest.mark.db
 def test_query_keyword_natural_language_question_matches_partial_chunk(db):
     rows = [
-        ("ns1_chunk_0", 0, 1, "o sódio em excesso agrava o quadro de hipertensos", _vec(0.1)),
-        ("ns1_chunk_1", 1, 2, "texto totalmente não relacionado sobre outro assunto", _vec(0.2)),
+        ("ns1_chunk_0", 0, 1, "o sódio em excesso agrava o quadro de hipertensos", "", _vec(0.1)),
+        ("ns1_chunk_1", 1, 2, "texto totalmente não relacionado sobre outro assunto", "", _vec(0.2)),
     ]
     upsert_vectors("ns1", rows)
 
@@ -111,8 +111,8 @@ def test_query_keyword_natural_language_question_matches_partial_chunk(db):
 @pytest.mark.db
 def test_query_keyword_ranks_more_matched_terms_first(db):
     rows = [
-        ("ns1_chunk_0", 0, 1, "o sódio é um mineral", _vec(0.1)),
-        ("ns1_chunk_1", 1, 2, "o sódio na dieta de hipertensos deve ser controlado", _vec(0.2)),
+        ("ns1_chunk_0", 0, 1, "o sódio é um mineral", "", _vec(0.1)),
+        ("ns1_chunk_1", 1, 2, "o sódio na dieta de hipertensos deve ser controlado", "", _vec(0.2)),
     ]
     upsert_vectors("ns1", rows)
 

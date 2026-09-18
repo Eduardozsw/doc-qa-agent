@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     rerank_candidates: int = 20
     multi_query_enabled: bool = True
 
+    # Ingestão
+    # Desligado por padrão: medido no CAB 37 (doc único de 130 páginas), o prefixo de
+    # contexto reduziu hit@5/MRR/citation_rate em vez de ajudar (ver evals de ablação).
+    contextual_retrieval_enabled: bool = False
+    ocr_enabled: bool = False
+
     # Demo user (seed no boot)
     demo_user_email: str = "demo@local"
     demo_user_password: str = "demo1234"

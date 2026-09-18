@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 UPSERT_BATCH_SIZE = 100
 
 
-def upsert_vectors(namespace: str, rows: list[tuple[str, int, int, str, list[float]]]) -> None:
-    """rows: (id, chunk_index, page, text, embedding)."""
+def upsert_vectors(namespace: str, rows: list[tuple[str, int, int, str, str, list[float]]]) -> None:
+    """rows: (id, chunk_index, page, text, context, embedding)."""
     if not rows:
         return
 
@@ -18,19 +18,20 @@ def upsert_vectors(namespace: str, rows: list[tuple[str, int, int, str, list[flo
         for i in range(0, len(rows), UPSERT_BATCH_SIZE):
             batch = rows[i:i + UPSERT_BATCH_SIZE]
             params = [
-                (id_, namespace, chunk_index, page, text, Vector(embedding))
-                for id_, chunk_index, page, text, embedding in batch
+                (id_, namespace, chunk_index, page, text, context, Vector(embedding))
+                for id_, chunk_index, page, text, context, embedding in batch
             ]
             with conn.cursor() as cur:
                 cur.executemany(
                     """
-                    INSERT INTO chunks (id, namespace, chunk_index, page, text, embedding)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO chunks (id, namespace, chunk_index, page, text, context, embedding)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (id) DO UPDATE SET
                       namespace = EXCLUDED.namespace,
                       chunk_index = EXCLUDED.chunk_index,
                       page = EXCLUDED.page,
                       text = EXCLUDED.text,
+                      context = EXCLUDED.context,
                       embedding = EXCLUDED.embedding
                     """,
                     params,

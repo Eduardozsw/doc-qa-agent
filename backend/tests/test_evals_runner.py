@@ -48,12 +48,18 @@ def test_ensure_indexed_skips_when_already_indexed(mock_vectors_db, mock_load_pa
     mock_upsert_chunks.assert_not_called()
 
 
+@patch("evals.runner.contextualize")
+@patch("evals.runner.build_preview")
 @patch("evals.runner.upsert_chunks")
 @patch("evals.runner.load_pages_from_bytes")
 @patch("evals.runner.vectors_db")
-def test_ensure_indexed_indexes_pdf_into_eval_namespace(mock_vectors_db, mock_load_pages, mock_upsert_chunks, tmp_path):
+def test_ensure_indexed_indexes_pdf_into_eval_namespace(
+    mock_vectors_db, mock_load_pages, mock_upsert_chunks, mock_build_preview, mock_contextualize, tmp_path
+):
     mock_vectors_db.count.return_value = 0
     mock_load_pages.return_value = [(1, "texto da pagina 1")]
+    mock_build_preview.return_value = "preview"
+    mock_contextualize.return_value = [""]
 
     fake_pdf = tmp_path / "cab37_hipertensao.pdf"
     fake_pdf.write_bytes(b"%PDF-1.4 conteudo falso")
@@ -62,8 +68,10 @@ def test_ensure_indexed_indexes_pdf_into_eval_namespace(mock_vectors_db, mock_lo
         ensure_indexed()
 
     mock_load_pages.assert_called_once_with(fake_pdf.read_bytes())
+    mock_contextualize.assert_called_once_with([("texto da pagina 1", 1)], "preview")
     mock_upsert_chunks.assert_called_once()
-    chunks_arg, doc_name_arg, namespace_arg = mock_upsert_chunks.call_args[0]
+    chunks_arg, doc_name_arg, namespace_arg, contexts_arg = mock_upsert_chunks.call_args[0]
     assert doc_name_arg == EVAL_NAMESPACE
     assert namespace_arg == EVAL_NAMESPACE
     assert chunks_arg == [("texto da pagina 1", 1)]
+    assert contexts_arg == [""]

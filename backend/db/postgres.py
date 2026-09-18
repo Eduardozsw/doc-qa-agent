@@ -68,6 +68,10 @@ CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks USING hnsw (embedding 
 ALTER TABLE chunks ADD COLUMN IF NOT EXISTS tsv tsvector GENERATED ALWAYS AS (to_tsvector('portuguese', text)) STORED;
 CREATE INDEX IF NOT EXISTS idx_chunks_tsv ON chunks USING gin (tsv);
 
+-- Contextual retrieval (F4): frase(s) de contexto geradas por LLM, prefixadas ao texto
+-- só na hora do embedding. `text` continua guardando o trecho original (citações/tsv).
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS context TEXT NOT NULL DEFAULT '';
+
 CREATE TABLE IF NOT EXISTS temp_uploads (
   job_id TEXT PRIMARY KEY,
   content BYTEA NOT NULL,
