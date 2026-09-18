@@ -9,7 +9,8 @@ BASE_DIR = Path(__file__).parent
 BASELINE_PATH = BASE_DIR / "baseline" / "main.json"
 LAST_RUN_PATH = BASE_DIR / "evals" / "last_run.json"
 
-TOLERANCE = 0.05
+# ≈ 1 caso em 15 — abaixo disso é ruído do conjunto de eval
+TOLERANCE = 0.07
 
 
 def comparar(baseline: dict, atual: dict) -> list[tuple[str, float, float, bool]]:

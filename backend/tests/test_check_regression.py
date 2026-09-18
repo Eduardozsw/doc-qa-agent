@@ -8,7 +8,7 @@ from check_regression import comparar, formatar_tabela, main
 
 def test_comparar_detecta_regressao_alem_da_tolerancia():
     baseline = {"answer_score": 0.75, "hit@5": 0.6}
-    atual = {"answer_score": 0.75, "hit@5": 0.5}  # caiu 0.1, além da tolerância de 0.05
+    atual = {"answer_score": 0.75, "hit@5": 0.5}  # caiu 0.1, além da tolerância de 0.07
 
     linhas = comparar(baseline, atual)
 
@@ -18,7 +18,7 @@ def test_comparar_detecta_regressao_alem_da_tolerancia():
 
 def test_comparar_dentro_da_tolerancia_nao_regride():
     baseline = {"answer_score": 0.75}
-    atual = {"answer_score": 0.71}  # caiu 0.04, dentro da tolerância de 0.05
+    atual = {"answer_score": 0.69}  # caiu 0.06: regrediria com tolerância de 0.05, mas não com 0.07
 
     linhas = comparar(baseline, atual)
 
