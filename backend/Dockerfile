@@ -10,6 +10,9 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY . .
 
 ENV PATH="/app/.venv/bin:$PATH"
+ENV TIKTOKEN_CACHE_DIR=/app/.tiktoken
+RUN mkdir -p /app/.tiktoken && chmod 777 /app/.tiktoken \
+    && uv run python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 
 EXPOSE 8000
 
