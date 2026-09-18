@@ -82,7 +82,7 @@ export function LoginPage({ redirectTo = '/app' }: { redirectTo?: string }) {
   };
 
   const validateEmail = (value: string) => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+    if (!/^[^@\s]+@[^@\s]+$/.test(value.trim()))
       return 'Informe um email válido.';
     return '';
   };
@@ -96,7 +96,8 @@ export function LoginPage({ redirectTo = '/app' }: { redirectTo?: string }) {
     e.preventDefault();
     setError('');
 
-    const emailErr = validateEmail(email);
+    const trimmedEmail = email.trim();
+    const emailErr = validateEmail(trimmedEmail);
     if (emailErr) { setError(emailErr); return; }
 
     if (mode === 'register') {
@@ -109,9 +110,9 @@ export function LoginPage({ redirectTo = '/app' }: { redirectTo?: string }) {
     setLoading(true);
     try {
       if (mode === 'login') {
-        await signInWithEmail(email, password);
+        await signInWithEmail(trimmedEmail, password);
       } else {
-        await signUp(email, password);
+        await signUp(trimmedEmail, password);
       }
       navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
