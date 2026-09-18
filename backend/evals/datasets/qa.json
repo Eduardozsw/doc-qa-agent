@@ -1,58 +1,82 @@
 [
   {
     "query": "Como é definida a hipertensão arterial sistêmica?",
-    "esperado": "deve mencionar PAS ≥ 140 mmHg e/ou PAD ≥ 90 mmHg confirmada em duas ou mais aferições"
+    "esperado": "deve mencionar PAS ≥ 140 mmHg e/ou PAD ≥ 90 mmHg confirmada em duas ou mais aferições",
+    "tipo": "factual",
+    "paginas_relevantes": [30, 32]
   },
   {
     "query": "Qual o CID-10 da hipertensão arterial sistêmica?",
-    "esperado": "deve mencionar I10"
+    "esperado": "deve dizer que não encontrou essa informação nos documentos, sem inventar um valor",
+    "tipo": "fora_do_documento"
   },
   {
     "query": "Quais são os critérios para diagnóstico de hipertensão?",
-    "esperado": "deve mencionar no mínimo 2 aferições em 2 visitas distintas"
+    "esperado": "deve mencionar no mínimo 2 aferições em 2 visitas distintas",
+    "tipo": "factual",
+    "paginas_relevantes": [31, 32]
   },
   {
     "query": "O que é hipertensão estágio 2?",
-    "esperado": "deve mencionar PAS 160–179 ou PAD 100–109 mmHg"
+    "esperado": "deve mencionar PAS 160–179 ou PAD 100–109 mmHg",
+    "tipo": "factual",
+    "paginas_relevantes": [35]
   },
   {
     "query": "Quais medicamentos são de primeira linha para hipertensão?",
-    "esperado": "deve mencionar diuréticos tiazídicos, bloqueadores do canal de cálcio, IECA e BRA"
+    "esperado": "deve mencionar diuréticos tiazídicos, bloqueadores do canal de cálcio, IECA e BRA",
+    "tipo": "factual",
+    "paginas_relevantes": [60, 61]
   },
   {
     "query": "Quando o IECA é contraindicado?",
-    "esperado": "deve mencionar contraindicação na gestação"
+    "esperado": "deve mencionar contraindicação na gestação",
+    "tipo": "factual",
+    "paginas_relevantes": [73]
   },
   {
     "query": "Qual a meta pressórica para diabéticos?",
-    "esperado": "deve mencionar < 130/80 mmHg"
+    "esperado": "deve mencionar < 130/80 mmHg",
+    "tipo": "factual",
+    "paginas_relevantes": [74]
   },
   {
     "query": "O que é urgência hipertensiva e como tratar?",
-    "esperado": "deve mencionar PAS ≥ 180 ou PAD ≥ 120 sem lesão de órgão-alvo e redução gradual em 24–48h com captopril ou clonidina oral"
+    "esperado": "deve mencionar PAD ≥ 120 mmHg sem lesão de órgão-alvo e tratamento oral com captopril, com redução gradual da PA",
+    "tipo": "factual",
+    "paginas_relevantes": [77]
   },
   {
     "query": "Qual medicamento IV é indicado na emergência hipertensiva?",
-    "esperado": "deve mencionar nitroprussiato de sódio"
+    "esperado": "deve dizer que não encontrou essa informação nos documentos, sem inventar um valor",
+    "tipo": "fora_do_documento"
   },
   {
     "query": "Qual a recomendação de atividade física para hipertensos?",
-    "esperado": "deve mencionar 150 minutos por semana de atividade aeróbica de intensidade moderada"
+    "esperado": "deve mencionar 150 minutos por semana de atividade aeróbica de intensidade moderada",
+    "tipo": "factual",
+    "paginas_relevantes": [102]
   },
   {
     "query": "Qual o limite de sódio na dieta para hipertensos?",
-    "esperado": "deve mencionar menos de 2 g/dia ou menos de 5 g de sal"
+    "esperado": "deve mencionar cerca de 2 g de sódio por dia (aprox. 4–5 g de sal)",
+    "tipo": "factual",
+    "paginas_relevantes": [85]
   },
   {
     "query": "Quando encaminhar ao especialista?",
-    "esperado": "deve mencionar hipertensão resistente, suspeita de hipertensão secundária ou lesão de órgão-alvo"
+    "esperado": "deve mencionar hipertensão resistente, suspeita de hipertensão secundária ou lesão de órgão-alvo",
+    "tipo": "factual",
+    "paginas_relevantes": [62, 65]
   },
   {
     "query": "Qual o preço do enalapril na farmácia?",
-    "esperado": "deve dizer que não encontrou nos documentos"
+    "esperado": "deve dizer que não encontrou nos documentos",
+    "tipo": "fora_do_documento"
   },
   {
     "query": "Como ativar meu Windows?",
-    "esperado": "deve dizer que não encontrou nos documentos"
+    "esperado": "deve dizer que não encontrou nos documentos",
+    "tipo": "fora_do_documento"
   }
 ]

@@ -4,15 +4,19 @@ from unittest.mock import patch
 from evals.runner import DATASET_PATH, EVAL_NAMESPACE, ensure_indexed, runner
 
 
+@patch("evals.runner.evaluate_retrieval")
 @patch("evals.runner.ensure_indexed")
 @patch("evals.runner.judge")
 @patch("evals.runner.orchestrator")
-def test_runner_returns_average_and_uses_eval_namespace(mock_orchestrator, mock_judge, mock_ensure_indexed):
+def test_runner_returns_metrics_dict_and_uses_eval_namespace(
+    mock_orchestrator, mock_judge, mock_ensure_indexed, mock_evaluate_retrieval
+):
     num_casos = len(json.loads(DATASET_PATH.read_text()))
     mock_orchestrator.return_value = {"resposta": "resposta qualquer", "fontes": []}
     mock_judge.return_value = 0.8
+    mock_evaluate_retrieval.return_value = {"hit@3": 0.5, "hit@5": 0.6, "hit@8": 0.7, "mrr": 0.4}
 
-    score = runner()
+    metricas = runner()
 
     mock_ensure_indexed.assert_called_once_with()
     assert mock_orchestrator.call_count == num_casos
@@ -20,7 +24,15 @@ def test_runner_returns_average_and_uses_eval_namespace(mock_orchestrator, mock_
         assert call.kwargs["namespaces"] == [EVAL_NAMESPACE]
         assert call.kwargs["plan"] == "pro"
 
-    assert score == 0.8
+    assert metricas == {
+        "answer_score": 0.8,
+        "hit@3": 0.5,
+        "hit@5": 0.6,
+        "hit@8": 0.7,
+        "mrr": 0.4,
+        "citation_rate": 0.0,
+        "correction_rate": 0.0,
+    }
 
 
 @patch("evals.runner.upsert_chunks")
