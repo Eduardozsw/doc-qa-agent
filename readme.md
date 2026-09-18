@@ -190,6 +190,7 @@ Prefixo `/api`. Todos exceto `auth/register` e `auth/login` exigem `Authorizatio
 | POST | `/api/ingest` | Envia PDF(s), enfileira job de indexação |
 | GET | `/api/ingest/status` | Status de um job de ingestão |
 | DELETE | `/api/ingest` | Remove documento(s) e seus vetores |
+| GET | `/api/files/{namespace}/pdf` | PDF original do documento (visualizador) |
 | POST | `/api/query` | Pergunta, resposta completa |
 | POST | `/api/query/stream` | Pergunta, resposta em streaming (SSE) |
 | POST | `/api/query/feedback` | Registra 👍/👎 de uma resposta |
@@ -233,6 +234,19 @@ pergunta) usam um cache semântico em `query_cache` (pgvector): hit por similari
 `SEMANTIC_CACHE_MIN_SCORE` (padrão 0,97) devolve a resposta salva sem chamar a OpenAI, com TTL de
 `SEMANTIC_CACHE_TTL_HOURS` (padrão 24h); o cache é invalidado por namespace ao remover um documento. Flag
 `SEMANTIC_CACHE_ENABLED` desliga tudo.
+
+## Conflitos entre documentos, roteamento de modelo e visualizador de PDF
+
+Quando trechos de documentos diferentes divergem sobre o mesmo ponto, o verificador devolve `conflitos:
+[{ids, descricao}]` (payload de `POST /query` e evento `done` do streaming); a resposta também explicita
+os dois lados ("o documento A diz X [n]; o documento B diz Y [m]") sem escolher um sem base no texto.
+Roteamento de modelo (opcional, `MODEL_ROUTING_ENABLED=true`): perguntas mais complexas — trechos de ≥ 2
+documentos, pergunta com mais de 60 tokens ou com marcador de premissa ("já que", "considerando que"...) — usam
+`OPENAI_CHAT_MODEL_STRONG` (padrão `gpt-4o`) em vez de `OPENAI_CHAT_MODEL`. Vem desligado: no conjunto de eval
+(um documento só) a diferença ficou dentro do ruído entre rodadas, e o modelo forte custa ~15x mais. O PDF
+original agora é guardado (BYTEA no Postgres, tabela `documents`) em vez de apagado ao fim do ingest, para
+o visualizador do frontend abrir o documento na página/trecho citados via `GET /api/files/{namespace}/pdf`
+— implica um custo de armazenamento proporcional ao volume de PDFs indexados.
 
 ## Decisões e limitações
 
