@@ -3,9 +3,10 @@ from functools import lru_cache
 
 import tiktoken
 
-CHUNKER_VERSION = "v2"
+CHUNKER_VERSION = "v3"
 
 _QUEBRA_SENTENCA = re.compile(r"(?<=[.!?;:])\s+|\n\s*\n")
+_PREFIXO_TITULO = "## "
 
 
 @lru_cache
@@ -37,37 +38,112 @@ def chunk_text(text: str, chunk_size: int = 350, overlap: int = 60) -> list[str]
     if not sentencas:
         return []
 
-    chunks = []
+    blocos: list[list[str]] = []
     atual: list[str] = []
     tokens_atual = 0
 
     for sentenca in sentencas:
         tokens_sentenca = _contar_tokens(sentenca)
         if atual and tokens_atual + tokens_sentenca > chunk_size:
-            chunks.append(" ".join(atual))
+            blocos.append(atual)
             atual = _sentencas_de_overlap(atual, overlap)
             tokens_atual = sum(_contar_tokens(s) for s in atual)
         atual.append(sentenca)
         tokens_atual += tokens_sentenca
 
     if atual:
-        chunks.append(" ".join(atual))
+        blocos.append(atual)
 
-    return chunks
+    _evitar_titulo_orfao(blocos)
+    return [" ".join(bloco) for bloco in blocos if bloco]
+
+
+def _evitar_titulo_orfao(blocos: list[list[str]]) -> None:
+    """Uma linha `## Título` nunca fica sozinha no fim de um chunk: se sobrar como
+    última sentença de um bloco (e houver um próximo), ela migra para o começo do
+    próximo — a menos que já esteja lá por causa do overlap."""
+    for i in range(len(blocos) - 1):
+        while blocos[i] and _e_titulo(blocos[i][-1]):
+            titulo = blocos[i][-1]
+            if blocos[i + 1] and blocos[i + 1][0] == titulo:
+                blocos[i].pop()
+            else:
+                blocos[i + 1].insert(0, blocos[i].pop())
+
+
+def _e_titulo(sentenca: str) -> bool:
+    return sentenca.startswith(_PREFIXO_TITULO)
 
 
 def _sentencas_dentro_do_limite(text: str, chunk_size: int) -> list[str]:
-    """Divide em sentenças; uma sentença isolada maior que chunk_size é fatiada por tokens."""
+    """Divide em sentenças; uma sentença isolada maior que chunk_size é fatiada por
+    tokens. Blocos de tabela markdown (linhas começando com `|`) são tratados à parte,
+    como sentença(s) atômica(s) — nunca quebrados no meio de uma linha de dados."""
     sentencas = []
-    for sentenca in _QUEBRA_SENTENCA.split(text):
-        sentenca = sentenca.strip()
-        if not sentenca:
+    for tipo, bloco in _dividir_blocos(text):
+        if tipo == "tabela":
+            sentencas.extend(_processar_tabela(bloco, chunk_size))
             continue
-        if _contar_tokens(sentenca) > chunk_size:
-            sentencas.extend(_fatiar_por_tokens(sentenca, chunk_size))
-        else:
-            sentencas.append(sentenca)
+        for sentenca in _QUEBRA_SENTENCA.split(bloco):
+            sentenca = sentenca.strip()
+            if not sentenca:
+                continue
+            if _contar_tokens(sentenca) > chunk_size:
+                sentencas.extend(_fatiar_por_tokens(sentenca, chunk_size))
+            else:
+                sentencas.append(sentenca)
     return sentencas
+
+
+def _dividir_blocos(text: str) -> list[tuple[str, str]]:
+    """Agrupa linhas consecutivas em blocos ("tabela" ou "texto")."""
+    blocos: list[tuple[str, str]] = []
+    linhas_atual: list[str] = []
+    tipo_atual: str | None = None
+
+    for linha in text.split("\n"):
+        tipo = "tabela" if linha.strip().startswith("|") else "texto"
+        if tipo_atual is not None and tipo != tipo_atual:
+            blocos.append((tipo_atual, "\n".join(linhas_atual)))
+            linhas_atual = []
+        tipo_atual = tipo
+        linhas_atual.append(linha)
+
+    if linhas_atual:
+        blocos.append((tipo_atual, "\n".join(linhas_atual)))
+
+    return blocos
+
+
+def _processar_tabela(bloco: str, chunk_size: int) -> list[str]:
+    """Tabela markdown como sentença única; se exceder o orçamento, fatia por linhas
+    repetindo o cabeçalho (2 primeiras linhas: título/colunas + separador) em cada fatia."""
+    bloco = bloco.strip("\n")
+    if _contar_tokens(bloco) <= chunk_size:
+        return [bloco]
+
+    linhas = bloco.split("\n")
+    if len(linhas) <= 2:
+        return [bloco]
+
+    cabecalho = linhas[:2]
+    dados = linhas[2:]
+
+    fatias = []
+    atual = list(cabecalho)
+    tokens_atual = _contar_tokens("\n".join(atual))
+    for linha in dados:
+        tokens_linha = _contar_tokens(linha)
+        if len(atual) > 2 and tokens_atual + tokens_linha > chunk_size:
+            fatias.append("\n".join(atual))
+            atual = list(cabecalho)
+            tokens_atual = _contar_tokens("\n".join(atual))
+        atual.append(linha)
+        tokens_atual += tokens_linha
+    if len(atual) > 2:
+        fatias.append("\n".join(atual))
+
+    return fatias
 
 
 def _fatiar_por_tokens(sentenca: str, chunk_size: int) -> list[str]:
