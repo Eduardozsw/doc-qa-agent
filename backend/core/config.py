@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str
     openai_chat_model: str = "gpt-4o-mini"
+    openai_chat_model_strong: str = "gpt-4o"
+
+    # Roteamento de modelo (F6): perguntas complexas (multi-documento, longas ou com
+    # marcador de premissa) usam `openai_chat_model_strong` em vez do padrão.
+    # Desligado por padrão: no eval (documento único) não houve ganho mensurável e o gpt-4o custa ~15x mais.
+    model_routing_enabled: bool = False
 
     # Auth
     jwt_secret: str
