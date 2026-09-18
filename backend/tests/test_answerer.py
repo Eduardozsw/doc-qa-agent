@@ -139,3 +139,20 @@ def test_context_includes_documento_e_pagina(mock_client):
     content = messages[-1]["content"]
     assert 'documento="protocolo.pdf"' in content
     assert 'pagina="12"' in content
+
+
+def test_system_prompt_nao_vaza_casos_do_eval():
+    """O few-shot não pode reproduzir casos do eval: o modelo copiava a citação do exemplo
+    e o correction_rate ficava inflado."""
+    import json
+    import re
+    from pathlib import Path
+
+    from agent.answerer import _SYSTEM
+
+    dataset = json.loads((Path(__file__).parent.parent / "evals" / "datasets" / "qa.json").read_text())
+    valores = set()
+    for caso in dataset:
+        valores.update(re.findall(r"\d+\s*/\s*\d+|\d{3,}", caso["query"] + " " + caso["esperado"]))
+    vazados = [v for v in valores if v in _SYSTEM]
+    assert not vazados, f"valores de casos do eval no prompt: {vazados}"
