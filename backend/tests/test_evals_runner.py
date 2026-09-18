@@ -23,6 +23,7 @@ def test_runner_returns_metrics_dict_and_uses_eval_namespace(
     for call in mock_orchestrator.call_args_list:
         assert call.kwargs["namespaces"] == [EVAL_NAMESPACE]
         assert call.kwargs["plan"] == "pro"
+        assert call.kwargs["use_cache"] is False
 
     assert metricas == {
         "answer_score": 0.8,

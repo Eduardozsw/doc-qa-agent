@@ -9,8 +9,12 @@ _RRF_K = 60
 _SUB_TOP_K = 20
 
 
-def retrieve(query: str, top_k: int = 12, namespaces: list[str] = [""]) -> list[tuple[float, str, str, int]]:
-    xq = embed_text(query)
+def retrieve(
+    query: str, top_k: int = 12, namespaces: list[str] = [""], embedding: list[float] | None = None
+) -> list[tuple[float, str, str, int]]:
+    """`embedding`, se informado (cache semântico já o calculou para a pergunta
+    original), evita recalcular o embedding de `query` aqui."""
+    xq = embedding if embedding is not None else embed_text(query)
     hybrid = get_settings().hybrid_search
 
     def busca(namespace: str) -> tuple[str, list[tuple[str, int]], list[tuple[str, int]]]:

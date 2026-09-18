@@ -2,6 +2,7 @@ import logging
 
 from core.exceptions import ForbiddenError
 from db import namespaces as namespaces_db
+from db import query_cache as query_cache_db
 from db import redis as redis_db
 from db import uploads as uploads_db
 from ingestion.chunker import chunk_pages
@@ -34,6 +35,10 @@ async def remove_files(user_id: str, namespaces: list[str]) -> None:
             delete_namespace(ns)
         except Exception as e:
             logger.error(f"Falha ao apagar vetores do namespace {ns}: {e}")
+        try:
+            query_cache_db.invalidate_namespace(ns)
+        except Exception as e:
+            logger.error(f"Falha ao invalidar cache semântico do namespace {ns}: {e}")
 
 
 def process_file_job(job: dict) -> None:

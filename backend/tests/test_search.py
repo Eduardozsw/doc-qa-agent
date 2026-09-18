@@ -14,7 +14,7 @@ def _limpar_settings():
 def test_multi_query_une_e_soma_scores(mock_retrieve, mock_expand, mock_rerank):
     mock_expand.return_value = ["variante 1", "variante 2"]
 
-    def fake_retrieve(query, top_k, namespaces):
+    def fake_retrieve(query, top_k, namespaces, embedding=None):
         if query == "pergunta curta":
             return [(0.5, "ns", "chunk comum", 1), (0.3, "ns", "só na original", 2)]
         if query == "variante 1":
@@ -93,6 +93,24 @@ def test_rerank_desligado_pula_chamada(mock_retrieve, mock_expand, mock_rerank, 
     mock_rerank.assert_not_called()
     assert len(resultados) == 5
     assert resultados == candidatos[:5]
+    _limpar_settings()
+
+
+@patch("agent.search.expand_query")
+@patch("agent.search.retrieve")
+def test_embedding_precomputado_e_repassado_para_retrieve(mock_retrieve, mock_expand, monkeypatch):
+    """Cache semântico (F5): embedding já calculado da pergunta original chega ao
+    retrieve() sem recalcular — search() nunca chama embed_text diretamente, só
+    repassa o parâmetro adiante."""
+    monkeypatch.setenv("MULTI_QUERY_ENABLED", "false")
+    _limpar_settings()
+    mock_retrieve.return_value = [(0.9, "ns", "texto", 1)]
+    precomputado = [0.7] * 1536
+
+    search("pergunta", namespaces=["ns"], top_k=12, embedding=precomputado)
+
+    mock_retrieve.assert_called_once_with("pergunta", top_k=20, namespaces=["ns"], embedding=precomputado)
+    mock_expand.assert_not_called()
     _limpar_settings()
 
 

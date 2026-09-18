@@ -94,3 +94,20 @@ def test_embedding_computed_once_regardless_of_namespaces(mock_embed_text, mock_
     retrieve("pergunta", top_k=10, namespaces=["ns1", "ns2", "ns3"])
 
     mock_embed_text.assert_called_once_with("pergunta")
+
+
+@patch("agent.retriever.vectors_db.query_keyword")
+@patch("agent.retriever.vectors_db.query")
+@patch("agent.retriever.embed_text")
+def test_precomputed_embedding_skips_embed_text(mock_embed_text, mock_query, mock_query_keyword):
+    """Cache semântico (F5) já calcula o embedding da pergunta; passado via `embedding`,
+    retrieve() não deve recalculá-lo."""
+    precomputado = [0.9] * 1536
+    mock_query.return_value = [(0.5, "texto", 1)]
+    mock_query_keyword.return_value = []
+
+    results = retrieve("pergunta", top_k=10, namespaces=["ns1"], embedding=precomputado)
+
+    mock_embed_text.assert_not_called()
+    mock_query.assert_called_once_with("ns1", precomputado, 20)
+    assert len(results) == 1

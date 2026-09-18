@@ -16,9 +16,13 @@ from core.config import Settings, get_settings
 _MULTI_QUERY_MAX_PALAVRAS = 8
 
 
-def search(query: str, namespaces: list[str], top_k: int = 12) -> list[tuple[float, str, str, int]]:
+def search(
+    query: str, namespaces: list[str], top_k: int = 12, embedding: list[float] | None = None
+) -> list[tuple[float, str, str, int]]:
+    """`embedding`, se informado, é o embedding já calculado de `query` (cache
+    semântico) — evita recalculá-lo na primeira busca (a original, sem reformulação)."""
     settings = get_settings()
-    candidatos = _buscar_candidatos(query, namespaces, settings)
+    candidatos = _buscar_candidatos(query, namespaces, settings, embedding)
 
     if settings.rerank_enabled and len(candidatos) > top_k:
         with tracing.span("rerank") as s:
@@ -33,13 +37,13 @@ def search(query: str, namespaces: list[str], top_k: int = 12) -> list[tuple[flo
 
 
 def _buscar_candidatos(
-    query: str, namespaces: list[str], settings: Settings
+    query: str, namespaces: list[str], settings: Settings, embedding: list[float] | None = None
 ) -> list[tuple[float, str, str, int]]:
     """Busca os candidatos a serem (opcionalmente) reranqueados: a pergunta original
     sozinha, ou ela + até 3 reformulações unidas por soma de score RRF."""
     palavras = len(query.split())
     if not (settings.multi_query_enabled and palavras < _MULTI_QUERY_MAX_PALAVRAS):
-        return retrieve(query, top_k=settings.rerank_candidates, namespaces=namespaces)
+        return retrieve(query, top_k=settings.rerank_candidates, namespaces=namespaces, embedding=embedding)
 
     with tracing.span("expand") as s:
         variantes = expand_query(query)
@@ -48,7 +52,11 @@ def _buscar_candidatos(
     queries = [query] + variantes
     with ThreadPoolExecutor() as executor:
         resultados = list(executor.map(
-            lambda q: retrieve(q, top_k=settings.rerank_candidates, namespaces=namespaces), queries
+            lambda q: retrieve(
+                q, top_k=settings.rerank_candidates, namespaces=namespaces,
+                embedding=embedding if q == query else None,
+            ),
+            queries,
         ))
 
     return _unir_por_chave(resultados)

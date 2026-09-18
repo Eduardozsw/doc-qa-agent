@@ -51,6 +51,21 @@ def test_disabled_flush_is_noop():
     tracing.flush()  # não deve levantar nem tentar rede
 
 
+def test_disabled_trace_id_of_is_none():
+    root = tracing.root_span("doc-qa-stream")
+    assert tracing.trace_id_of(root) is None
+    assert tracing.trace_id_of(None) is None
+
+
+def test_disabled_score_is_noop():
+    # Não deve levantar nem tentar rede, mesmo com um trace_id "válido".
+    tracing.score("trace-123", "user_feedback", 1, "comentário")
+
+
+def test_disabled_score_with_none_trace_id_is_noop():
+    tracing.score(None, "user_feedback", -1)
+
+
 # --------------------------------------------------------------------------- #
 # Habilitado, mas com get_client()/propagate_attributes mockados (sem rede)
 # --------------------------------------------------------------------------- #
@@ -160,6 +175,55 @@ def test_enabled_flush_delegates_to_langfuse_client(monkeypatch):
     fake_client.flush.assert_called_once()
 
 
+def test_enabled_trace_id_of_reads_attribute(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-fake")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-fake")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", "http://localhost:1")
+
+    fake_observation = MagicMock()
+    fake_observation.trace_id = "trace-abc"
+
+    assert tracing.trace_id_of(fake_observation) == "trace-abc"
+    assert tracing.trace_id_of(None) is None
+
+
+def test_enabled_score_delegates_to_create_score(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-fake")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-fake")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", "http://localhost:1")
+
+    fake_client = MagicMock()
+    with patch("langfuse.get_client", return_value=fake_client):
+        tracing.score("trace-123", "user_feedback", 1, "muito bom")
+
+    fake_client.create_score.assert_called_once_with(
+        trace_id="trace-123", name="user_feedback", value=1, comment="muito bom"
+    )
+
+
+def test_enabled_score_swallows_exceptions(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-fake")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-fake")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", "http://localhost:1")
+
+    fake_client = MagicMock()
+    fake_client.create_score.side_effect = RuntimeError("rede fora")
+    with patch("langfuse.get_client", return_value=fake_client):
+        tracing.score("trace-123", "user_feedback", 1)  # não deve levantar
+
+
+def test_enabled_score_without_trace_id_skips_client(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-fake")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-fake")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", "http://localhost:1")
+
+    fake_client = MagicMock()
+    with patch("langfuse.get_client", return_value=fake_client):
+        tracing.score(None, "user_feedback", 1)
+
+    fake_client.create_score.assert_not_called()
+
+
 # --------------------------------------------------------------------------- #
 # Integração: orchestrator_stream servido como a API real serve (generator
 # síncrono consumido via starlette.concurrency.iterate_in_threadpool, que copia
@@ -178,6 +242,12 @@ def test_stream_spans_share_trace_id_and_propagate_user_id(monkeypatch):
 
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-inmemory-test")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-inmemory-test")
+
+    # Este teste cobre propagação de trace/contexto, não o cache semântico (F5):
+    # desliga-o para não depender de embed_text (chamada real à OpenAI).
+    monkeypatch.setenv("SEMANTIC_CACHE_ENABLED", "false")
+    from core.config import get_settings
+    get_settings.cache_clear()
 
     exporter = InMemorySpanExporter()
     # Cliente real (SDK inteiro roda de verdade), mas o exportador é em memória:
@@ -243,3 +313,5 @@ def test_stream_spans_share_trace_id_and_propagate_user_id(monkeypatch):
 
     root = next(s for s in spans if s.name == "doc-qa-stream")
     assert root.attributes.get("user.id") == "user-123"
+
+    get_settings.cache_clear()

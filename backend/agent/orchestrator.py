@@ -9,12 +9,27 @@ from agent.context import _SEM_INFO, display_name, extract_citation_ids, is_sem_
 from agent.query_rewriter import rewrite_query
 from agent.search import search
 from core import tracing
+from core.config import get_settings
 from core.limits import get_limit
+from db import query_cache as query_cache_db
 from guardrails.validator import Verification, verify
+from ingestion.embedder import embed_text
 
 logger = logging.getLogger(__name__)
 
 _STATUS_LENTO = "Verificando o embasamento — está demorando mais que o normal"
+
+
+def _cache_habilitado(historico: list[dict], summary: str, use_cache: bool) -> bool:
+    """Cache semântico só é consultado sem histórico/resumo (com eles, `rewrite_query`
+    reescreve a pergunta e o embedding calculado aqui deixaria de corresponder ao que
+    de fato é buscado) e quando `use_cache` é True — evals passam `use_cache=False`
+    para medir o pipeline de verdade a cada rodada, em vez de respostas cacheadas."""
+    return use_cache and get_settings().semantic_cache_enabled and not historico and not summary
+
+
+def _namespaces_key(namespaces: list[str]) -> str:
+    return ",".join(sorted(namespaces))
 
 
 def _montar_citacoes(
@@ -67,23 +82,39 @@ def orchestrator(
     summary: str = "",
     user_id: str | None = None,
     session_id: str | None = None,
+    use_cache: bool = True,
 ) -> dict:
     if not namespaces:
         namespaces = [""]
 
     include_page = get_limit(plan, "page_number")
+    settings = get_settings()
+    cache_habilitado = _cache_habilitado(historico, summary, use_cache)
+    namespaces_key = _namespaces_key(namespaces)
 
     # Tudo síncrono aqui (sem yield no meio), então dá pra usar os helpers "current"
     # normais: user_session cobre a árvore inteira de spans/generations criados dentro.
     with tracing.span("doc-qa", input={"query": query, "plan": plan, "namespaces": namespaces}) as trace, \
             tracing.user_session(user_id, session_id):
+        trace_id = tracing.trace_id_of(trace)
+
+        embedding = None
+        if cache_habilitado:
+            embedding = embed_text(query)
+            with tracing.span("cache") as s:
+                cached = query_cache_db.lookup(namespaces_key, embedding, min_score=settings.semantic_cache_min_score)
+                s.update(output={"hit": cached is not None})
+            if cached is not None:
+                result = {**cached, "cached": True, "trace_id": trace_id}
+                trace.update(output=result)
+                return result
 
         with tracing.span("rewrite") as s:
             retrieval_query = rewrite_query(query, historico, summary)
             s.update(output=retrieval_query)
 
         with tracing.span("retrieve") as s:
-            chunks_with_sources = search(retrieval_query, namespaces=namespaces)
+            chunks_with_sources = search(retrieval_query, namespaces=namespaces, embedding=embedding)
             s.update(output={
                 "chunks_count": len(chunks_with_sources),
                 "fontes": [c[1] for c in chunks_with_sources],
@@ -91,7 +122,7 @@ def orchestrator(
 
         if not chunks_with_sources:
             tracing.update_trace(tags=["blocked"])
-            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False}
+            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False, "trace_id": trace_id}
             trace.update(output=result)
             return result
 
@@ -109,7 +140,7 @@ def orchestrator(
             s.update(output={"fundamentada": verification.fundamentada, "correcao": verification.correcao})
 
         if is_sem_info(resposta):
-            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False}
+            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False, "trace_id": trace_id}
             trace.update(output=result)
             return result
 
@@ -117,7 +148,7 @@ def orchestrator(
 
         if _bloqueado(verification.fundamentada, citation_ids):
             tracing.update_trace(tags=["blocked"])
-            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False}
+            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False, "trace_id": trace_id}
             trace.update(output=result)
             return result
 
@@ -127,8 +158,16 @@ def orchestrator(
             "fontes": _montar_fontes(citacoes),
             "citacoes": citacoes,
             "correcao": verification.correcao,
+            "trace_id": trace_id,
         }
         trace.update(output=result)
+
+        if cache_habilitado:
+            cache_payload = {k: v for k, v in result.items() if k != "trace_id"}
+            query_cache_db.store(
+                namespaces_key, namespaces, embedding, query, cache_payload, ttl_hours=settings.semantic_cache_ttl_hours
+            )
+
         return result
 
 
@@ -140,11 +179,16 @@ def orchestrator_stream(
     summary: str = "",
     user_id: str | None = None,
     session_id: str | None = None,
+    use_cache: bool = True,
 ) -> Generator[str, None, None]:
     if not namespaces:
         namespaces = [""]
 
     include_page = get_limit(plan, "page_number")
+    settings = get_settings()
+    cache_habilitado = _cache_habilitado(historico, summary, use_cache)
+    namespaces_key = _namespaces_key(namespaces)
+    embedding: list[float] | None = None
 
     # ATENÇÃO: este generator é consumido via starlette.concurrency.iterate_in_threadpool
     # (StreamingResponse com generator síncrono), e cada `next()` roda numa cópia NOVA
@@ -156,22 +200,39 @@ def orchestrator_stream(
     # seu próprio bloco, então usam o tracing.span() normal, desde que dentro de um
     # tracing.active(root, ...) daquele trecho.
     root = tracing.root_span("doc-qa-stream", input={"query": query, "plan": plan, "namespaces": namespaces})
+    trace_id = tracing.trace_id_of(root)
     try:
+        cached = None
         with tracing.active(root, user_id=user_id, session_id=session_id):
-            with tracing.span("rewrite") as s:
-                retrieval_query = rewrite_query(query, historico, summary)
-                s.update(output=retrieval_query)
+            if cache_habilitado:
+                embedding = embed_text(query)
+                with tracing.span("cache") as s:
+                    cached = query_cache_db.lookup(namespaces_key, embedding, min_score=settings.semantic_cache_min_score)
+                    s.update(output={"hit": cached is not None})
 
-            with tracing.span("retrieve") as s:
-                chunks_with_sources = search(retrieval_query, namespaces=namespaces)
-                s.update(output={
-                    "chunks_count": len(chunks_with_sources),
-                    "fontes": [c[1] for c in chunks_with_sources],
-                })
+            if cached is None:
+                with tracing.span("rewrite") as s:
+                    retrieval_query = rewrite_query(query, historico, summary)
+                    s.update(output=retrieval_query)
 
-            if not chunks_with_sources:
-                tracing.update_trace(tags=["blocked"])
-                root.update(output={"blocked": True})
+                with tracing.span("retrieve") as s:
+                    chunks_with_sources = search(retrieval_query, namespaces=namespaces, embedding=embedding)
+                    s.update(output={
+                        "chunks_count": len(chunks_with_sources),
+                        "fontes": [c[1] for c in chunks_with_sources],
+                    })
+
+                if not chunks_with_sources:
+                    tracing.update_trace(tags=["blocked"])
+                    root.update(output={"blocked": True})
+
+        if cached is not None:
+            resposta_cache = cached.get("resposta", "")
+            yield f"data: {json.dumps({'type': 'chunk', 'text': resposta_cache})}\n\n"
+            done_cache = {**cached, "type": "done", "blocked": False, "cached": True, "trace_id": trace_id}
+            yield f"data: {json.dumps(done_cache)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
 
         if not chunks_with_sources:
             yield f"data: {json.dumps({'type': 'blocked'})}\n\n"
@@ -264,7 +325,17 @@ def orchestrator_stream(
                 "citacoes": citacoes, "correcao": correcao,
             })
 
-        yield f"data: {json.dumps({'type': 'done', 'fontes': fontes, 'blocked': bloqueado, 'resposta': resposta_final, 'citacoes': citacoes, 'correcao': correcao})}\n\n"
+        if cache_habilitado and not bloqueado and not sem_info:
+            cache_payload = {
+                "resposta": resposta_final, "fontes": fontes, "citacoes": citacoes, "correcao": correcao,
+            }
+            query_cache_db.store(
+                namespaces_key, namespaces, embedding, query, cache_payload, ttl_hours=settings.semantic_cache_ttl_hours
+            )
+
+        yield (
+            f"data: {json.dumps({'type': 'done', 'fontes': fontes, 'blocked': bloqueado, 'resposta': resposta_final, 'citacoes': citacoes, 'correcao': correcao, 'trace_id': trace_id})}\n\n"
+        )
         yield "data: [DONE]\n\n"
     finally:
         # Cobre também o caso do cliente desconectar no meio do streaming: o

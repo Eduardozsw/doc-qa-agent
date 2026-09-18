@@ -33,6 +33,28 @@ class QueryRequest(BaseModel):
         return v
 
 
+class FeedbackRequest(BaseModel):
+    trace_id: str | None = None
+    score: int
+    comentario: str = ""
+    pergunta: str = ""
+    resposta: str = ""
+
+    @field_validator("score")
+    @classmethod
+    def validate_score(cls, v: int) -> int:
+        if v not in (1, -1):
+            raise ValueError("score deve ser 1 ou -1")
+        return v
+
+    @field_validator("comentario")
+    @classmethod
+    def validate_comentario(cls, v: str) -> str:
+        if len(v) > 1000:
+            raise ValueError("comentario excede 1000 caracteres")
+        return v
+
+
 class DeleteRequest(BaseModel):
     namespaces: list[str]
 

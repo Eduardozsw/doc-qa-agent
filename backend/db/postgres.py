@@ -77,6 +77,33 @@ CREATE TABLE IF NOT EXISTS temp_uploads (
   content BYTEA NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- F5: feedback do usuário (👍/👎) por resposta, opcionalmente ligado a um trace do
+-- Langfuse (trace_id fica NULL se o tracing estiver desligado).
+CREATE TABLE IF NOT EXISTS feedback (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  trace_id TEXT,
+  score SMALLINT NOT NULL CHECK (score IN (-1, 1)),
+  comentario TEXT NOT NULL DEFAULT '',
+  pergunta TEXT NOT NULL DEFAULT '',
+  resposta TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- F5: cache semântico de respostas por conjunto de namespaces. Hit por similaridade
+-- de cosseno (>= semantic_cache_min_score), com TTL e invalidação por namespace.
+CREATE TABLE IF NOT EXISTS query_cache (
+  id BIGSERIAL PRIMARY KEY,
+  namespaces_key TEXT NOT NULL,
+  namespaces TEXT[] NOT NULL,
+  embedding VECTOR(1536) NOT NULL,
+  query TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_query_cache_namespaces_key ON query_cache(namespaces_key);
 """
 
 

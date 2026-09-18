@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     contextual_retrieval_enabled: bool = False
     ocr_enabled: bool = False
 
+    # Cache semântico (F5): hit por similaridade de cosseno entre a pergunta e o
+    # cache do mesmo conjunto de namespaces. Só é consultado sem histórico/resumo.
+    semantic_cache_enabled: bool = True
+    semantic_cache_min_score: float = 0.97
+    semantic_cache_ttl_hours: int = 24
+
     # Demo user (seed no boot)
     demo_user_email: str = "demo@local"
     demo_user_password: str = "demo1234"

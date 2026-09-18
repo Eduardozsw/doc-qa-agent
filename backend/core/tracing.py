@@ -19,12 +19,15 @@ famílias de helpers aqui:
   `opentelemetry.trace.use_span(..., end_on_exit=False)`) só nos trechos
   síncronos entre os yields.
 """
+import logging
 import os
 from contextlib import contextmanager
 
 import openai as _openai
 
 import core.config  # noqa: F401 - garante que load_dotenv() já rodou antes de olhar os.environ
+
+logger = logging.getLogger(__name__)
 
 
 def tracing_enabled() -> bool:
@@ -156,3 +159,25 @@ def flush() -> None:
         return
     from langfuse import get_client
     get_client().flush()
+
+
+def trace_id_of(observation) -> str | None:
+    """Id do trace ao qual `observation` (span raiz de `span()`/`root_span()`) pertence.
+    No-op (retorna None) se o tracing estiver desligado ou `observation` for None/NoOp
+    (SDK 4.x do langfuse expõe `.trace_id` diretamente na observation)."""
+    if not tracing_enabled() or observation is None:
+        return None
+    return getattr(observation, "trace_id", None)
+
+
+def score(trace_id: str | None, name: str, value: int, comment: str | None = None) -> None:
+    """Registra um score (ex.: feedback do usuário) no trace `trace_id` no Langfuse Cloud.
+    No-op se o tracing estiver desligado ou `trace_id` for None. Qualquer exceção (rede,
+    SDK) só é logada — feedback nunca deve derrubar a request."""
+    if not tracing_enabled() or not trace_id:
+        return
+    try:
+        from langfuse import get_client
+        get_client().create_score(trace_id=trace_id, name=name, value=value, comment=comment)
+    except Exception as e:
+        logger.warning(f"tracing.score falhou: {e}")

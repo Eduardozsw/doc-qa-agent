@@ -33,7 +33,8 @@ def db():
 
     with get_pool().connection() as conn:
         conn.execute(
-            "TRUNCATE users, namespaces, conversations, messages, chunks, temp_uploads "
+            "TRUNCATE users, namespaces, conversations, messages, chunks, temp_uploads, "
+            "feedback, query_cache "
             "RESTART IDENTITY CASCADE"
         )
         conn.commit()

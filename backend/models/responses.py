@@ -15,6 +15,8 @@ class QueryResponse(BaseModel):
     fontes: list[str]
     citacoes: list[Citacao] = []
     correcao: bool = False
+    trace_id: str | None = None
+    cached: bool = False
 
 
 class ListFilesResponse(BaseModel):
