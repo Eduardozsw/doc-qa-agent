@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # Upload
     max_file_size_mb: int = 50
 
+    # Retrieval
+    hybrid_search: bool = True
+
     # Demo user (seed no boot)
     demo_user_email: str = "demo@local"
     demo_user_password: str = "demo1234"

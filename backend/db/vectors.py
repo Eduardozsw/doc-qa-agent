@@ -54,6 +54,32 @@ def query(namespace: str, embedding: list[float], top_k: int = 10) -> list[tuple
     return [(row["score"], row["text"], row["page"]) for row in rows]
 
 
+def query_keyword(namespace: str, query_text: str, top_k: int = 10) -> list[tuple[float, str, int]]:
+    with get_conn() as conn:
+        lexemes = conn.execute(
+            "SELECT tsvector_to_array(to_tsvector('portuguese', %s)) AS lexemes", (query_text,)
+        ).fetchone()["lexemes"]
+        if not lexemes:
+            return []
+
+        # OR (não AND): perguntas em linguagem natural raramente casam todos os termos;
+        # com OR o ranking (ts_rank_cd) ainda favorece quem casa mais lexemas. Usamos a
+        # config 'simple' no to_tsquery externo porque os lexemas já vieram stemizados
+        # pelo 'portuguese' acima — re-stemizá-los (com 'portuguese' de novo) distorce
+        # palavras já reduzidas (ex.: 'sódi' vira 'sód') e quebra o match.
+        rows = conn.execute(
+            """
+            SELECT text, page, ts_rank_cd(tsv, q) AS score
+            FROM chunks, to_tsquery('simple', array_to_string(%s::text[], ' | ')) AS q
+            WHERE namespace = %s AND tsv @@ q
+            ORDER BY score DESC
+            LIMIT %s
+            """,
+            (lexemes, namespace, top_k),
+        ).fetchall()
+    return [(row["score"], row["text"], row["page"]) for row in rows]
+
+
 def delete_namespace(namespace: str) -> None:
     with get_conn() as conn:
         conn.execute("DELETE FROM chunks WHERE namespace = %s", (namespace,))

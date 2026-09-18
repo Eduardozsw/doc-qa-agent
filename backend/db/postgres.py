@@ -65,6 +65,9 @@ CREATE TABLE IF NOT EXISTS chunks (
 CREATE INDEX IF NOT EXISTS idx_chunks_namespace ON chunks(namespace);
 CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks USING hnsw (embedding vector_cosine_ops);
 
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS tsv tsvector GENERATED ALWAYS AS (to_tsvector('portuguese', text)) STORED;
+CREATE INDEX IF NOT EXISTS idx_chunks_tsv ON chunks USING gin (tsv);
+
 CREATE TABLE IF NOT EXISTS temp_uploads (
   job_id TEXT PRIMARY KEY,
   content BYTEA NOT NULL,
