@@ -99,8 +99,21 @@ O prompt distingue três situações, e essa distinção é o que torna a corre�
 | Documento **não fala** da premissa | Diz que o documento não confirma — **sem** "Correção" (ausência ≠ erro) |
 | Nada relevante | Frase fixa de "não encontrei" |
 
-Um exemplo few-shot no prompt (a meta de 140/90 para diabéticos) ensinou o formato melhor do que qualquer
-instrução. Resultado: **5/5** perguntas com premissa falsa corrigidas desde a primeira rodada.
+Um exemplo few-shot no prompt ensinou o formato melhor do que qualquer instrução. Resultado: **5/5** perguntas
+com premissa falsa corrigidas.
+
+**Um erro meu que vale como lição.** O primeiro exemplo few-shot era "a meta pressórica para diabéticos não é
+140/90" — ou seja, **um dos próprios casos do eval**. No teste de ponta a ponta, o modelo copiou a citação do
+exemplo ("a meta pressórica para diabéticos é menor que 130/80 mmHg"), que não existe com essas palavras no PDF. O
+verificador pegou (`verificada=False`), mas o eval estava contaminado: aquele caso tinha a resposta pronta no
+prompt. O exemplo foi trocado por um de outro domínio (prazo de rescisão de contrato), com a instrução "nunca
+reutilize frases do exemplo", e um teste (`test_system_prompt_nao_vaza_casos_do_eval`) falha se algum valor dos
+casos do eval aparecer no prompt. Depois da troca, a correção continuou em **5/5** — o comportamento é real — mas a
+nota do caso de diabéticos caiu de 1,0 para 0,6 e a nota média ficou em ~0,86 (duas rodadas: 0,83 e 0,88), contra
+~0,92 antes. Parte do número antigo era o exemplo "colando" a resposta.
+
+> **Lição:** exemplos few-shot, dados de teste e casos de eval precisam ser disjuntos, como treino e teste em ML.
+> Um exemplo do mesmo domínio que coincide com uma pergunta real vira resposta pronta.
 
 ### 3.3 Verificar a citação de forma determinística
 
@@ -301,6 +314,9 @@ ficou dentro do ruído (seção 11), e o gpt-4o custa ~15x mais. Sem evidência 
 | F3 rerank + multi-query | 0,93 | 0,80 | 0,93 | 0,64 | 1,00 | 1,00 |
 | F4 extração estruturada | 0,95 | 0,87 | 0,93 | 0,67 | 0,93 | 1,00 |
 | F5 feedback + cache | 0,95 | 0,87 | 1,00 | 0,69 | 0,93 | 1,00 |
+| Após remover o vazamento do few-shot | 0,83–0,88 | 0,87 | 0,93 | 0,67 | 0,87 | 1,00 |
+
+Os valores de `answer` de F1 a F5 estão levemente inflados: o exemplo do prompt continha um caso do eval (seção 3.2).
 
 \* A mudança de hit@k entre F0 e F1 vem principalmente do **conjunto de eval** (2 casos saíram do cálculo de
 recuperação e 5 de premissa falsa entraram), não do código. Quando o dataset muda, o baseline antigo deixa de ser
@@ -349,3 +365,4 @@ e por isso diferenças menores que isso **não são evidência**, nem de melhora
 - [ ] Cada técnica nova passou por **ablação** antes de ficar ligada por padrão?
 - [ ] O gate de regressão tem tolerância **maior que o ruído** do seu eval?
 - [ ] O feedback dos usuários **vira caso de eval**?
+- [ ] Os exemplos few-shot do prompt são **disjuntos** dos casos de eval?
