@@ -102,18 +102,24 @@ O prompt distingue três situações, e essa distinção é o que torna a corre�
 Um exemplo few-shot no prompt ensinou o formato melhor do que qualquer instrução. Resultado: **5/5** perguntas
 com premissa falsa corrigidas.
 
-**Um erro meu que vale como lição.** O primeiro exemplo few-shot era "a meta pressórica para diabéticos não é
-140/90" — ou seja, **um dos próprios casos do eval**. No teste de ponta a ponta, o modelo copiou a citação do
-exemplo ("a meta pressórica para diabéticos é menor que 130/80 mmHg"), que não existe com essas palavras no PDF. O
-verificador pegou (`verificada=False`), mas o eval estava contaminado: aquele caso tinha a resposta pronta no
-prompt. O exemplo foi trocado por um de outro domínio (prazo de rescisão de contrato), com a instrução "nunca
-reutilize frases do exemplo", e um teste (`test_system_prompt_nao_vaza_casos_do_eval`) falha se algum valor dos
-casos do eval aparecer no prompt. Depois da troca, a correção continuou em **5/5** — o comportamento é real — mas a
-nota do caso de diabéticos caiu de 1,0 para 0,6 e a nota média ficou em ~0,86 (duas rodadas: 0,83 e 0,88), contra
-~0,92 antes. Parte do número antigo era o exemplo "colando" a resposta.
+**Um erro meu que vale como lição (duas vezes).** O primeiro exemplo few-shot era "a meta pressórica para
+diabéticos não é 140/90" — ou seja, **um dos próprios casos do eval**: aquele caso tinha a resposta pronta no
+prompt. O exemplo foi trocado por um de outro domínio (prazo de rescisão de contrato) e um teste
+(`test_system_prompt_nao_vaza_casos_do_eval`) falha se algum valor dos casos do eval aparecer no prompt. Depois da
+troca, a correção continuou em **5/5** — o comportamento é real —, a nota do caso de diabéticos caiu de 1,0 para
+0,6 e a nota média ficou em ~0,86 (duas rodadas: 0,83 e 0,88), contra ~0,92 antes.
 
-> **Lição:** exemplos few-shot, dados de teste e casos de eval precisam ser disjuntos, como treino e teste em ML.
-> Um exemplo do mesmo domínio que coincide com uma pergunta real vira resposta pronta.
+O segundo erro foi de diagnóstico. No teste de ponta a ponta, a correção citava entre aspas "a meta pressórica
+para diabéticos é menor que 130/80 mmHg", frase que não existe no PDF, e eu atribuí isso a cópia do exemplo. Com o
+exemplo novo e o cache vazio, o modelo gerou **a mesma frase**. A causa real: na p. 74 a informação é um item de
+lista ("• 130/80mmHg nos pacientes com diabetes, nefropatia..."), e o modelo reescreve o item como frase e o põe
+entre aspas. O verificador marca a citação como `verificada=False` e mostra a sentença real do chunk — a
+salvaguarda funciona —, mas o texto da resposta continua apresentando uma paráfrase como citação literal.
+
+> **Lições:** (1) exemplos few-shot, dados de teste e casos de eval precisam ser disjuntos, como treino e teste em
+> ML. (2) Antes de afirmar a causa de um comportamento de LLM, reproduza com a hipótese removida.
+
+
 
 ### 3.3 Verificar a citação de forma determinística
 
