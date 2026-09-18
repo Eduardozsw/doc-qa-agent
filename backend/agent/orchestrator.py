@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Generator
 
 from agent.answerer import answer, answer_stream
-from agent.context import _SEM_INFO, display_name, extract_citation_ids, is_sem_info
+from agent.context import _SEM_INFO, ajustar_citacao_da_correcao, display_name, extract_citation_ids, is_sem_info
 from agent.query_rewriter import rewrite_query
 from agent.routing import choose_model
 from agent.search import search
@@ -19,6 +19,7 @@ from ingestion.embedder import embed_text
 logger = logging.getLogger(__name__)
 
 _STATUS_LENTO = "Verificando o embasamento — está demorando mais que o normal"
+_ERRO_CONSULTA = "Não foi possível consultar os documentos agora. Tente novamente em instantes."
 
 
 def _cache_habilitado(historico: list[dict], summary: str, use_cache: bool) -> bool:
@@ -182,6 +183,8 @@ def orchestrator(
 
         citacoes = _montar_citacoes(chunks_with_sources, citation_ids, verification, include_page)
         conflitos = _montar_conflitos(verification.conflitos, citation_ids, len(chunks_with_sources))
+        if verification.correcao:
+            resposta = ajustar_citacao_da_correcao(resposta, citacoes)
         result = {
             "resposta": resposta,
             "fontes": _montar_fontes(citacoes),
@@ -234,28 +237,34 @@ def orchestrator_stream(
     trace_id = tracing.trace_id_of(root)
     try:
         cached = None
-        with tracing.active(root, user_id=user_id, session_id=session_id):
-            if cache_habilitado:
-                embedding = embed_text(query)
-                with tracing.span("cache") as s:
-                    cached = query_cache_db.lookup(namespaces_key, embedding, min_score=settings.semantic_cache_min_score)
-                    s.update(output={"hit": cached is not None})
+        try:
+            with tracing.active(root, user_id=user_id, session_id=session_id):
+                if cache_habilitado:
+                    embedding = embed_text(query)
+                    with tracing.span("cache") as s:
+                        cached = query_cache_db.lookup(namespaces_key, embedding, min_score=settings.semantic_cache_min_score)
+                        s.update(output={"hit": cached is not None})
 
-            if cached is None:
-                with tracing.span("rewrite") as s:
-                    retrieval_query = rewrite_query(query, historico, summary)
-                    s.update(output=retrieval_query)
+                if cached is None:
+                    with tracing.span("rewrite") as s:
+                        retrieval_query = rewrite_query(query, historico, summary)
+                        s.update(output=retrieval_query)
 
-                with tracing.span("retrieve") as s:
-                    chunks_with_sources = search(retrieval_query, namespaces=namespaces, embedding=embedding)
-                    s.update(output={
-                        "chunks_count": len(chunks_with_sources),
-                        "fontes": [c[1] for c in chunks_with_sources],
-                    })
+                    with tracing.span("retrieve") as s:
+                        chunks_with_sources = search(retrieval_query, namespaces=namespaces, embedding=embedding)
+                        s.update(output={
+                            "chunks_count": len(chunks_with_sources),
+                            "fontes": [c[1] for c in chunks_with_sources],
+                        })
 
-                if not chunks_with_sources:
-                    tracing.update_trace(tags=["blocked"])
-                    root.update(output={"blocked": True})
+                    if not chunks_with_sources:
+                        tracing.update_trace(tags=["blocked"])
+                        root.update(output={"blocked": True})
+        except Exception:
+            logger.exception("Falha antes do primeiro yield do stream (cache/rewrite/search)")
+            yield f"data: {json.dumps({'type': 'error', 'text': _ERRO_CONSULTA})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
 
         if cached is not None:
             resposta_cache = cached.get("resposta", "")
@@ -288,7 +297,7 @@ def orchestrator_stream(
         except Exception:
             with tracing.active(root):
                 root.update(output={"error": True})
-            yield f"data: {json.dumps({'type': 'error'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'text': _ERRO_CONSULTA})}\n\n"
             yield "data: [DONE]\n\n"
             return
         finally:
@@ -352,6 +361,8 @@ def orchestrator_stream(
                 fontes = _montar_fontes(citacoes)
                 correcao = verification.correcao
                 conflitos = _montar_conflitos(verification.conflitos, citation_ids, len(chunks_with_sources))
+                if correcao:
+                    resposta_final = ajustar_citacao_da_correcao(resposta_final, citacoes)
 
             root.update(output={
                 "resposta": resposta_final, "fontes": fontes, "blocked": bloqueado,

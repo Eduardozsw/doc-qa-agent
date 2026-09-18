@@ -1,4 +1,11 @@
-from agent.context import _SEM_INFO, display_name, extract_citation_ids, format_context, is_sem_info
+from agent.context import (
+    _SEM_INFO,
+    ajustar_citacao_da_correcao,
+    display_name,
+    extract_citation_ids,
+    format_context,
+    is_sem_info,
+)
 
 
 def test_display_name_strips_prefix():
@@ -71,3 +78,58 @@ def test_is_sem_info_tolerates_surrounding_quotes():
 
 def test_is_sem_info_false_for_different_text():
     assert is_sem_info("resposta qualquer com base nos trechos [1]") is False
+
+
+# --------------------------------------------------------------------------- #
+# ajustar_citacao_da_correcao (B6): a citação entre aspas do bloco de correção
+# às vezes é uma paráfrase do LLM em vez do texto literal do documento.
+# --------------------------------------------------------------------------- #
+
+def test_ajustar_citacao_substitui_parafrase_por_trecho_verificado():
+    resposta = (
+        '> **Correção:** a meta pressórica para diabéticos é menor que "130/80 mmHg" [1].\n\n'
+        "Resto da resposta [1]."
+    )
+    citacoes = [{"id": 1, "trecho": "130/80mmHg nos pacientes com diabetes, nefropatia", "verificada": True}]
+
+    resultado = ajustar_citacao_da_correcao(resposta, citacoes)
+
+    assert '"130/80mmHg nos pacientes com diabetes, nefropatia"' in resultado
+    assert "130/80 mmHg" not in resultado
+    assert resultado.endswith("Resto da resposta [1].")
+
+
+def test_ajustar_citacao_remove_aspas_quando_nao_verificada():
+    resposta = '> **Correção:** segundo o documento, "a meta é 130/80" [1].'
+    citacoes = [{"id": 1, "trecho": "outro trecho qualquer", "verificada": False}]
+
+    resultado = ajustar_citacao_da_correcao(resposta, citacoes)
+
+    assert resultado == '> **Correção:** segundo o documento, a meta é 130/80 [1].'
+
+
+def test_ajustar_citacao_nao_mexe_se_trecho_ja_contido():
+    resposta = '> **Correção:** segundo o documento, "130/80mmHg nos pacientes com diabetes" [1].'
+    citacoes = [{"id": 1, "trecho": "130/80mmHg nos pacientes com diabetes, nefropatia", "verificada": True}]
+
+    resultado = ajustar_citacao_da_correcao(resposta, citacoes)
+
+    assert resultado == resposta
+
+
+def test_ajustar_citacao_nao_mexe_sem_bloco_correcao():
+    resposta = 'Resposta normal com "citação" [1] mas sem blockquote de correção.'
+    citacoes = [{"id": 1, "trecho": "outro trecho", "verificada": True}]
+
+    resultado = ajustar_citacao_da_correcao(resposta, citacoes)
+
+    assert resultado == resposta
+
+
+def test_ajustar_citacao_aceita_aspas_tipograficas():
+    resposta = "> **Correção:** segundo o documento, “a meta é 130/80” [1]."
+    citacoes = [{"id": 1, "trecho": "130/80mmHg nos pacientes com diabetes, nefropatia", "verificada": True}]
+
+    resultado = ajustar_citacao_da_correcao(resposta, citacoes)
+
+    assert '"130/80mmHg nos pacientes com diabetes, nefropatia"' in resultado

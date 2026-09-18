@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from agent.answerer import Usage
-from agent.context import format_context, is_sem_info
+from agent.context import _normalizar, format_context, is_sem_info
 from core.config import get_settings
 from core.tracing import openai_client
 
@@ -85,14 +85,6 @@ class Verification:
     citacoes: list[CitacaoVerificada] = field(default_factory=list)
     conflitos: list[dict] = field(default_factory=list)
     usage: Usage = field(default_factory=lambda: Usage(0, 0))
-
-
-def _normalizar(texto: str) -> str:
-    texto = texto.casefold()
-    texto = re.sub(r"(?<=\w)-\s+(?=\w)", "", texto)  # hífen de quebra de palavra (extração de PDF)
-    texto = re.sub(r"[^\w\s]", "", texto, flags=re.UNICODE)  # pontuação, bullets (\x07) etc.
-    texto = re.sub(r"\s+", " ", texto).strip()
-    return texto
 
 
 def _fracao_4grams_presentes(trecho_norm: str, chunk_norm: str) -> float:

@@ -239,6 +239,58 @@ def test_stream_payload_includes_modelo_and_conflitos(
 
 
 @patch("agent.orchestrator.verify")
+@patch("agent.orchestrator.answer")
+@patch("agent.orchestrator.search")
+@patch("agent.orchestrator.rewrite_query")
+def test_correcao_ajusta_citacao_parafraseada_no_result(mock_rewrite, mock_search, mock_answer, mock_verify):
+    """B6: quando `correcao=True`, a frase entre aspas do bloco `> **Correção:**` é
+    trocada pelo trecho verificado (evita apresentar paráfrase como citação literal)."""
+    mock_rewrite.return_value = "query reescrita"
+    mock_search.return_value = [
+        (0.9, "u1_ab_protocolo.pdf", "130/80mmHg nos pacientes com diabetes, nefropatia", 74),
+    ]
+    mock_answer.return_value = (
+        '> **Correção:** a meta pressórica para diabéticos é "menor que 130/80 mmHg" [1].\n\nResto [1].',
+        MagicMock(),
+    )
+    mock_verify.return_value = Verification(
+        fundamentada=True, correcao=True,
+        citacoes=[CitacaoVerificada(id=1, trecho="130/80mmHg nos pacientes com diabetes, nefropatia", verificada=True)],
+    )
+
+    resultado = orchestrator("pergunta", namespaces=["ns"], plan="pro")
+
+    assert '"130/80mmHg nos pacientes com diabetes, nefropatia"' in resultado["resposta"]
+    assert "menor que 130/80 mmHg" not in resultado["resposta"]
+
+
+@patch("agent.orchestrator.verify")
+@patch("agent.orchestrator.answer_stream")
+@patch("agent.orchestrator.search")
+@patch("agent.orchestrator.rewrite_query")
+def test_stream_correcao_ajusta_citacao_parafraseada_no_done(mock_rewrite, mock_search, mock_answer_stream, mock_verify):
+    mock_rewrite.return_value = "query"
+    mock_search.return_value = [
+        (0.9, "u1_ab_protocolo.pdf", "130/80mmHg nos pacientes com diabetes, nefropatia", 74),
+    ]
+    mock_answer_stream.return_value = iter([
+        '> **Correção:** a meta pressórica para diabéticos é "menor que 130/80 mmHg" [1].\n\n',
+        "Resto [1].",
+    ])
+    mock_verify.return_value = Verification(
+        fundamentada=True, correcao=True,
+        citacoes=[CitacaoVerificada(id=1, trecho="130/80mmHg nos pacientes com diabetes, nefropatia", verificada=True)],
+    )
+
+    linhas = list(orchestrator_stream("pergunta", namespaces=["ns"], plan="free"))
+    eventos = _eventos(linhas)
+    done = next(e for e in eventos if e["type"] == "done")
+
+    assert '"130/80mmHg nos pacientes com diabetes, nefropatia"' in done["resposta"]
+    assert "menor que 130/80 mmHg" not in done["resposta"]
+
+
+@patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer_stream")
 @patch("agent.orchestrator.search")
 @patch("agent.orchestrator.rewrite_query")
@@ -443,3 +495,51 @@ def test_stream_cache_miss_stores_result(mock_rewrite, mock_search, mock_answer_
     args, _kwargs = mock_cache["store"].call_args
     assert args[0] == "ns"
     assert args[3] == "pergunta"
+
+
+@patch("agent.orchestrator.verify")
+@patch("agent.orchestrator.answer_stream")
+@patch("agent.orchestrator.search")
+@patch("agent.orchestrator.rewrite_query")
+def test_stream_search_exception_emits_error_event(
+    mock_rewrite, mock_search, mock_answer_stream, mock_verify
+):
+    """Exceção antes do primeiro `yield` (aqui, na busca) não pode virar HTTP 200
+    com corpo vazio: precisa emitir `error` com texto e fechar com `[DONE]`."""
+    mock_rewrite.return_value = "query reescrita"
+    mock_search.side_effect = RuntimeError("busca indisponível")
+
+    linhas = list(orchestrator_stream("pergunta", namespaces=["ns"], plan="free"))
+    eventos = _eventos(linhas)
+
+    assert len(eventos) == 1
+    assert eventos[0]["type"] == "error"
+    assert eventos[0]["text"] == "Não foi possível consultar os documentos agora. Tente novamente em instantes."
+    assert linhas[-1] == "data: [DONE]\n\n"
+
+    mock_answer_stream.assert_not_called()
+    mock_verify.assert_not_called()
+
+
+@patch("agent.orchestrator.verify")
+@patch("agent.orchestrator.answer_stream")
+@patch("agent.orchestrator.search")
+@patch("agent.orchestrator.rewrite_query")
+def test_stream_cache_lookup_exception_emits_error_event(
+    mock_rewrite, mock_search, mock_answer_stream, mock_verify, mock_cache
+):
+    """Idem, mas a exceção acontece antes, no lookup do cache semântico."""
+    mock_cache["lookup"].side_effect = RuntimeError("cache indisponível")
+
+    linhas = list(orchestrator_stream("pergunta", namespaces=["ns"], plan="free"))
+    eventos = _eventos(linhas)
+
+    assert len(eventos) == 1
+    assert eventos[0]["type"] == "error"
+    assert eventos[0]["text"] == "Não foi possível consultar os documentos agora. Tente novamente em instantes."
+    assert linhas[-1] == "data: [DONE]\n\n"
+
+    mock_rewrite.assert_not_called()
+    mock_search.assert_not_called()
+    mock_answer_stream.assert_not_called()
+    mock_verify.assert_not_called()

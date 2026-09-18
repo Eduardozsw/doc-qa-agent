@@ -139,6 +139,7 @@ function MainApp({ session }: { session: Session | null }) {
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let receivedTerminalEvent = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -164,10 +165,12 @@ function MainApp({ session }: { session: Session | null }) {
               i === prev.length - 1 ? { ...m, status: event.text } : m
             ));
           } else if (event.type === 'done') {
+            receivedTerminalEvent = true;
             setHistory(prev => prev.map((m, i) =>
               i === prev.length - 1
                 ? {
                     ...m,
+                    answer: event.resposta ?? m.answer,
                     sources: event.fontes ?? [],
                     unverified: event.blocked,
                     citacoes: event.citacoes ?? [],
@@ -181,11 +184,14 @@ function MainApp({ session }: { session: Session | null }) {
                 : m
             ));
           } else if (event.type === 'blocked' || event.type === 'error') {
+            receivedTerminalEvent = true;
+            const fallback = 'Não encontrei informação suficiente nos documentos para responder essa pergunta.';
+            const answer = event.type === 'error' ? (event.text ?? fallback) : fallback;
             setHistory(prev => prev.map((m, i) =>
               i === prev.length - 1
                 ? {
                     ...m,
-                    answer: 'Não encontrei informação suficiente nos documentos para responder essa pergunta.',
+                    answer,
                     sources: [],
                     citacoes: [],
                     correcao: false,
@@ -196,6 +202,14 @@ function MainApp({ session }: { session: Session | null }) {
             ));
           }
         }
+      }
+
+      if (!receivedTerminalEvent) {
+        setHistory(prev => prev.map((m, i) =>
+          i === prev.length - 1
+            ? { ...m, answer: 'Erro: a resposta foi interrompida. Tente novamente.', status: undefined }
+            : m
+        ));
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao consultar. Tente novamente.';
