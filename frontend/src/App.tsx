@@ -19,8 +19,17 @@ import { useAuthFetch } from './hooks/useAuthFetch';
 import { useFileManagement } from './hooks/useFileManagement';
 import { useJobPolling } from './hooks/useJobPolling';
 import { DARK } from './constants/theme';
+import type { Citacao } from './lib/api';
 
-export type Message = { question: string; answer: string; sources: string[]; unverified?: boolean };
+export type Message = {
+  question: string;
+  answer: string;
+  sources: string[];
+  unverified?: boolean;
+  citacoes: Citacao[];
+  correcao: boolean;
+  status?: string;
+};
 
 function App() {
   const { user, session, loading: authLoading } = useAuth();
@@ -96,7 +105,7 @@ function MainApp({ session }: { session: Session | null }) {
     setQuestion('');
     setLoading(true);
 
-    setHistory(prev => [...prev, { question: currentQuestion, answer: '', sources: [] }]);
+    setHistory(prev => [...prev, { question: currentQuestion, answer: '', sources: [], citacoes: [], correcao: false }]);
 
     const namespacesToQuery = searchSelected.size > 0 ? Array.from(searchSelected) : [];
 
@@ -132,14 +141,34 @@ function MainApp({ session }: { session: Session | null }) {
             setHistory(prev => prev.map((m, i) =>
               i === prev.length - 1 ? { ...m, answer: m.answer + event.text } : m
             ));
+          } else if (event.type === 'status') {
+            setHistory(prev => prev.map((m, i) =>
+              i === prev.length - 1 ? { ...m, status: event.text } : m
+            ));
           } else if (event.type === 'done') {
             setHistory(prev => prev.map((m, i) =>
-              i === prev.length - 1 ? { ...m, sources: event.fontes ?? [], unverified: event.blocked } : m
+              i === prev.length - 1
+                ? {
+                    ...m,
+                    sources: event.fontes ?? [],
+                    unverified: event.blocked,
+                    citacoes: event.citacoes ?? [],
+                    correcao: event.correcao ?? false,
+                    status: undefined,
+                  }
+                : m
             ));
           } else if (event.type === 'blocked' || event.type === 'error') {
             setHistory(prev => prev.map((m, i) =>
               i === prev.length - 1
-                ? { ...m, answer: 'Não encontrei informação suficiente nos documentos para responder essa pergunta.', sources: [] }
+                ? {
+                    ...m,
+                    answer: 'Não encontrei informação suficiente nos documentos para responder essa pergunta.',
+                    sources: [],
+                    citacoes: [],
+                    correcao: false,
+                    status: undefined,
+                  }
                 : m
             ));
           }
@@ -148,7 +177,7 @@ function MainApp({ session }: { session: Session | null }) {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao consultar. Tente novamente.';
       setHistory(prev => prev.map((m, i) =>
-        i === prev.length - 1 ? { ...m, answer: `Erro: ${message}`, sources: [] } : m
+        i === prev.length - 1 ? { ...m, answer: `Erro: ${message}`, sources: [], citacoes: [], correcao: false, status: undefined } : m
       ));
     } finally {
       setLoading(false);
