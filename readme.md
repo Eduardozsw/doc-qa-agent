@@ -192,6 +192,7 @@ Prefixo `/api`. Todos exceto `auth/register` e `auth/login` exigem `Authorizatio
 | DELETE | `/api/ingest` | Remove documento(s) e seus vetores |
 | POST | `/api/query` | Pergunta, resposta completa |
 | POST | `/api/query/stream` | Pergunta, resposta em streaming (SSE) |
+| POST | `/api/query/feedback` | Registra 👍/👎 de uma resposta |
 | DELETE | `/api/query/history` | Limpa histórico de conversa |
 | POST | `/api/summarize` | Gera/reaproveita resumo de um documento |
 | GET | `/api/summarize` | Lista resumos disponíveis |
@@ -222,6 +223,16 @@ Com as chaves configuradas, cada pergunta gera um trace (`doc-qa` ou `doc-qa-str
 reescrita da pergunta, busca de trechos, geração da resposta e validação, além de uma generation por
 chamada à OpenAI com tokens e custo calculados automaticamente. Respostas bloqueadas (sem trechos ou
 reprovadas pelo validador) ficam marcadas com a tag `blocked`.
+
+## Feedback e cache semântico
+
+O botão 👍/👎 no frontend chama `POST /api/query/feedback`, que grava o voto (`feedback`, sempre no
+Postgres, funciona sem Langfuse) e, quando há `trace_id`, registra um score `user_feedback` no trace via
+`tracing.score()`. Perguntas repetidas (mesmo conjunto de documentos, sem histórico de conversa na
+pergunta) usam um cache semântico em `query_cache` (pgvector): hit por similaridade de cosseno ≥
+`SEMANTIC_CACHE_MIN_SCORE` (padrão 0,97) devolve a resposta salva sem chamar a OpenAI, com TTL de
+`SEMANTIC_CACHE_TTL_HOURS` (padrão 24h); o cache é invalidado por namespace ao remover um documento. Flag
+`SEMANTIC_CACHE_ENABLED` desliga tudo.
 
 ## Decisões e limitações
 
