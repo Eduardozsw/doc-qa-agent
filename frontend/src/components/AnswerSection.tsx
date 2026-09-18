@@ -1,11 +1,13 @@
 import { isValidElement, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Bot, MessageSquare, FileText, User, Copy, Check, AlertTriangle, Clock } from 'lucide-react';
+import { Bot, MessageSquare, FileText, User, Copy, Check, AlertTriangle, Clock, ThumbsUp, ThumbsDown, Database } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Message } from '../App';
 import type { Citacao } from '../lib/api';
 import { DARK } from '../constants/theme';
 import { Citations } from './Citations';
+
+type AuthFetch = (url: string, options?: RequestInit) => Promise<Response>;
 
 function displayName(namespace: string): string {
   const parts = namespace.split('_');
@@ -15,6 +17,8 @@ function displayName(namespace: string): string {
 interface AnswerSectionProps {
   history: Message[];
   loading: boolean;
+  authFetch: AuthFetch;
+  onFeedback: (index: number, score: 1 | -1) => void;
 }
 
 /**
@@ -160,7 +164,73 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-export function AnswerSection({ history, loading }: AnswerSectionProps) {
+function FeedbackButtons({
+  msg, msgIndex, authFetch, onFeedback,
+}: {
+  msg: Message;
+  msgIndex: number;
+  authFetch: AuthFetch;
+  onFeedback: (index: number, score: 1 | -1) => void;
+}) {
+  const [sending, setSending] = useState<1 | -1 | null>(null);
+  const chosen = msg.feedback;
+
+  const handleClick = async (score: 1 | -1) => {
+    if (chosen || sending) return;
+    setSending(score);
+    try {
+      const res = await authFetch('/api/query/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trace_id: msg.traceId,
+          score,
+          pergunta: msg.question,
+          resposta: msg.answer,
+        }),
+      });
+      if (!res.ok) throw new Error(`Erro ${res.status}`);
+      onFeedback(msgIndex, score);
+    } catch (err) {
+      console.warn('Falha ao enviar feedback:', err);
+    } finally {
+      setSending(null);
+    }
+  };
+
+  const buttonStyle = (active: boolean, activeColor: string) => ({
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    padding: '4px 7px', borderRadius: 6,
+    background: 'transparent', border: `1px solid ${DARK.border}`,
+    color: active ? activeColor : 'rgba(255,255,255,0.3)',
+    cursor: chosen ? 'default' : 'pointer',
+    opacity: chosen && !active ? 0.4 : 1,
+    transition: 'all 0.15s', fontFamily: 'inherit',
+  });
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => handleClick(1)}
+        disabled={!!chosen}
+        title="Resposta útil"
+        style={buttonStyle(chosen === 1, DARK.emerald)}
+      >
+        <ThumbsUp style={{ width: 11, height: 11 }} />
+      </button>
+      <button
+        onClick={() => handleClick(-1)}
+        disabled={!!chosen}
+        title="Resposta não útil"
+        style={buttonStyle(chosen === -1, '#f87171')}
+      >
+        <ThumbsDown style={{ width: 11, height: 11 }} />
+      </button>
+    </div>
+  );
+}
+
+export function AnswerSection({ history, loading, authFetch, onFeedback }: AnswerSectionProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -260,7 +330,19 @@ export function AnswerSection({ history, loading }: AnswerSectionProps) {
                         <span>Não verificado nos documentos</span>
                       </div>
                     )}
+                    {msg.cached && (
+                      <div
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-fit text-xs font-sans"
+                        style={{ background: 'rgba(255,255,255,0.04)', color: DARK.textFaint, border: `1px solid ${DARK.border}` }}
+                      >
+                        <Database className="w-3 h-3 flex-shrink-0" />
+                        <span>Resposta em cache</span>
+                      </div>
+                    )}
                     <CopyButton text={msg.answer} />
+                    {!(loading && isLast) && (
+                      <FeedbackButtons msg={msg} msgIndex={i} authFetch={authFetch} onFeedback={onFeedback} />
+                    )}
                   </div>
 
                   <Citations citacoes={msg.citacoes} msgIndex={i} />

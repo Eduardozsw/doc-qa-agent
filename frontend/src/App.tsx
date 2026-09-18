@@ -29,6 +29,9 @@ export type Message = {
   citacoes: Citacao[];
   correcao: boolean;
   status?: string;
+  traceId?: string;
+  feedback?: 1 | -1;
+  cached?: boolean;
 };
 
 function App() {
@@ -155,6 +158,8 @@ function MainApp({ session }: { session: Session | null }) {
                     citacoes: event.citacoes ?? [],
                     correcao: event.correcao ?? false,
                     status: undefined,
+                    traceId: event.trace_id ?? undefined,
+                    cached: event.cached ?? false,
                   }
                 : m
             ));
@@ -182,6 +187,10 @@ function MainApp({ session }: { session: Session | null }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFeedback = (index: number, score: 1 | -1) => {
+    setHistory(prev => prev.map((m, i) => (i === index ? { ...m, feedback: score } : m)));
   };
 
   const canSubmit = (ingestStatus === 'ready' || ingestStatus === 'partial') && question.trim().length > 0 && !loading;
@@ -331,7 +340,7 @@ function MainApp({ session }: { session: Session | null }) {
                 </button>
               </div>
             )}
-            <AnswerSection history={history} loading={loading} />
+            <AnswerSection history={history} loading={loading} authFetch={authFetch} onFeedback={handleFeedback} />
           </div>
 
           {/* Input */}
