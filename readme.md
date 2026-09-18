@@ -61,6 +61,13 @@ embedding às vezes dilui) e funde os dois rankings por Reciprocal Rank Fusion. 
 (`tiktoken`) respeitando fronteira de sentença, em vez de cortar por contagem fixa de palavras; documentos
 indexados antes desta versão continuam funcionando, mas reenvie o PDF para aproveitar o chunker novo.
 
+Acima do retrieve híbrido, `agent/search.py` roda um pipeline de duas otimizações opcionais: expansão de
+consulta (`MULTI_QUERY_ENABLED`, default `true`) gera até 3 reformulações em PT-BR para perguntas curtas
+(< 8 palavras) e une os resultados por RRF antes de seguir; e um reranker listwise (`RERANK_ENABLED`,
+default `true`) usa `gpt-4o-mini` para reordenar os `RERANK_CANDIDATES` (default 20) melhores candidatos por
+relevância (0-3) antes do corte final. Ambos são fail-open: qualquer erro do LLM devolve o ranking anterior
+em vez de quebrar a resposta.
+
 ## Stack
 
 - **Backend**: FastAPI, Postgres + `pgvector` (dados relacionais e vetores no mesmo banco), Redis (fila de
