@@ -7,6 +7,7 @@ from typing import Generator
 from agent.answerer import answer, answer_stream
 from agent.context import _SEM_INFO, display_name, extract_citation_ids, is_sem_info
 from agent.query_rewriter import rewrite_query
+from agent.routing import choose_model
 from agent.search import search
 from core import tracing
 from core.config import get_settings
@@ -69,6 +70,23 @@ def _montar_fontes(citacoes: list[dict]) -> list[str]:
     return fontes
 
 
+def _montar_conflitos(conflitos_llm: list[dict], citation_ids: list[int], max_id: int) -> list[dict]:
+    """Mantém, em cada conflito, só os ids que também aparecem citados `[n]` na
+    resposta; se a interseção ficar vazia (ids válidos mas nenhum citado), mantém
+    os ids como vieram do verificador em vez de descartar o conflito."""
+    resultado = []
+    for item in conflitos_llm:
+        ids_validos = [i for i in item.get("ids", []) if 1 <= i <= max_id]
+        if not ids_validos:
+            continue
+        ids_citados = [i for i in ids_validos if i in citation_ids]
+        resultado.append({
+            "ids": ids_citados if ids_citados else ids_validos,
+            "descricao": item.get("descricao", ""),
+        })
+    return resultado
+
+
 def _bloqueado(fundamentada: bool, citation_ids: list[int]) -> bool:
     """Só é chamado para respostas que não são `_SEM_INFO` (ver `is_sem_info`)."""
     return not fundamentada or not citation_ids
@@ -122,13 +140,17 @@ def orchestrator(
 
         if not chunks_with_sources:
             tracing.update_trace(tags=["blocked"])
-            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False, "trace_id": trace_id}
+            result = {
+                "resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False, "conflitos": [],
+                "trace_id": trace_id,
+            }
             trace.update(output=result)
             return result
 
         with tracing.span("answer") as s:
-            resposta, answer_usage = answer(query, chunks_with_sources, historico=historico, summary=summary)
-            s.update(output=resposta)
+            model = choose_model(query, chunks_with_sources)
+            resposta, answer_usage = answer(query, chunks_with_sources, historico=historico, summary=summary, model=model)
+            s.update(output=resposta, metadata={"model": model})
 
         def _log_retry(tentativa: int) -> None:
             logger.info(f"Verificador: tentativa {tentativa} após falha")
@@ -140,7 +162,10 @@ def orchestrator(
             s.update(output={"fundamentada": verification.fundamentada, "correcao": verification.correcao})
 
         if is_sem_info(resposta):
-            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False, "trace_id": trace_id}
+            result = {
+                "resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False, "conflitos": [],
+                "modelo": model, "trace_id": trace_id,
+            }
             trace.update(output=result)
             return result
 
@@ -148,16 +173,22 @@ def orchestrator(
 
         if _bloqueado(verification.fundamentada, citation_ids):
             tracing.update_trace(tags=["blocked"])
-            result = {"resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False, "trace_id": trace_id}
+            result = {
+                "resposta": _SEM_INFO, "fontes": [], "citacoes": [], "correcao": False, "conflitos": [],
+                "modelo": model, "trace_id": trace_id,
+            }
             trace.update(output=result)
             return result
 
         citacoes = _montar_citacoes(chunks_with_sources, citation_ids, verification, include_page)
+        conflitos = _montar_conflitos(verification.conflitos, citation_ids, len(chunks_with_sources))
         result = {
             "resposta": resposta,
             "fontes": _montar_fontes(citacoes),
             "citacoes": citacoes,
             "correcao": verification.correcao,
+            "conflitos": conflitos,
+            "modelo": model,
             "trace_id": trace_id,
         }
         trace.update(output=result)
@@ -239,12 +270,13 @@ def orchestrator_stream(
             yield "data: [DONE]\n\n"
             return
 
+        model = choose_model(query, chunks_with_sources)
         with tracing.active(root, user_id=user_id, session_id=session_id):
             answer_span = tracing.root_span("answer")
 
         full_response = ""
         try:
-            iterator = answer_stream(query, chunks_with_sources, historico=historico, summary=summary)
+            iterator = answer_stream(query, chunks_with_sources, historico=historico, summary=summary, model=model)
             while True:
                 try:
                     with tracing.active(answer_span, user_id=user_id, session_id=session_id):
@@ -261,7 +293,7 @@ def orchestrator_stream(
             return
         finally:
             with tracing.active(answer_span):
-                answer_span.update(output=full_response)
+                answer_span.update(output=full_response, metadata={"model": model})
             tracing.end_span(answer_span)
 
         # `verify` é síncrono e pode retentar com backoff (até ~2s). Roda numa thread
@@ -309,32 +341,34 @@ def orchestrator_stream(
         with tracing.active(root):
             if sem_info:
                 resposta_final = _SEM_INFO
-                fontes, citacoes, correcao = [], [], False
+                fontes, citacoes, correcao, conflitos = [], [], False, []
             elif bloqueado:
                 resposta_final = full_response
-                fontes, citacoes, correcao = [], [], False
+                fontes, citacoes, correcao, conflitos = [], [], False, []
                 tracing.update_trace(tags=["blocked"])
             else:
                 resposta_final = full_response
                 citacoes = _montar_citacoes(chunks_with_sources, citation_ids, verification, include_page)
                 fontes = _montar_fontes(citacoes)
                 correcao = verification.correcao
+                conflitos = _montar_conflitos(verification.conflitos, citation_ids, len(chunks_with_sources))
 
             root.update(output={
                 "resposta": resposta_final, "fontes": fontes, "blocked": bloqueado,
-                "citacoes": citacoes, "correcao": correcao,
+                "citacoes": citacoes, "correcao": correcao, "conflitos": conflitos, "modelo": model,
             })
 
         if cache_habilitado and not bloqueado and not sem_info:
             cache_payload = {
                 "resposta": resposta_final, "fontes": fontes, "citacoes": citacoes, "correcao": correcao,
+                "conflitos": conflitos, "modelo": model,
             }
             query_cache_db.store(
                 namespaces_key, namespaces, embedding, query, cache_payload, ttl_hours=settings.semantic_cache_ttl_hours
             )
 
         yield (
-            f"data: {json.dumps({'type': 'done', 'fontes': fontes, 'blocked': bloqueado, 'resposta': resposta_final, 'citacoes': citacoes, 'correcao': correcao, 'trace_id': trace_id})}\n\n"
+            f"data: {json.dumps({'type': 'done', 'fontes': fontes, 'blocked': bloqueado, 'resposta': resposta_final, 'citacoes': citacoes, 'correcao': correcao, 'conflitos': conflitos, 'modelo': model, 'trace_id': trace_id})}\n\n"
         )
         yield "data: [DONE]\n\n"
     finally:

@@ -32,8 +32,10 @@ async def query(
         fontes=result.get("fontes", []),
         citacoes=result.get("citacoes", []),
         correcao=result.get("correcao", False),
+        conflitos=result.get("conflitos", []),
         trace_id=result.get("trace_id"),
         cached=result.get("cached", False),
+        modelo=result.get("modelo"),
     )
 
 

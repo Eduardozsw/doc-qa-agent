@@ -71,6 +71,62 @@ def test_payload_without_page_number(mock_rewrite, mock_search, mock_answer, moc
     assert resultado["citacoes"][0]["pagina"] is None
 
 
+@patch("agent.orchestrator.choose_model")
+@patch("agent.orchestrator.verify")
+@patch("agent.orchestrator.answer")
+@patch("agent.orchestrator.search")
+@patch("agent.orchestrator.rewrite_query")
+def test_conflito_ids_not_cited_keep_original_ids(mock_rewrite, mock_search, mock_answer, mock_verify, mock_choose_model):
+    """Se a interseção com os ids citados `[n]` ficar vazia, o conflito mantém os
+    ids como vieram do verificador em vez de sumir do payload."""
+    mock_rewrite.return_value = "query reescrita"
+    mock_search.return_value = [
+        (0.9, "u1_aa_protocolo_a.pdf", "meta 130/80", None),
+        (0.9, "u1_bb_protocolo_b.pdf", "meta 140/90", None),
+    ]
+    mock_answer.return_value = ("resposta que só cita o trecho 1 [1]", MagicMock())
+    mock_choose_model.return_value = "gpt-4o-mini"
+    mock_verify.return_value = Verification(
+        fundamentada=True, correcao=False,
+        citacoes=[CitacaoVerificada(id=1, trecho="meta 130/80", verificada=True)],
+        conflitos=[{"ids": [2], "descricao": "Conflito envolvendo um trecho não citado."}],
+    )
+
+    resultado = orchestrator("pergunta", namespaces=["ns"], plan="pro")
+
+    assert resultado["conflitos"] == [{"ids": [2], "descricao": "Conflito envolvendo um trecho não citado."}]
+
+
+@patch("agent.orchestrator.choose_model")
+@patch("agent.orchestrator.verify")
+@patch("agent.orchestrator.answer")
+@patch("agent.orchestrator.search")
+@patch("agent.orchestrator.rewrite_query")
+def test_payload_includes_modelo_and_conflitos(mock_rewrite, mock_search, mock_answer, mock_verify, mock_choose_model):
+    mock_rewrite.return_value = "query reescrita"
+    mock_search.return_value = [
+        (0.9, "u1_aa_protocolo_a.pdf", "meta 130/80", 1),
+        (0.9, "u1_bb_protocolo_b.pdf", "meta 140/90", 1),
+    ]
+    mock_answer.return_value = ("o documento A diz X [1]; o documento B diz Y [2]", MagicMock())
+    mock_choose_model.return_value = "gpt-4o"
+    mock_verify.return_value = Verification(
+        fundamentada=True, correcao=False,
+        citacoes=[
+            CitacaoVerificada(id=1, trecho="meta 130/80", verificada=True),
+            CitacaoVerificada(id=2, trecho="meta 140/90", verificada=True),
+        ],
+        conflitos=[{"ids": [1, 2], "descricao": "Os protocolos divergem sobre a meta pressórica."}],
+    )
+
+    resultado = orchestrator("pergunta", namespaces=["ns"], plan="pro")
+
+    assert resultado["modelo"] == "gpt-4o"
+    assert resultado["conflitos"] == [
+        {"ids": [1, 2], "descricao": "Os protocolos divergem sobre a meta pressórica."}
+    ]
+
+
 @patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer")
 @patch("agent.orchestrator.search")
@@ -146,6 +202,40 @@ def test_stream_payload_includes_citacoes_and_correcao(mock_rewrite, mock_search
         "id": 1, "documento": "doc.pdf", "namespace": "u1_ab_doc.pdf",
         "pagina": None, "trecho": "texto1", "verificada": True,
     }]
+
+
+@patch("agent.orchestrator.choose_model")
+@patch("agent.orchestrator.verify")
+@patch("agent.orchestrator.answer_stream")
+@patch("agent.orchestrator.search")
+@patch("agent.orchestrator.rewrite_query")
+def test_stream_payload_includes_modelo_and_conflitos(
+    mock_rewrite, mock_search, mock_answer_stream, mock_verify, mock_choose_model
+):
+    mock_rewrite.return_value = "query"
+    mock_search.return_value = [
+        (0.9, "u1_aa_protocolo_a.pdf", "meta 130/80", None),
+        (0.9, "u1_bb_protocolo_b.pdf", "meta 140/90", None),
+    ]
+    mock_answer_stream.return_value = iter(["o documento A diz X [1]; ", "o documento B diz Y [2]"])
+    mock_choose_model.return_value = "gpt-4o"
+    mock_verify.return_value = Verification(
+        fundamentada=True, correcao=False,
+        citacoes=[
+            CitacaoVerificada(id=1, trecho="meta 130/80", verificada=True),
+            CitacaoVerificada(id=2, trecho="meta 140/90", verificada=True),
+        ],
+        conflitos=[{"ids": [1, 2], "descricao": "Os protocolos divergem sobre a meta pressórica."}],
+    )
+
+    linhas = list(orchestrator_stream("pergunta", namespaces=["ns"], plan="free"))
+    eventos = _eventos(linhas)
+    done = next(e for e in eventos if e["type"] == "done")
+
+    assert done["modelo"] == "gpt-4o"
+    assert done["conflitos"] == [
+        {"ids": [1, 2], "descricao": "Os protocolos divergem sobre a meta pressórica."}
+    ]
 
 
 @patch("agent.orchestrator.verify")

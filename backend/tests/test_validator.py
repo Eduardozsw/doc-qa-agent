@@ -15,11 +15,12 @@ def _response(content: str):
     return response
 
 
-def _valid_payload(fundamentada=True, correcao=False, citacoes=None):
+def _valid_payload(fundamentada=True, correcao=False, citacoes=None, conflitos=None):
     return json.dumps({
         "fundamentada": fundamentada,
         "correcao": correcao,
         "citacoes": citacoes or [],
+        "conflitos": conflitos or [],
     })
 
 
@@ -199,3 +200,39 @@ def test_verify_citacao_curta_sem_containment_nao_e_verificada(mock_client, mock
     result = verify("qual o prazo?", chunks, "o prazo é sessenta dias [1]")
 
     assert result.citacoes[0].verificada is False
+
+
+@patch("guardrails.validator.time.sleep")
+@patch("guardrails.validator.client")
+def test_verify_parses_conflitos_from_llm(mock_client, mock_sleep):
+    from guardrails.validator import verify
+    chunks = [
+        _chunk("A meta pressórica é menor que 130/80 mmHg.", namespace="u1_aa_protocolo_a.pdf"),
+        _chunk("A meta pressórica é menor que 140/90 mmHg.", namespace="u1_bb_protocolo_b.pdf"),
+    ]
+    payload = _valid_payload(
+        citacoes=[
+            {"id": 1, "trecho": "A meta pressórica é menor que 130/80 mmHg."},
+            {"id": 2, "trecho": "A meta pressórica é menor que 140/90 mmHg."},
+        ],
+        conflitos=[{"ids": [1, 2], "descricao": "Os protocolos divergem sobre a meta pressórica."}],
+    )
+    mock_client.chat.completions.create.return_value = _response(payload)
+
+    result = verify("qual a meta pressórica?", chunks, "o documento A diz X [1]; o documento B diz Y [2]")
+
+    assert result.conflitos == [{"ids": [1, 2], "descricao": "Os protocolos divergem sobre a meta pressórica."}]
+
+
+@patch("guardrails.validator.time.sleep")
+@patch("guardrails.validator.client")
+def test_verify_without_conflitos_key_defaults_to_empty_list(mock_client, mock_sleep):
+    from guardrails.validator import verify
+    chunks = [_chunk("O prazo é 30 dias.")]
+    mock_client.chat.completions.create.return_value = _response(_valid_payload(
+        citacoes=[{"id": 1, "trecho": "O prazo é 30 dias."}]
+    ))
+
+    result = verify("qual o prazo?", chunks, "o prazo é 30 dias [1]")
+
+    assert result.conflitos == []

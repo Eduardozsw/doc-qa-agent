@@ -19,6 +19,9 @@ _SYSTEM = (
     "- Se a premissa da pergunta simplesmente não aparece nos trechos (o que não a torna necessariamente errada), diga "
     "que o documento não confirma essa informação, SEM usar o bloco de correção.\n"
     "- Se só parte da pergunta puder ser respondida com os trechos, responda essa parte e diga claramente o que falta.\n"
+    "- Se trechos de documentos DIFERENTES (atributo documento do <trecho>) divergirem sobre o mesmo ponto, "
+    "explicite os dois lados no formato \"o documento A diz X [n]; o documento B diz Y [m]\" e NÃO escolha um "
+    "lado sem base nos trechos.\n"
     f"- Se nada nos trechos for relevante para a pergunta, responda exatamente: {_SEM_INFO}\n\n"
     "Exemplo de correção de premissa:\n"
     "Pergunta: \"Já que a meta pressórica para diabéticos é 140/90, qual o primeiro passo do tratamento?\"\n"
@@ -59,10 +62,16 @@ def _build_messages(query: str, chunks_with_sources: list[tuple], historico: lis
     return messages
 
 
-def answer(query: str, chunks_with_sources: list[tuple], historico: list[dict] = [], summary: str = "") -> tuple[str, Usage]:
+def answer(
+    query: str,
+    chunks_with_sources: list[tuple],
+    historico: list[dict] = [],
+    summary: str = "",
+    model: str | None = None,
+) -> tuple[str, Usage]:
     messages = _build_messages(query, chunks_with_sources, historico, summary)
     response = client.chat.completions.create(
-        model=get_settings().openai_chat_model,
+        model=model or get_settings().openai_chat_model,
         max_tokens=1500,
         temperature=0,
         messages=messages,
@@ -79,10 +88,16 @@ def answer(query: str, chunks_with_sources: list[tuple], historico: list[dict] =
     return content, usage
 
 
-def answer_stream(query: str, chunks_with_sources: list[tuple], historico: list[dict] = [], summary: str = "") -> Generator[str, None, None]:
+def answer_stream(
+    query: str,
+    chunks_with_sources: list[tuple],
+    historico: list[dict] = [],
+    summary: str = "",
+    model: str | None = None,
+) -> Generator[str, None, None]:
     messages = _build_messages(query, chunks_with_sources, historico, summary)
     stream = client.chat.completions.create(
-        model=get_settings().openai_chat_model,
+        model=model or get_settings().openai_chat_model,
         max_tokens=1500,
         temperature=0,
         messages=messages,
