@@ -1,10 +1,11 @@
-from agent.retriever import retrieve
+from agent.search import search
 
 _CORTES = (3, 5, 8)
 
 
 def evaluate_retrieval(cases: list[dict], namespace: str, top_k: int = 10) -> dict:
-    """Calcula hit@3, hit@5, hit@8 e MRR médios sobre os casos com `paginas_relevantes`.
+    """Calcula hit@3, hit@5, hit@8 e MRR médios sobre os casos com `paginas_relevantes`,
+    rodando o pipeline real (`search`: multi-query + rerank quando habilitados).
 
     Casos sem `paginas_relevantes` (fora do documento, sem resposta clara etc.) são ignorados.
     """
@@ -16,7 +17,7 @@ def evaluate_retrieval(cases: list[dict], namespace: str, top_k: int = 10) -> di
         if not paginas_relevantes:
             continue
 
-        resultados = retrieve(caso["query"], top_k=top_k, namespaces=[namespace])
+        resultados = search(caso["query"], namespaces=[namespace], top_k=top_k)
         paginas_ranqueadas = [pagina for _, _, _, pagina in resultados]
 
         for corte in _CORTES:

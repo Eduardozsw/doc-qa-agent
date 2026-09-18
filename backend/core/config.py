@@ -30,6 +30,9 @@ class Settings(BaseSettings):
 
     # Retrieval
     hybrid_search: bool = True
+    rerank_enabled: bool = True
+    rerank_candidates: int = 20
+    multi_query_enabled: bool = True
 
     # Demo user (seed no boot)
     demo_user_email: str = "demo@local"

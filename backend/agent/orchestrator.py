@@ -7,7 +7,7 @@ from typing import Generator
 from agent.answerer import answer, answer_stream
 from agent.context import _SEM_INFO, display_name, extract_citation_ids, is_sem_info
 from agent.query_rewriter import rewrite_query
-from agent.retriever import retrieve
+from agent.search import search
 from core import tracing
 from core.limits import get_limit
 from guardrails.validator import Verification, verify
@@ -83,7 +83,7 @@ def orchestrator(
             s.update(output=retrieval_query)
 
         with tracing.span("retrieve") as s:
-            chunks_with_sources = retrieve(retrieval_query, namespaces=namespaces)
+            chunks_with_sources = search(retrieval_query, namespaces=namespaces)
             s.update(output={
                 "chunks_count": len(chunks_with_sources),
                 "fontes": [c[1] for c in chunks_with_sources],
@@ -163,7 +163,7 @@ def orchestrator_stream(
                 s.update(output=retrieval_query)
 
             with tracing.span("retrieve") as s:
-                chunks_with_sources = retrieve(retrieval_query, namespaces=namespaces)
+                chunks_with_sources = search(retrieval_query, namespaces=namespaces)
                 s.update(output={
                     "chunks_count": len(chunks_with_sources),
                     "fontes": [c[1] for c in chunks_with_sources],

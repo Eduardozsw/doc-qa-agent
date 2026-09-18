@@ -192,7 +192,7 @@ def test_stream_spans_share_trace_id_and_propagate_user_id(monkeypatch):
     # Pipeline inteiro mockado: sem chamada real a OpenAI/Postgres/etc.
     monkeypatch.setattr("agent.orchestrator.rewrite_query", lambda *a, **kw: "pergunta reescrita")
     monkeypatch.setattr(
-        "agent.orchestrator.retrieve",
+        "agent.orchestrator.search",
         lambda *a, **kw: [("id1", "doc.pdf", "trecho 1", 1), ("id2", "doc.pdf", "trecho 2", 2)],
     )
     monkeypatch.setattr("agent.orchestrator.answer_stream", lambda *a, **kw: iter(["ola ", "mundo"]))

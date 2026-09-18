@@ -12,11 +12,11 @@ def _eventos(linhas: list[str]) -> list[dict]:
 
 @patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer")
-@patch("agent.orchestrator.retrieve")
+@patch("agent.orchestrator.search")
 @patch("agent.orchestrator.rewrite_query")
-def test_payload_with_page_number(mock_rewrite, mock_retrieve, mock_answer, mock_verify):
+def test_payload_with_page_number(mock_rewrite, mock_search, mock_answer, mock_verify):
     mock_rewrite.return_value = "query reescrita"
-    mock_retrieve.return_value = [(0.9, "u1_ab_protocolo.pdf", "texto1", 12)]
+    mock_search.return_value = [(0.9, "u1_ab_protocolo.pdf", "texto1", 12)]
     mock_answer.return_value = ("resposta com base [1]", MagicMock())
     mock_verify.return_value = Verification(
         fundamentada=True, correcao=False,
@@ -36,11 +36,11 @@ def test_payload_with_page_number(mock_rewrite, mock_retrieve, mock_answer, mock
 
 @patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer")
-@patch("agent.orchestrator.retrieve")
+@patch("agent.orchestrator.search")
 @patch("agent.orchestrator.rewrite_query")
-def test_payload_without_page_number(mock_rewrite, mock_retrieve, mock_answer, mock_verify):
+def test_payload_without_page_number(mock_rewrite, mock_search, mock_answer, mock_verify):
     mock_rewrite.return_value = "query reescrita"
-    mock_retrieve.return_value = [(0.9, "u1_ab_protocolo.pdf", "texto1", 12)]
+    mock_search.return_value = [(0.9, "u1_ab_protocolo.pdf", "texto1", 12)]
     mock_answer.return_value = ("resposta com base [1]", MagicMock())
     mock_verify.return_value = Verification(
         fundamentada=True, correcao=False,
@@ -55,11 +55,11 @@ def test_payload_without_page_number(mock_rewrite, mock_retrieve, mock_answer, m
 
 @patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer")
-@patch("agent.orchestrator.retrieve")
+@patch("agent.orchestrator.search")
 @patch("agent.orchestrator.rewrite_query")
-def test_blocks_when_response_has_no_citation_markers(mock_rewrite, mock_retrieve, mock_answer, mock_verify):
+def test_blocks_when_response_has_no_citation_markers(mock_rewrite, mock_search, mock_answer, mock_verify):
     mock_rewrite.return_value = "query"
-    mock_retrieve.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
+    mock_search.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
     mock_answer.return_value = ("resposta sem nenhuma citação", MagicMock())
     mock_verify.return_value = Verification(fundamentada=True, correcao=False, citacoes=[])
 
@@ -73,11 +73,11 @@ def test_blocks_when_response_has_no_citation_markers(mock_rewrite, mock_retriev
 
 @patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer")
-@patch("agent.orchestrator.retrieve")
+@patch("agent.orchestrator.search")
 @patch("agent.orchestrator.rewrite_query")
-def test_blocks_when_verification_not_fundamentada(mock_rewrite, mock_retrieve, mock_answer, mock_verify):
+def test_blocks_when_verification_not_fundamentada(mock_rewrite, mock_search, mock_answer, mock_verify):
     mock_rewrite.return_value = "query"
-    mock_retrieve.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
+    mock_search.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
     mock_answer.return_value = ("resposta com citação [1]", MagicMock())
     mock_verify.return_value = Verification(fundamentada=False, correcao=False, citacoes=[])
 
@@ -89,11 +89,11 @@ def test_blocks_when_verification_not_fundamentada(mock_rewrite, mock_retrieve, 
 
 @patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer")
-@patch("agent.orchestrator.retrieve")
+@patch("agent.orchestrator.search")
 @patch("agent.orchestrator.rewrite_query")
-def test_sem_info_is_not_blocked_and_has_empty_citations(mock_rewrite, mock_retrieve, mock_answer, mock_verify):
+def test_sem_info_is_not_blocked_and_has_empty_citations(mock_rewrite, mock_search, mock_answer, mock_verify):
     mock_rewrite.return_value = "query"
-    mock_retrieve.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
+    mock_search.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
     mock_answer.return_value = (_SEM_INFO, MagicMock())
     mock_verify.return_value = Verification(fundamentada=True, correcao=False, citacoes=[])
 
@@ -106,11 +106,11 @@ def test_sem_info_is_not_blocked_and_has_empty_citations(mock_rewrite, mock_retr
 
 @patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer_stream")
-@patch("agent.orchestrator.retrieve")
+@patch("agent.orchestrator.search")
 @patch("agent.orchestrator.rewrite_query")
-def test_stream_payload_includes_citacoes_and_correcao(mock_rewrite, mock_retrieve, mock_answer_stream, mock_verify):
+def test_stream_payload_includes_citacoes_and_correcao(mock_rewrite, mock_search, mock_answer_stream, mock_verify):
     mock_rewrite.return_value = "query"
-    mock_retrieve.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
+    mock_search.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
     mock_answer_stream.return_value = iter(["resposta ", "com [1]"])
     mock_verify.return_value = Verification(
         fundamentada=True, correcao=True,
@@ -132,11 +132,11 @@ def test_stream_payload_includes_citacoes_and_correcao(mock_rewrite, mock_retrie
 
 @patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer_stream")
-@patch("agent.orchestrator.retrieve")
+@patch("agent.orchestrator.search")
 @patch("agent.orchestrator.rewrite_query")
-def test_stream_blocks_without_citation_markers(mock_rewrite, mock_retrieve, mock_answer_stream, mock_verify):
+def test_stream_blocks_without_citation_markers(mock_rewrite, mock_search, mock_answer_stream, mock_verify):
     mock_rewrite.return_value = "query"
-    mock_retrieve.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
+    mock_search.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
     mock_answer_stream.return_value = iter(["resposta sem citação"])
     mock_verify.return_value = Verification(fundamentada=True, correcao=False, citacoes=[])
 
@@ -152,11 +152,11 @@ def test_stream_blocks_without_citation_markers(mock_rewrite, mock_retrieve, moc
 
 @patch("agent.orchestrator.verify")
 @patch("agent.orchestrator.answer_stream")
-@patch("agent.orchestrator.retrieve")
+@patch("agent.orchestrator.search")
 @patch("agent.orchestrator.rewrite_query")
-def test_stream_emits_status_event_on_retry(mock_rewrite, mock_retrieve, mock_answer_stream, mock_verify):
+def test_stream_emits_status_event_on_retry(mock_rewrite, mock_search, mock_answer_stream, mock_verify):
     mock_rewrite.return_value = "query"
-    mock_retrieve.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
+    mock_search.return_value = [(0.9, "u1_ab_doc.pdf", "texto1", None)]
     mock_answer_stream.return_value = iter(["resposta ", "com [1]"])
 
     def fake_verify(query, chunks, resposta, historico=None, summary="", on_retry=None):
