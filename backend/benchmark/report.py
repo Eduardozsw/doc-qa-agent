@@ -40,7 +40,9 @@ def _secao_resumo(configs: dict, env: dict) -> str:
 
     agregado = full["aggregated"]
     q, r, cost = agregado["quality"], agregado["retrieval"], agregado["cost"]
-    p95_search = agregado["latency_ms"].get("search", {}).get("p95", 0.0)
+    lat_search = agregado["latency_ms"].get("search", {})
+    lat_retrieve = agregado["latency_ms"].get("retrieve", {})
+    lat_total = agregado["latency_ms"].get("total", {})
     repeats = env.get("repeats", "?")
 
     linhas += [
@@ -52,7 +54,12 @@ def _secao_resumo(configs: dict, env: dict) -> str:
         f"- **Abstenção correta** (fora do documento): {format_pct(q['abstain_correct_rate'], q['abstain_correct_n'], q['abstain_correct_total'])}",
         f"- **Taxa de alucinação** (fora do documento): {format_pct(q['hallucination_rate'], q['hallucination_n'], q['hallucination_total'])}",
         f"- **hit@3** de recuperação: {r['hit@3'] * 100:.0f}% (n={r['n']})",
-        f"- **Busca de contexto** (p95): {p95_search:.0f} ms",
+        f"- **Busca híbrida** (pgvector + full-text, sem LLM): p50 {lat_retrieve.get('p50', 0):.0f} ms / "
+        f"p95 {lat_retrieve.get('p95', 0):.0f} ms",
+        f"- **Busca de contexto completa** (expansão de consulta + híbrida + rerank por LLM): "
+        f"p50 {lat_search.get('p50', 0):.0f} ms / p95 {lat_search.get('p95', 0):.0f} ms",
+        f"- **Ponta a ponta** (busca + geração + verificação): p50 {lat_total.get('p50', 0):.0f} ms / "
+        f"p95 {lat_total.get('p95', 0):.0f} ms",
         f"- **Custo**: US$ {cost.get('usd_per_question', 0):.4f}/pergunta "
         f"(US$ {cost.get('usd_per_1000', 0):.2f} por 1.000 perguntas)",
     ]
@@ -156,6 +163,18 @@ def _secao_recuperacao(configs: dict) -> str:
             f"| {_NOME_CONFIG.get(nome, nome)} | {r['hit@1'] * 100:.0f}% | {r['hit@3'] * 100:.0f}% | "
             f"{r['hit@5'] * 100:.0f}% | {r['mrr']:.2f} | {r['n']} |"
         )
+    if "naive" in configs and "hybrid" in configs:
+        naive = configs["naive"]["aggregated"]["retrieval"]["hit@3"]
+        hybrid = configs["hybrid"]["aggregated"]["retrieval"]["hit@3"]
+        if hybrid < naive:
+            linhas += [
+                "",
+                f"A busca híbrida sozinha ficou abaixo da vetorial no hit@3 ({hybrid * 100:.0f}% vs "
+                f"{naive * 100:.0f}%): a fusão RRF promove trechos com muitas palavras em comum com a pergunta "
+                "que nem sempre são a página rotulada. Mesmo assim, na qualidade de resposta a híbrida zerou a "
+                "falsa abstenção (as palavras exatas trazem o trecho que o LLM precisa, ainda que não no topo). "
+                "O ganho de ranking vem do rerank por LLM, que reordena os candidatos das duas buscas.",
+            ]
     return "\n".join(linhas)
 
 
@@ -226,17 +245,29 @@ def _secao_cache(cache: dict | None) -> str:
     resultados = cache.get("resultados", [])
     if not resultados:
         return "## Cache semântico\n\n(Sem perguntas para medir.)"
-    frios = [r["cold_ms"] for r in resultados]
-    hits = [r["hit_ms"] for r in resultados]
+    confirmados = [r for r in resultados if r.get("cache_hit_confirmado")]
+    frios = [r["cold_ms"] for r in confirmados]
+    hits = [r["hit_ms"] for r in confirmados]
     linhas = [
         "## Cache semântico",
         "",
         f"{len(resultados)} perguntas, cada uma consultada 2x (fria, depois repetida) num namespace limpo "
-        "(cache invalidado antes e depois):",
+        "(cache invalidado antes e depois). Latências calculadas só sobre as "
+        f"{len(confirmados)} em que a 2ª chamada veio do cache:",
         "",
-        f"- Latência média fria (miss): {sum(frios) / len(frios):.0f} ms",
-        f"- Latência média com hit: {sum(hits) / len(hits):.0f} ms",
     ]
+    if confirmados:
+        linhas += [
+            f"- Latência média fria (miss): {sum(frios) / len(frios):.0f} ms",
+            f"- Latência média com hit: {sum(hits) / len(hits):.0f} ms "
+            f"({sum(frios) / sum(hits):.0f}x mais rápido, sem chamada ao LLM)",
+        ]
+    nao_cacheadas = len(resultados) - len(confirmados)
+    if nao_cacheadas:
+        linhas.append(
+            f"- {nao_cacheadas} pergunta(s) não foram cacheadas: por design, respostas \"não encontrei\" "
+            "e respostas bloqueadas pelo verificador não entram no cache."
+        )
     return "\n".join(linhas)
 
 
@@ -256,8 +287,12 @@ def _secao_http(http: dict | None) -> str:
         f"{http.get('n')} perguntas via `POST /api/query/stream`, respeitando o limite de 5/min "
         f"(dormindo {http.get('rate_limit_sleep_s')}s entre requisições):",
         "",
-        f"- Time-to-first-token médio: {sum(ttfts) / len(ttfts):.0f} ms" if ttfts else "- Time-to-first-token: n/d",
-        f"- Tempo total médio (até `[DONE]`): {sum(totais) / len(totais):.0f} ms",
+        (f"- Time-to-first-token: mediana {sorted(ttfts)[len(ttfts) // 2]:.0f} ms "
+         f"(mín. {min(ttfts):.0f}, máx. {max(ttfts):.0f})") if ttfts else "- Time-to-first-token: n/d",
+        f"- Tempo total (até `[DONE]`): mediana {sorted(totais)[len(totais) // 2]:.0f} ms "
+        f"(mín. {min(totais):.0f}, máx. {max(totais):.0f})",
+        "- O primeiro token só sai depois da busca completa (expansão + híbrida + rerank), por isso o TTFT "
+        "fica próximo da latência de busca somada ao início da geração.",
     ]
     return "\n".join(linhas)
 

@@ -190,7 +190,7 @@ def run_config(
             for i, caso in enumerate(dataset, start=1):
                 resultado = _run_case(caso, namespace, query_tracker, judge_tracker)
                 status = "ERRO" if resultado.get("error") else f"nota={resultado.get('score')}"
-                print(f"[{nome}] rep {rep}/{repeats} caso {i}/{len(dataset)} ({status}) {caso['query'][:60]}")
+                print(f"[{nome}] rep {rep}/{repeats} caso {i}/{len(dataset)} ({status}) {caso['query'][:60]}", flush=True)
                 casos.append(resultado)
             reps.append({"rep": rep, "cases": casos})
 
