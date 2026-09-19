@@ -27,7 +27,7 @@ O custo conta os tokens de toda chamada OpenAI do pipeline de consulta (chat e e
 | Item | Valor |
 |---|---|
 | Data | 2026-09-18 |
-| Commit | 98e5fca |
+| Commit | 867aba4 |
 | CPU | 12th Gen Intel(R) Core(TM) i5-1235U |
 | RAM | 7.5 GB |
 | Modelo de chat | gpt-4o-mini |

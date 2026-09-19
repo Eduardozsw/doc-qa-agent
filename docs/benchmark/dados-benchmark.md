@@ -10,7 +10,7 @@ Arquivo gerado a partir de `docs/benchmark/results-2026-09-18.json`, sem interpr
 - Suíte de testes automatizados do repositório no momento da medição: 299 testes (pytest).
 
 ## 2. Condições do experimento
-- Data: 2026-09-18. Commit: 98e5fca.
+- Data: 2026-09-18. Commit: 867aba4.
 - Hardware: 12th Gen Intel(R) Core(TM) i5-1235U, 7.5 GB RAM, sem GPU. APIs da OpenAI via internet residencial.
 - Corpus: 1 documento (Cadernos de Atenção Básica nº 37 — Hipertensão Arterial Sistêmica, Ministério da Saúde, 130 páginas, 334 chunks).
 - Dataset: 50 perguntas — 30 factuais, 10 com premissa falsa, 10 com resposta ausente do documento.
