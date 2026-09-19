@@ -1,28 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Sparkles, FileText, X } from 'lucide-react';
-import { Session, User } from '@supabase/supabase-js';
+import { Session, User } from './lib/auth';
 import { PDFUpload } from './components/PDFUpload';
 import { PlanLimitModal } from './components/PlanLimitModal';
 import { QuestionInput } from './components/QuestionInput';
 import { AnswerSection } from './components/AnswerSection';
 import { UserMenu } from './components/UserMenu';
+import type { PdfViewerRequest } from './components/PdfViewer';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsOfServicePage } from './pages/TermsOfServicePage';
 import { SecurityPage } from './pages/SecurityPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { SuccessPage } from './pages/SuccessPage';
-import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { ResumirPdfPage } from './pages/ResumirPdfPage';
 import { useAuth } from './contexts/AuthContext';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import { useFileManagement } from './hooks/useFileManagement';
 import { useJobPolling } from './hooks/useJobPolling';
 import { DARK } from './constants/theme';
+import type { Citacao, Conflito } from './lib/api';
 
-export type Message = { question: string; answer: string; sources: string[]; unverified?: boolean };
+// Carregado sob demanda: react-pdf/pdfjs só entra no bundle quando o usuário abre um PDF.
+const PdfViewer = lazy(() => import('./components/PdfViewer').then(m => ({ default: m.PdfViewer })));
+
+export type Message = {
+  question: string;
+  answer: string;
+  sources: string[];
+  unverified?: boolean;
+  citacoes: Citacao[];
+  correcao: boolean;
+  status?: string;
+  traceId?: string;
+  feedback?: 1 | -1;
+  cached?: boolean;
+  conflitos: Conflito[];
+  modelo?: string;
+};
 
 function App() {
   const { user, session, loading: authLoading } = useAuth();
@@ -44,8 +60,6 @@ function App() {
       <Route path="/privacidade" element={<PrivacyPolicyPage />} />
       <Route path="/termos" element={<TermsOfServicePage />} />
       <Route path="/seguranca" element={<SecurityPage />} />
-      <Route path="/sucesso" element={<SuccessPage />} />
-      <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route path="/resumir-pdf" element={<ResumirPdfPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -56,13 +70,14 @@ const PLAN_MAX_FILES: Record<string, number> = { free: 3, solo: 10, pro: 20 };
 
 function MainApp({ session }: { session: Session | null }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { profile } = useAuth();
   const authFetch = useAuthFetch(session);
   const maxFiles = PLAN_MAX_FILES[profile?.plan ?? 'free'] ?? 3;
   const {
     indexedFiles, pendingFiles, searchSelected, ingestStatus, ingestError, ingestWarning,
     slotsAvailable, activeJobs, handleJobDone, handleToggleSearch, handleAddFiles, handleRemovePending,
-    handleIngest, handleRemoveIndexed, loadIndexedFiles, dismissWarning,
+    handleIngest, handleRemoveIndexed, loadIndexedFiles, dismissWarning, selectOnly,
   } = useFileManagement(authFetch, maxFiles);
 
   const { jobs: jobStatuses } = useJobPolling(authFetch, activeJobs, handleJobDone);
@@ -72,9 +87,23 @@ function MainApp({ session }: { session: Session | null }) {
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [pdfRequest, setPdfRequest] = useState<PdfViewerRequest | null>(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfEverOpened, setPdfEverOpened] = useState(false);
+
+  const handleOpenPdf = (req: PdfViewerRequest) => {
+    setPdfRequest(req);
+    setPdfOpen(true);
+    setPdfEverOpened(true);
+  };
 
   useEffect(() => {
-    loadIndexedFiles();
+    const namespace = searchParams.get('namespace');
+    loadIndexedFiles().then(files => {
+      if (namespace && files.includes(namespace)) {
+        selectOnly(namespace);
+      }
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -94,7 +123,7 @@ function MainApp({ session }: { session: Session | null }) {
     setQuestion('');
     setLoading(true);
 
-    setHistory(prev => [...prev, { question: currentQuestion, answer: '', sources: [] }]);
+    setHistory(prev => [...prev, { question: currentQuestion, answer: '', sources: [], citacoes: [], correcao: false, conflitos: [] }]);
 
     const namespacesToQuery = searchSelected.size > 0 ? Array.from(searchSelected) : [];
 
@@ -110,6 +139,7 @@ function MainApp({ session }: { session: Session | null }) {
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let receivedTerminalEvent = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -130,44 +160,72 @@ function MainApp({ session }: { session: Session | null }) {
             setHistory(prev => prev.map((m, i) =>
               i === prev.length - 1 ? { ...m, answer: m.answer + event.text } : m
             ));
-          } else if (event.type === 'done') {
+          } else if (event.type === 'status') {
             setHistory(prev => prev.map((m, i) =>
-              i === prev.length - 1 ? { ...m, sources: event.fontes ?? [], unverified: event.blocked } : m
+              i === prev.length - 1 ? { ...m, status: event.text } : m
             ));
-          } else if (event.type === 'blocked' || event.type === 'error') {
+          } else if (event.type === 'done') {
+            receivedTerminalEvent = true;
             setHistory(prev => prev.map((m, i) =>
               i === prev.length - 1
-                ? { ...m, answer: 'Não encontrei informação suficiente nos documentos para responder essa pergunta.', sources: [] }
+                ? {
+                    ...m,
+                    answer: event.resposta ?? m.answer,
+                    sources: event.fontes ?? [],
+                    unverified: event.blocked,
+                    citacoes: event.citacoes ?? [],
+                    correcao: event.correcao ?? false,
+                    status: undefined,
+                    traceId: event.trace_id ?? undefined,
+                    cached: event.cached ?? false,
+                    conflitos: event.conflitos ?? [],
+                    modelo: event.modelo ?? undefined,
+                  }
+                : m
+            ));
+          } else if (event.type === 'blocked' || event.type === 'error') {
+            receivedTerminalEvent = true;
+            const fallback = 'Não encontrei informação suficiente nos documentos para responder essa pergunta.';
+            const answer = event.type === 'error' ? (event.text ?? fallback) : fallback;
+            setHistory(prev => prev.map((m, i) =>
+              i === prev.length - 1
+                ? {
+                    ...m,
+                    answer,
+                    sources: [],
+                    citacoes: [],
+                    correcao: false,
+                    status: undefined,
+                    conflitos: [],
+                  }
                 : m
             ));
           }
         }
       }
+
+      if (!receivedTerminalEvent) {
+        setHistory(prev => prev.map((m, i) =>
+          i === prev.length - 1
+            ? { ...m, answer: 'Erro: a resposta foi interrompida. Tente novamente.', status: undefined }
+            : m
+        ));
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao consultar. Tente novamente.';
       setHistory(prev => prev.map((m, i) =>
-        i === prev.length - 1 ? { ...m, answer: `Erro: ${message}`, sources: [] } : m
+        i === prev.length - 1 ? { ...m, answer: `Erro: ${message}`, sources: [], citacoes: [], correcao: false, status: undefined, conflitos: [] } : m
       ));
     } finally {
       setLoading(false);
     }
   };
 
-  const canSubmit = (ingestStatus === 'ready' || ingestStatus === 'partial') && question.trim().length > 0 && !loading;
-
-  const handleUpgradeSolo = async () => {
-    try {
-      const res = await authFetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'solo' }),
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch {
-      // mantém o modal aberto
-    }
+  const handleFeedback = (index: number, score: 1 | -1) => {
+    setHistory(prev => prev.map((m, i) => (i === index ? { ...m, feedback: score } : m)));
   };
+
+  const canSubmit = (ingestStatus === 'ready' || ingestStatus === 'partial') && question.trim().length > 0 && !loading;
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: DARK.bg, fontFamily: 'inherit' }}>
@@ -314,7 +372,13 @@ function MainApp({ session }: { session: Session | null }) {
                 </button>
               </div>
             )}
-            <AnswerSection history={history} loading={loading} />
+            <AnswerSection
+              history={history}
+              loading={loading}
+              authFetch={authFetch}
+              onFeedback={handleFeedback}
+              onOpenPdf={handleOpenPdf}
+            />
           </div>
 
           {/* Input */}
@@ -332,6 +396,20 @@ function MainApp({ session }: { session: Session | null }) {
             />
           </div>
         </div>
+
+        {/* Visualizador de PDF — carregado sob demanda (react-pdf só entra no bundle no 1º uso);
+            depois de aberto uma vez, fica montado para manter o cache de blobs entre reaberturas. */}
+        {pdfEverOpened && (
+          <Suspense fallback={null}>
+            <PdfViewer
+              open={pdfOpen}
+              request={pdfRequest}
+              onClose={() => setPdfOpen(false)}
+              authFetch={authFetch}
+              isMobile={isMobile}
+            />
+          </Suspense>
+        )}
       </div>
 
       {/* Modal de limite de documentos */}
@@ -339,7 +417,6 @@ function MainApp({ session }: { session: Session | null }) {
         <PlanLimitModal
           warning={ingestWarning}
           onClose={dismissWarning}
-          onUpgrade={handleUpgradeSolo}
         />
       )}
     </div>

@@ -33,22 +33,25 @@ class QueryRequest(BaseModel):
         return v
 
 
-class CheckoutRequest(BaseModel):
-    plan: str
-    payment_method: str = "card"
+class FeedbackRequest(BaseModel):
+    trace_id: str | None = None
+    score: int
+    comentario: str = ""
+    pergunta: str = ""
+    resposta: str = ""
 
-    @field_validator("plan")
+    @field_validator("score")
     @classmethod
-    def validate_plan(cls, v: str) -> str:
-        if v not in ("solo", "pro"):
-            raise ValueError("plano inválido")
+    def validate_score(cls, v: int) -> int:
+        if v not in (1, -1):
+            raise ValueError("score deve ser 1 ou -1")
         return v
 
-    @field_validator("payment_method")
+    @field_validator("comentario")
     @classmethod
-    def validate_payment_method(cls, v: str) -> str:
-        if v not in ("card", "pix"):
-            raise ValueError("método de pagamento inválido")
+    def validate_comentario(cls, v: str) -> str:
+        if len(v) > 1000:
+            raise ValueError("comentario excede 1000 caracteres")
         return v
 
 

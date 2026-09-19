@@ -1,26 +1,16 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi import UploadFile
-from core.exceptions import ForbiddenError, FileTooLargeError, UnsupportedFileTypeError
+from unittest.mock import patch
+from core.exceptions import ForbiddenError
 
 # Pre-import process_file_job at module level to avoid reload issues
 from services.ingest import process_file_job
 
 USER_ID = "user-abc"
-SMALL_PDF = b"%PDF-1.4 fake content"
-
-
-def _make_upload(filename="doc.pdf", content_type="application/pdf", data=SMALL_PDF):
-    file = MagicMock(spec=UploadFile)
-    file.filename = filename
-    file.content_type = content_type
-    file.read = AsyncMock(return_value=data)
-    return file
 
 
 @pytest.mark.asyncio
 async def test_list_files_returns_user_namespaces():
-    with patch("services.ingest.redis_db.get_namespaces", return_value=["doc1.pdf"]):
+    with patch("services.ingest.namespaces_db.get_namespaces", return_value=["doc1.pdf"]):
         from services.ingest import list_files
         result = await list_files(USER_ID)
     assert result == ["doc1.pdf"]
@@ -28,81 +18,26 @@ async def test_list_files_returns_user_namespaces():
 
 @pytest.mark.asyncio
 async def test_remove_files_owned_succeeds():
-    with patch("services.ingest.redis_db.get_namespaces", return_value=["doc.pdf"]):
-        with patch("services.ingest.delete_namespace") as mock_del:
-            with patch("services.ingest.redis_db.remove_namespace") as mock_rem:
-                from services.ingest import remove_files
-                await remove_files(USER_ID, ["doc.pdf"])
-    mock_del.assert_called_once_with("doc.pdf")
-    mock_rem.assert_called_once_with(USER_ID, "doc.pdf")
+    with patch("services.ingest.namespaces_db.get_namespaces", return_value=["doc.pdf"]):
+        with patch("services.ingest.namespaces_db.get_sha256_for_namespace", return_value="abc123"):
+            with patch("services.ingest.namespaces_db.remove_namespace") as mock_remove:
+                with patch("services.ingest.redis_db.delete_cached_namespace") as mock_del_cache:
+                    with patch("services.ingest.delete_namespace") as mock_delete_ns:
+                        with patch("services.ingest.documents_db.delete_document") as mock_delete_doc:
+                            from services.ingest import remove_files
+                            await remove_files(USER_ID, ["doc.pdf"])
+    mock_remove.assert_called_once_with(USER_ID, "doc.pdf")
+    mock_del_cache.assert_called_once_with("abc123", USER_ID)
+    mock_delete_ns.assert_called_once_with("doc.pdf")
+    mock_delete_doc.assert_called_once_with("doc.pdf")
 
 
 @pytest.mark.asyncio
 async def test_remove_files_not_owned_raises():
-    with patch("services.ingest.redis_db.get_namespaces", return_value=["meu.pdf"]):
+    with patch("services.ingest.namespaces_db.get_namespaces", return_value=["meu.pdf"]):
         from services.ingest import remove_files
         with pytest.raises(ForbiddenError):
             await remove_files(USER_ID, ["alheio.pdf"])
-
-
-@pytest.mark.asyncio
-async def test_ingest_rejects_non_pdf():
-    file = _make_upload(filename="doc.txt", content_type="text/plain")
-    with patch("services.ingest.redis_db.get_namespaces", return_value=[]):
-        from services.ingest import ingest_files
-        with pytest.raises(UnsupportedFileTypeError):
-            await ingest_files(USER_ID, [file])
-
-
-@pytest.mark.asyncio
-async def test_ingest_rejects_oversized_file():
-    big_content = b"x" * (51 * 1024 * 1024)
-    file = _make_upload(data=big_content)
-    with patch("services.ingest.redis_db.get_namespaces", return_value=[]):
-        from services.ingest import ingest_files
-        with pytest.raises(FileTooLargeError):
-            await ingest_files(USER_ID, [file])
-
-
-@pytest.mark.asyncio
-async def test_ingest_uses_cache_on_duplicate():
-    file = _make_upload()
-    with patch("services.ingest.redis_db.get_namespaces", return_value=[]):
-        with patch("services.ingest.redis_db.get_cached_namespace", return_value="doc.pdf"):
-            with patch("services.ingest.redis_db.add_namespace") as mock_add:
-                with patch("services.ingest.load_pages_from_bytes") as mock_load:
-                    from services.ingest import ingest_files
-                    added, chunks = await ingest_files(USER_ID, [file])
-    mock_load.assert_not_called()
-    mock_add.assert_called_once()
-    assert chunks == 0
-
-
-@pytest.mark.asyncio
-async def test_ingest_new_file_processes_and_caches():
-    file = _make_upload()
-    with patch("services.ingest.redis_db.get_namespaces", return_value=[]):
-        with patch("services.ingest.redis_db.get_cached_namespace", return_value=None):
-            with patch("services.ingest.load_pages_from_bytes", return_value=[(1, "texto do pdf")]):
-                with patch("services.ingest.chunk_pages", return_value=[("chunk1", 1), ("chunk2", 1)]):
-                    with patch("services.ingest.upsert_chunks"):
-                        with patch("services.ingest.redis_db.set_cached_namespace") as mock_cache:
-                            with patch("services.ingest.redis_db.add_namespace"):
-                                from services.ingest import ingest_files
-                                added, total = await ingest_files(USER_ID, [file])
-    mock_cache.assert_called_once()
-    assert total == 2
-
-
-@pytest.mark.asyncio
-async def test_ingest_raises_on_empty_text():
-    file = _make_upload()
-    with patch("services.ingest.redis_db.get_namespaces", return_value=[]):
-        with patch("services.ingest.redis_db.get_cached_namespace", return_value=None):
-            with patch("services.ingest.load_pages_from_bytes", return_value=[(1, "   ")]):
-                from services.ingest import ingest_files
-                with pytest.raises(Exception):
-                    await ingest_files(USER_ID, [file])
 
 
 def test_process_file_job_success():
@@ -114,15 +49,21 @@ def test_process_file_job_success():
         "sha256": "abc123",
         "plan": "free",
     }
-    with patch("services.ingest.supabase_db.download_temp_file", return_value=b"%PDF-fake"):
-        with patch("services.ingest.supabase_db.delete_temp_file"):
+    with patch("services.ingest.uploads_db.download_temp_file", return_value=b"%PDF-fake"):
+        with patch("services.ingest.uploads_db.delete_temp_file"):
             with patch("services.ingest.load_pages_from_bytes", return_value=[(1, "texto")]):
                 with patch("services.ingest.chunk_pages", return_value=[("chunk1", 1)]):
-                    with patch("services.ingest.upsert_chunks"):
-                        with patch("services.ingest.supabase_db.add_namespace") as mock_add:
-                            with patch("services.ingest.redis_db.set_cached_namespace"):
-                                process_file_job(job)
+                    with patch("services.ingest.build_preview", return_value="preview"):
+                        with patch("services.ingest.contextualize", return_value=[""]) as mock_ctx:
+                            with patch("services.ingest.upsert_chunks") as mock_upsert:
+                                with patch("services.ingest.namespaces_db.add_namespace") as mock_add:
+                                    with patch("services.ingest.redis_db.set_cached_namespace"):
+                                        with patch("services.ingest.documents_db.save_document") as mock_save_doc:
+                                            process_file_job(job)
     mock_add.assert_called_once_with(USER_ID, "user_sha_doc", "abc123", "doc.pdf")
+    mock_ctx.assert_called_once_with([("chunk1", 1)], "preview")
+    mock_upsert.assert_called_once_with([("chunk1", 1)], "user_sha_doc", "user_sha_doc", [""])
+    mock_save_doc.assert_called_once_with("user_sha_doc", USER_ID, "doc.pdf", b"%PDF-fake")
 
 
 def test_process_file_job_deletes_temp_on_error():
@@ -134,8 +75,8 @@ def test_process_file_job_deletes_temp_on_error():
         "sha256": "abc123",
         "plan": "free",
     }
-    with patch("services.ingest.supabase_db.download_temp_file", return_value=b"%PDF-fake"):
-        with patch("services.ingest.supabase_db.delete_temp_file") as mock_delete:
+    with patch("services.ingest.uploads_db.download_temp_file", return_value=b"%PDF-fake"):
+        with patch("services.ingest.uploads_db.delete_temp_file") as mock_delete:
             with patch("services.ingest.load_pages_from_bytes", side_effect=Exception("erro")):
                 with pytest.raises(RuntimeError):
                     process_file_job(job)
@@ -151,8 +92,8 @@ def test_process_file_job_wraps_pdf_read_error_as_runtime():
         "sha256": "abc123",
         "plan": "free",
     }
-    with patch("services.ingest.supabase_db.download_temp_file", return_value=b"%PDF-fake"):
-        with patch("services.ingest.supabase_db.delete_temp_file"):
+    with patch("services.ingest.uploads_db.download_temp_file", return_value=b"%PDF-fake"):
+        with patch("services.ingest.uploads_db.delete_temp_file"):
             with patch("services.ingest.load_pages_from_bytes", side_effect=Exception("fitz error")):
                 with pytest.raises(RuntimeError, match="corrompido"):
                     process_file_job(job)
@@ -167,10 +108,12 @@ def test_process_file_job_wraps_upsert_error_as_runtime():
         "sha256": "abc123",
         "plan": "free",
     }
-    with patch("services.ingest.supabase_db.download_temp_file", return_value=b"%PDF-fake"):
-        with patch("services.ingest.supabase_db.delete_temp_file"):
+    with patch("services.ingest.uploads_db.download_temp_file", return_value=b"%PDF-fake"):
+        with patch("services.ingest.uploads_db.delete_temp_file"):
             with patch("services.ingest.load_pages_from_bytes", return_value=[(1, "texto")]):
                 with patch("services.ingest.chunk_pages", return_value=[("chunk1", 1)]):
-                    with patch("services.ingest.upsert_chunks", side_effect=Exception("pinecone error")):
-                        with pytest.raises(RuntimeError, match="salvar"):
-                            process_file_job(job)
+                    with patch("services.ingest.build_preview", return_value="preview"):
+                        with patch("services.ingest.contextualize", return_value=[""]):
+                            with patch("services.ingest.upsert_chunks", side_effect=Exception("erro de indexação")):
+                                with pytest.raises(RuntimeError, match="salvar"):
+                                    process_file_job(job)

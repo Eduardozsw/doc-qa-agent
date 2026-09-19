@@ -145,7 +145,7 @@ export function ResumirPdfPage() {
                 {[
                   { key: 'ingesting', label: 'Indexando documento' },
                   { key: 'summarizing', label: 'Gerando resumo' },
-                ].map((step, i) => {
+                ].map((step) => {
                   const isActive = step.key === status;
                   const isDone = (step.key === 'ingesting' && status === 'summarizing');
                   return (

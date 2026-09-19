@@ -1,45 +1,60 @@
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+load_dotenv()
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # Supabase
-    supabase_url: str
-    supabase_service_role_key: str
-
     # OpenAI
     openai_api_key: str
+    openai_chat_model: str = "gpt-4o-mini"
+    openai_chat_model_strong: str = "gpt-4o"
 
-    # Pinecone
-    pinecone_api_key: str
-    pinecone_index: str
+    # Roteamento de modelo (F6): perguntas complexas (multi-documento, longas ou com
+    # marcador de premissa) usam `openai_chat_model_strong` em vez do padrão.
+    # Desligado por padrão: no eval (documento único) não houve ganho mensurável e o gpt-4o custa ~15x mais.
+    model_routing_enabled: bool = False
+
+    # Auth
+    jwt_secret: str
+    jwt_expire_days: int = 7
+
+    # Postgres
+    database_url: str = "postgresql://docqa:docqa@localhost:5432/docqa"
 
     # Redis
     redis_url: str = "redis://localhost:6379"
 
     # CORS
-    allowed_origins: str = "http://localhost:5173"
+    allowed_origins: str = "http://localhost:5173,http://localhost:8080"
 
     # Upload
     max_file_size_mb: int = 50
-    max_files_per_user: int = 5
 
-    # Stripe
-    stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
-    stripe_price_solo: str = ""
-    stripe_price_pro: str = ""
-    stripe_price_solo_onetime: str = ""
-    stripe_price_pro_onetime: str = ""
+    # Retrieval
+    hybrid_search: bool = True
+    rerank_enabled: bool = True
+    rerank_candidates: int = 20
+    multi_query_enabled: bool = True
 
-    # Resend
-    resend_api_key: str = ""
-    resend_from_email: str = ""
+    # Ingestão
+    # Desligado por padrão: medido no CAB 37 (doc único de 130 páginas), o prefixo de
+    # contexto reduziu hit@5/MRR/citation_rate em vez de ajudar (ver evals de ablação).
+    contextual_retrieval_enabled: bool = False
+    ocr_enabled: bool = False
 
-    # Frontend
-    frontend_url: str = "http://localhost"
+    # Cache semântico (F5): hit por similaridade de cosseno entre a pergunta e o
+    # cache do mesmo conjunto de namespaces. Só é consultado sem histórico/resumo.
+    semantic_cache_enabled: bool = True
+    semantic_cache_min_score: float = 0.97
+    semantic_cache_ttl_hours: int = 24
+
+    # Demo user (seed no boot)
+    demo_user_email: str = "demo@local"
+    demo_user_password: str = "demo1234"
 
     @property
     def allowed_origins_list(self) -> list[str]:

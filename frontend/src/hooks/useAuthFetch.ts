@@ -1,14 +1,18 @@
-import { Session } from '@supabase/supabase-js';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
+import { Session } from '../lib/auth';
+import { API_BASE } from '../lib/api';
 
 export function useAuthFetch(session: Session | null) {
-  return (url: string, options: RequestInit = {}): Promise<Response> =>
-    fetch(`${API_BASE}${url}`, {
+  return async (url: string, options: RequestInit = {}): Promise<Response> => {
+    const res = await fetch(`${API_BASE}${url}`, {
       ...options,
       headers: {
         ...options.headers,
         ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
     });
+    if (res.status === 401) {
+      window.dispatchEvent(new Event('auth:unauthorized'));
+    }
+    return res;
+  };
 }

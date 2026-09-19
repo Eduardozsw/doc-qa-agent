@@ -15,6 +15,9 @@ QUEUE_KEY = "ingest_queue"
 
 
 def run_worker() -> None:
+    from db.postgres import init_db
+    init_db()
+
     logger.info("Worker iniciado, aguardando jobs...")
     while True:
         try:
@@ -35,6 +38,11 @@ def run_worker() -> None:
             except Exception as e:
                 set_job_status(job_id, "error", filename=filename, error=str(e), user_id=user_id)
                 logger.error(f"Job {job_id} falhou: {e}")
+            finally:
+                # Envia as generations de embedding do job (se o tracing estiver habilitado)
+                # em vez de esperar o batch interno do langfuse, já que o worker roda indefinidamente.
+                from core.tracing import flush
+                flush()
 
         except (redis_lib.exceptions.TimeoutError, redis_lib.exceptions.ConnectionError) as e:
             logger.warning(f"Conexão Redis perdida, reconectando em 2s: {e}")
@@ -46,4 +54,6 @@ if __name__ == "__main__":
         run_worker()
     except KeyboardInterrupt:
         logger.info("Worker encerrado")
+        from core.tracing import flush
+        flush()
         sys.exit(0)

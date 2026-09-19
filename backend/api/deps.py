@@ -1,7 +1,9 @@
 import logging
 from dataclasses import dataclass
 from fastapi import Header, HTTPException
-from db.supabase import get_admin, get_user_plan
+
+from core.security import decode_token
+from db.users import get_user_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +26,21 @@ async def get_current_user(authorization: str = Header(...)) -> UserContext:
         raise HTTPException(status_code=401, detail="Token inválido")
 
     try:
-        response = get_admin().auth.get_user(token)
-        user = response.user
+        payload = decode_token(token)
+        if not payload:
+            raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token inválido")
+
+        user = get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=401, detail="Não autenticado")
-        plan = get_user_plan(user.id)
-        meta = user.user_metadata or {}
-        name = meta.get("full_name") or meta.get("name") or ""
-        return UserContext(id=user.id, email=user.email or "", plan=plan, name=name)
+
+        return UserContext(id=user["id"], email=user["email"] or "", plan=user["plan"], name=user["name"] or "")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Erro inesperado na autenticação: {type(e).__name__}: {e}")
-        raise HTTPException(status_code=500, detail="Erro interno de autenticação")
+        raise HTTPException(status_code=401, detail="Não autenticado")

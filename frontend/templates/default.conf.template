@@ -1,0 +1,26 @@
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+    location ~* ^/(\.env|\.git|\.ssh|\.aws|wp-|.*\.php) {
+        return 404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        set $backend_upstream http://backend:8000;
+        proxy_pass $backend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+        client_max_body_size 60m;
+    }
+}

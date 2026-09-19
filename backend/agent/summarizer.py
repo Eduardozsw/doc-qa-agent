@@ -1,6 +1,6 @@
-from openai import OpenAI
+from core.tracing import openai_client
 
-client = OpenAI()
+client = openai_client()
 
 
 def summarize(existing_summary: str, pergunta: str, resposta: str) -> str:

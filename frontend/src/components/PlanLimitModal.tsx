@@ -5,7 +5,6 @@ import { DARK } from '../constants/theme';
 interface PlanLimitModalProps {
   warning: string;
   onClose: () => void;
-  onUpgrade: () => void;
 }
 
 const STYLES = `
@@ -41,7 +40,7 @@ function BoldPlans({ text }: { text: string }) {
   );
 }
 
-export function PlanLimitModal({ warning, onClose, onUpgrade }: PlanLimitModalProps) {
+export function PlanLimitModal({ warning, onClose }: PlanLimitModalProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -176,13 +175,12 @@ export function PlanLimitModal({ warning, onClose, onUpgrade }: PlanLimitModalPr
             textAlign: 'center',
             margin: '0 0 24px',
           }}>
-            <BoldPlans text={warning} />{' '}
-            Assine o <strong style={{ color: '#fff', fontWeight: 650 }}>plano Solo</strong> para ter documentos ilimitados.
+            <BoldPlans text={warning} />
           </p>
 
           {/* CTA */}
           <button
-            onClick={onUpgrade}
+            onClick={onClose}
             style={{
               width: '100%',
               padding: '13px 0',
@@ -193,7 +191,6 @@ export function PlanLimitModal({ warning, onClose, onUpgrade }: PlanLimitModalPr
               fontSize: 13.5, fontWeight: 700,
               cursor: 'pointer',
               letterSpacing: '0.01em',
-              animation: '_btn-glow 2.5s ease-in-out 0.5s infinite',
               transition: 'filter 0.15s, transform 0.1s',
             }}
             onMouseEnter={e => {
@@ -207,7 +204,7 @@ export function PlanLimitModal({ warning, onClose, onUpgrade }: PlanLimitModalPr
             onMouseDown={e => { e.currentTarget.style.transform = 'translateY(0) scale(0.98)'; }}
             onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-1px) scale(1)'; }}
           >
-            plano Solo
+            Entendi
           </button>
         </div>
       </div>

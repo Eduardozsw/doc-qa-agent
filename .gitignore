@@ -10,7 +10,10 @@ PLANOS.md
 *.doc
 *.xlsx
 *.csv
-docs/
+/docs/*
+!/docs/aprendendo-rag.md
+!/docs/benchmark.md
+!/docs/benchmark/
 
 # Python
 __pycache__/
@@ -34,6 +37,7 @@ frontend/dist/
 .pytest_cache/
 .coverage
 htmlcov/
+backend/evals/last_run.json
 
 # Vector stores / indexes
 *.faiss

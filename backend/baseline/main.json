@@ -1,3 +1,9 @@
 {
-  "avg_score": 0.75
+  "answer_score": 0.9440000000000001,
+  "hit@3": 0.95,
+  "hit@5": 1.0,
+  "hit@8": 1.0,
+  "mrr": 0.8291666666666666,
+  "citation_rate": 0.925,
+  "correction_rate": 1.0
 }

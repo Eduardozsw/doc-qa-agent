@@ -1,9 +1,29 @@
 from pydantic import BaseModel
 
 
+class Citacao(BaseModel):
+    id: int
+    documento: str
+    namespace: str
+    pagina: int | None = None
+    trecho: str
+    verificada: bool
+
+
+class Conflito(BaseModel):
+    ids: list[int]
+    descricao: str
+
+
 class QueryResponse(BaseModel):
     resposta: str
     fontes: list[str]
+    citacoes: list[Citacao] = []
+    correcao: bool = False
+    conflitos: list[Conflito] = []
+    trace_id: str | None = None
+    cached: bool = False
+    modelo: str | None = None
 
 
 class ListFilesResponse(BaseModel):
@@ -13,10 +33,6 @@ class ListFilesResponse(BaseModel):
 class DeleteResponse(BaseModel):
     message: str
     arquivos: list[str]
-
-
-class BillingUrlResponse(BaseModel):
-    url: str
 
 
 class JobInfo(BaseModel):

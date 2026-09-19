@@ -1,0 +1,38 @@
+[project]
+name = "doc-qa-agent-backend"
+version = "1.0.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "pydantic-settings",
+    "python-dotenv",
+    "openai",
+    "tiktoken",
+    "pymupdf",
+    "redis",
+    "slowapi",
+    "psycopg[binary,pool]>=3.3.5",
+    "pgvector>=0.5.0",
+    "pyjwt>=2.14.0",
+    "bcrypt>=5.0.0",
+    "langfuse>=4.15.4",
+]
+
+[project.optional-dependencies]
+ocr = [
+    "pillow>=12.3.0",
+    "pytesseract>=0.3.13",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "httpx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "strict"
+markers = [
+    "db: testes que exigem Postgres real (pulados se indisponível)",
+]

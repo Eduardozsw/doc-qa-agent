@@ -1,10 +1,11 @@
 import json
 import logging
-from openai import OpenAI
+
 from agent.retriever import retrieve
+from core.tracing import openai_client
 
 logger = logging.getLogger(__name__)
-client = OpenAI()
+client = openai_client()
 
 _SUMMARY_QUERY = "Principais tópicos, seções, argumentos e conclusões do documento"
 _TOP_K = 20

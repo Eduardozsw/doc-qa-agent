@@ -15,7 +15,7 @@ def _make_request(namespaces=None, query="qual o prazo?"):
 @pytest.mark.asyncio
 async def test_query_with_owned_namespaces_succeeds():
     req = _make_request(namespaces=["contrato.pdf"])
-    with patch("services.query.redis_db.get_namespaces", return_value=["contrato.pdf"]):
+    with patch("services.query.namespaces_db.get_namespaces", return_value=["contrato.pdf"]):
         with patch("services.query.orchestrator", return_value={"resposta": "30 dias", "fontes": ["contrato.pdf"]}):
             result = await handle_query(USER_ID, "free", req)
     assert result["resposta"] == "30 dias"
@@ -24,7 +24,7 @@ async def test_query_with_owned_namespaces_succeeds():
 @pytest.mark.asyncio
 async def test_query_with_unauthorized_namespace_raises():
     req = _make_request(namespaces=["outro-user.pdf"])
-    with patch("services.query.redis_db.get_namespaces", return_value=["meu-doc.pdf"]):
+    with patch("services.query.namespaces_db.get_namespaces", return_value=["meu-doc.pdf"]):
         with pytest.raises(ForbiddenError):
             await handle_query(USER_ID, "free", req)
 
@@ -32,10 +32,10 @@ async def test_query_with_unauthorized_namespace_raises():
 @pytest.mark.asyncio
 async def test_query_with_empty_namespaces_skips_check():
     req = _make_request(namespaces=[])
-    with patch("services.query.redis_db.get_namespaces") as mock_redis:
+    with patch("services.query.namespaces_db.get_namespaces") as mock_get_namespaces:
         with patch("services.query.orchestrator", return_value={"resposta": "ok", "fontes": []}):
             await handle_query(USER_ID, "free", req)
-    mock_redis.assert_not_called()
+    mock_get_namespaces.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -59,6 +59,6 @@ async def test_query_free_plan_passes_empty_historico():
 @pytest.mark.asyncio
 async def test_query_partial_unauthorized_namespaces_raises():
     req = _make_request(namespaces=["meu.pdf", "alheio.pdf"])
-    with patch("services.query.redis_db.get_namespaces", return_value=["meu.pdf"]):
+    with patch("services.query.namespaces_db.get_namespaces", return_value=["meu.pdf"]):
         with pytest.raises(ForbiddenError):
             await handle_query(USER_ID, "free", req)

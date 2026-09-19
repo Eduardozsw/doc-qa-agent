@@ -21,6 +21,11 @@ class ForbiddenError(AppError):
         super().__init__(403, detail)
 
 
+class ConflictError(AppError):
+    def __init__(self, detail: str = "Recurso já existe"):
+        super().__init__(409, detail)
+
+
 class FileTooLargeError(AppError):
     def __init__(self, max_mb: int):
         super().__init__(413, f"Arquivo excede o limite de {max_mb}MB")
