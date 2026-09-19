@@ -9,7 +9,8 @@ BASE_DIR = Path(__file__).parent
 BASELINE_PATH = BASE_DIR / "baseline" / "main.json"
 LAST_RUN_PATH = BASE_DIR / "evals" / "last_run.json"
 
-# ≈ 1 caso em 15 — abaixo disso é ruído do conjunto de eval
+# ≈ 3 casos em 40 (hit@k) — o benchmark de 3 repetições mediu desvio de até 0,044
+# entre rodadas do mesmo código; abaixo disso é ruído, não regressão
 TOLERANCE = 0.07
 
 
